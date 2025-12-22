@@ -1,0 +1,44 @@
+# Clarion Collector - Docker Compose
+# 
+# Run: docker-compose up -d
+# Scale: docker-compose up -d --scale collector=3
+
+version: '3.8'
+
+services:
+  collector:
+    build: .
+    image: clarion-collector:latest
+    container_name: clarion-collector
+    restart: unless-stopped
+    
+    ports:
+      - "2055:2055/udp"   # NetFlow v5/v9
+      - "4739:4739/udp"   # IPFIX
+      - "6343:6343/udp"   # sFlow
+      - "8080:8080/tcp"   # API
+    
+    environment:
+      - CLARION_COLLECTOR_BACKEND_URL=${BACKEND_URL:-http://backend:8000}
+      - CLARION_COLLECTOR_KAFKA_BROKERS=${KAFKA_BROKERS:-kafka:9092}
+      - CLARION_COLLECTOR_LOG_LEVEL=INFO
+    
+    volumes:
+      - collector-data:/data
+    
+    networks:
+      - clarion-net
+    
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+volumes:
+  collector-data:
+
+networks:
+  clarion-net:
+    external: true
+

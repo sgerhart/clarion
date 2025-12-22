@@ -1,0 +1,10 @@
+sgt,sgt_name,status
+0,Unknown,default
+2,Corp-Users,proposed
+3,Privileged-IT,proposed
+10,Domain-Services,seed
+11,Shared-Services,seed
+12,ERP,seed
+13,HR-Apps,seed
+20,Printers,proposed
+21,IoT,proposed

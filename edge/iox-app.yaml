@@ -1,0 +1,53 @@
+# Cisco IOx Application Descriptor for Clarion Edge
+# 
+# This file describes the application for deployment on Cisco IOx platforms
+# (Catalyst 9300, 9400, 9500, IR1101, etc.)
+#
+# Reference: https://developer.cisco.com/docs/iox/
+
+descriptor-schema-version: "2.7"
+
+info:
+  name: clarion-edge
+  description: "Clarion Edge - Network flow collector and graph builder"
+  version: "0.1.0"
+  author-name: "Clarion Development Team"
+  author-link: "https://github.com/sgerhart/clarion"
+
+app:
+  type: docker
+  cpuarch: x86_64
+  
+  resources:
+    profile: custom
+    cpu: 200              # 200 CPU units (0.2 vCPU)
+    memory: 256           # 256 MB RAM
+    disk: 1024            # 1 GB disk
+    
+    # Network configuration
+    network:
+      - interface-name: eth0
+        port-map:
+          mode: auto
+          ports:
+            - internal-port: 8080
+              external-port: 8080
+              protocol: tcp
+            - internal-port: 2055
+              external-port: 2055
+              protocol: udp
+
+  # Environment variables (can be overridden at deployment)
+  env:
+    CLARION_EDGE_SWITCH_ID: "auto"
+    CLARION_EDGE_BACKEND_URL: ""
+    CLARION_EDGE_FLOW_PORT: "2055"
+    CLARION_EDGE_API_PORT: "8080"
+    CLARION_EDGE_BUFFER_HOURS: "24"
+    CLARION_EDGE_SYNC_INTERVAL: "300"
+
+  # Startup configuration
+  startup:
+    runtime: python3
+    target: scripts/entrypoint.sh
+

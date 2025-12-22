@@ -1,0 +1,13 @@
+file,description
+switches.csv,Inventory of campus switches (100 total) with site and role.
+interfaces.csv,Switch interface inventory; access/uplink roles.
+ad_users.csv,"Synthetic Active Directory-like user directory (10,000 employees)."
+ad_groups.csv,Synthetic AD security groups (dept + role groups).
+ad_group_membership.csv,User↔group membership mapping.
+endpoints.csv,Devices/endpoints with attachment location (switch/port/VLAN).
+ip_assignments.csv,IP↔MAC assignments (DHCP and static) with lease bounds.
+ise_sessions.csv,ISE Session Directory-like session table (pxGrid-style fields).
+services.csv,Internal service catalog hosted on servers (AD/DNS/DHCP/ERP/HR/FileShare/Proxy).
+trustsec_sgts.csv,Seed/proposed SGT catalog (mostly unknown for endpoints).
+flows.csv,Synthetic flow-metadata records (switch-export-like).
+flow_truth.csv,Ground-truth joins for validating identity resolution & service mapping.
