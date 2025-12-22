@@ -2,8 +2,13 @@
 
 **TrustSec Policy Copilot** — Clear visibility into your network for intelligent policy design.
 
+> [!CAUTION]
+> ## 🚧 Design & Concept Phase Only
+> **This project is currently in the design and concept phase.** Nothing is functional yet. The code structure, documentation, and data samples exist to explore the architecture and validate the approach. No features are implemented or working at this time.
+
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Status](https://img.shields.io/badge/Status-Concept%20Only-red.svg)]()
 
 ---
 
