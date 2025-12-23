@@ -8,10 +8,10 @@ Modules:
 - ingest: Data loading and sketch building
 - identity: Identity resolution (IP → User → AD Groups)
 - clustering: Unsupervised learning for endpoint grouping
-- policy: SGT mapping and SGACL generation (coming soon)
+- policy: Policy matrix, SGACL generation, and ISE export
 """
 
-__version__ = "0.2.0"
+__version__ = "0.3.0"
 __author__ = "Clarion Development Team"
 
 # Re-export key classes for convenience
@@ -40,6 +40,18 @@ from clarion.clustering import (
     SGTRecommendation,
 )
 from clarion.clustering.sgt_mapper import SGTTaxonomy, generate_sgt_taxonomy
+from clarion.policy import (
+    PolicyMatrix,
+    MatrixCell,
+    build_policy_matrix,
+    SGACLGenerator,
+    SGACLRule,
+    SGACLPolicy,
+    ImpactAnalyzer,
+    ImpactReport,
+    ISEExporter,
+    PolicyExport,
+)
 
 __all__ = [
     # Version
@@ -70,4 +82,15 @@ __all__ = [
     "SGTRecommendation",
     "SGTTaxonomy",
     "generate_sgt_taxonomy",
+    # Policy
+    "PolicyMatrix",
+    "MatrixCell",
+    "build_policy_matrix",
+    "SGACLGenerator",
+    "SGACLRule",
+    "SGACLPolicy",
+    "ImpactAnalyzer",
+    "ImpactReport",
+    "ISEExporter",
+    "PolicyExport",
 ]
