@@ -1,16 +1,25 @@
 # Clarion - TrustSec Policy Copilot
 
-## Design Document v1.0
+## Design Document v2.0
 
 ---
 
 ## 1. Executive Summary
 
-**Clarion** is an intelligent network visibility and policy design platform that helps organizations adopt and refine Cisco TrustSec deployments. It observes real network behavior, resolves identities, and generates actionable security group (SGT) taxonomies and SGACL policies—enabling customers to move from "no segmentation" to a working TrustSec model without requiring deep expertise.
+**Clarion** is a scale-first network visibility and policy design platform that helps organizations adopt Cisco TrustSec. It uses **edge processing** on switches to compress network telemetry into lightweight behavioral sketches, then applies **unsupervised learning** to cluster endpoints and generate SGT (Security Group Tag) taxonomies and SGACL policies.
 
 ### Core Value Proposition
 
-> *"Mine real network behavior into a TrustSec policy matrix, then give customers a safe path from today → desired state."*
+> *"Process at the edge, cluster intelligently, generate policy automatically — at any scale."*
+
+### Key Differentiators
+
+| Challenge | Traditional Approach | Clarion Approach |
+|-----------|---------------------|------------------|
+| **Data Volume** | Ship all flows centrally | Compress to sketches at edge |
+| **Clustering** | Batch processing nightly | Incremental real-time updates |
+| **Scale** | Central bottleneck | Horizontally distributed |
+| **Memory** | O(flows) | O(endpoints) |
 
 ---
 
@@ -19,20 +28,20 @@
 ### Customer Pain Points
 
 1. **TrustSec adoption is hard**: Customers struggle to define SGT taxonomies and policies from scratch
-2. **No visibility into current state**: Unknown traffic patterns make policy design guesswork
-3. **Identity chaos**: IP addresses change; mapping flows to users/devices requires complex joins
-4. **Fear of breaking things**: Enforcement without validation causes outages
-5. **Policy drift**: Observed behavior diverges from intended policy over time
+2. **Data overload**: Flow collectors can't handle enterprise-scale traffic
+3. **No intelligent grouping**: Manual SGT assignment doesn't scale
+4. **Identity chaos**: IP addresses change; mapping flows to users/devices requires complex joins
+5. **Fear of breaking things**: Enforcement without validation causes outages
 
 ### What Clarion Solves
 
 | Problem | Clarion Solution |
 |---------|------------------|
-| No SGTs defined | Recommend initial taxonomy from observed behavior |
-| Unknown traffic patterns | Build identity-labeled communication graph |
-| Can't map IPs to users | Join flows → ISE sessions → AD groups |
+| Data overload | Edge sketches reduce data 10,000x before transmission |
+| No SGTs defined | Unsupervised learning clusters endpoints into natural groups |
+| Unknown traffic patterns | Behavioral profiles track who talks to whom |
+| Can't map IPs to users | Join sketches with ISE sessions and AD groups |
 | Fear of enforcement | Monitor-mode validation before enforcement |
-| Policy drift | Continuous reconciliation engine |
 
 ---
 
@@ -40,73 +49,102 @@
 
 ### Design Principles
 
-1. **Edge-First Processing**: Process data at the source when possible
-2. **Central Analytics**: Aggregate and correlate for comprehensive insights
-3. **Integration Ready**: Built to consume data from multiple identity sources
-4. **Production Path**: Architecture designed to transition from synthetic → live data
+1. **Edge-Heavy Processing**: Compress at the source, don't ship raw flows
+2. **Sketch-Based**: Probabilistic data structures for bounded memory
+3. **Incremental ML**: Clustering that updates without reprocessing
+4. **Hierarchical Clustering**: Local clusters → Global clusters → SGT mapping
+5. **Stateless Edge**: Edge can restart without losing global state
 
-### Deployment Tiers
+### Architecture Overview
 
 ```
-┌─────────────────────────────────────────────────────────────────────────────────┐
-│                              EDGE TIER                                           │
-│  ┌─────────────────────────┐  ┌─────────────────────────┐                       │
-│  │   Catalyst 9K Switches  │  │   Non-Container Switches │                      │
-│  │   (App Hosting)         │  │   (NetFlow Export)       │                      │
-│  │  ┌───────────────────┐  │  │                          │                      │
-│  │  │ Clarion Edge      │  │  │    NetFlow/IPFIX/sFlow   │                      │
-│  │  │ Container         │  │  │         │                │                      │
-│  │  │ ├─ Flow Capture   │  │  │         │                │                      │
-│  │  │ ├─ Local Graph    │  │  │         │                │                      │
-│  │  │ └─ Edge API       │  │  │         │                │                      │
-│  │  └───────────────────┘  │  │         │                │                      │
-│  └───────────┬─────────────┘  └─────────┼────────────────┘                      │
-│              │                          │                                        │
-└──────────────┼──────────────────────────┼────────────────────────────────────────┘
-               │ gRPC/REST                │ NetFlow v9/IPFIX
-               │ (graph summaries)        │
-               ▼                          ▼
-┌─────────────────────────────────────────────────────────────────────────────────┐
-│                            COLLECTOR TIER                                        │
-│                                                                                  │
-│  ┌─────────────────────────────────────────────────────────────────────────┐   │
-│  │                     Clarion Flow Collector                               │   │
-│  │  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐                   │   │
-│  │  │ NetFlow/IPFIX │  │ sFlow       │  │ Packet       │                   │   │
-│  │  │ Receiver     │  │ Receiver    │  │ Broker       │                   │   │
-│  │  └──────┬───────┘  └──────┬───────┘  └──────┬───────┘                   │   │
-│  │         └─────────────────┴─────────────────┘                           │   │
-│  │                           │                                              │   │
-│  │                    ┌──────▼───────┐                                     │   │
-│  │                    │ Flow Parser  │                                     │   │
-│  │                    │ & Normalizer │                                     │   │
-│  │                    └──────┬───────┘                                     │   │
-│  │                           │                                              │   │
-│  └───────────────────────────┼──────────────────────────────────────────────┘   │
-│                              │                                                   │
-└──────────────────────────────┼───────────────────────────────────────────────────┘
-                               │ Normalized flows + edge graphs
-                               ▼
-┌─────────────────────────────────────────────────────────────────────────────────┐
-│                            BACKEND TIER                                          │
-│                                                                                  │
-│  ┌─────────────────────────────────────────────────────────────────────────┐   │
-│  │                         Clarion Backend                                  │   │
-│  │                                                                          │   │
-│  │  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐  │   │
-│  │  │ Ingest   │  │ Identity │  │ Analysis │  │ Policy   │  │ API/UI   │  │   │
-│  │  │ Service  │  │ Resolver │  │ Engine   │  │ Engine   │  │ Service  │  │   │
-│  │  └────┬─────┘  └────┬─────┘  └────┬─────┘  └────┬─────┘  └────┬─────┘  │   │
-│  │       │             │             │             │             │         │   │
-│  │  ┌────▼─────────────▼─────────────▼─────────────▼─────────────▼────┐   │   │
-│  │  │                        Data Layer                               │   │   │
-│  │  │  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐        │   │   │
-│  │  │  │ Flow     │  │ Identity │  │ Policy   │  │ Config   │        │   │   │
-│  │  │  │ Store    │  │ Graph    │  │ Store    │  │ Store    │        │   │   │
-│  │  │  │(TimeSeries)│ │ (Graph) │  │ (Relational)│ (KV)     │        │   │   │
-│  │  │  └──────────┘  └──────────┘  └──────────┘  └──────────┘        │   │   │
-│  │  └─────────────────────────────────────────────────────────────────┘   │   │
-│  └─────────────────────────────────────────────────────────────────────────┘   │
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                              EDGE TIER (Per-Switch)                          │
+│                         Memory: 256-512MB | CPU: Minimal                      │
+│                         Endpoints: 48-500 per switch                          │
+│                                                                               │
+│  ┌─────────────────────────────────────────────────────────────────────────┐ │
+│  │                    Clarion Edge (Lightweight)                            │ │
+│  │                                                                          │ │
+│  │  ┌──────────────┐   ┌──────────────┐   ┌──────────────┐                │ │
+│  │  │ Flow Sampler │──▶│ Aggregator   │──▶│ Sketch       │                │ │
+│  │  │ (1:N sample) │   │ (5-min bins) │   │ Builder      │                │ │
+│  │  └──────────────┘   └──────────────┘   └──────┬───────┘                │ │
+│  │                                               │                         │ │
+│  │                                               ▼                         │ │
+│  │  ┌────────────────────────────────────────────────────────────────┐    │ │
+│  │  │               Per-Endpoint Behavioral Sketch                    │    │ │
+│  │  │  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐             │    │ │
+│  │  │  │ Service     │  │ Port/Proto  │  │ Peer Count  │             │    │ │
+│  │  │  │ Histogram   │  │ Distribution│  │ (HyperLogLog)│            │    │ │
+│  │  │  └─────────────┘  └─────────────┘  └─────────────┘             │    │ │
+│  │  │  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐             │    │ │
+│  │  │  │ Bytes In/Out│  │ Flow Count  │  │ Active Hours│             │    │ │
+│  │  │  │ Ratio       │  │ (per dest)  │  │ Bitmap      │             │    │ │
+│  │  │  └─────────────┘  └─────────────┘  └─────────────┘             │    │ │
+│  │  └────────────────────────────────────────────────────────────────┘    │ │
+│  │                                               │                         │ │
+│  │                                               ▼                         │ │
+│  │  ┌──────────────┐   ┌──────────────┐   ┌──────────────┐                │ │
+│  │  │ Local Cluster│──▶│ Sketch Sync  │──▶│ gRPC Stream  │────────────────┼─┼──▶
+│  │  │ (K-Means Lite)│  │ (Delta only)│   │ to Backend   │                │ │
+│  │  └──────────────┘   └──────────────┘   └──────────────┘                │ │
+│  │                                                                          │ │
+│  └──────────────────────────────────────────────────────────────────────────┘ │
+│                                                                               │
+└───────────────────────────────────────────────────────────────────────────────┘
+                                        │
+                          Behavioral Sketches (KB, not GB)
+                                        │
+                                        ▼
+┌───────────────────────────────────────────────────────────────────────────────┐
+│                              BACKEND TIER (Scalable)                           │
+│                                                                                │
+│  ┌─────────────────────────────────────────────────────────────────────────┐  │
+│  │                         Sketch Aggregation Layer                         │  │
+│  │                                                                          │  │
+│  │   Switch-1 ──┐                                                          │  │
+│  │   Switch-2 ──┼──▶ ┌──────────────────────────────────────────────────┐  │  │
+│  │   Switch-3 ──┤    │         Global Endpoint Profile Store            │  │  │
+│  │      ...   ──┤    │                                                  │  │  │
+│  │   Switch-N ──┘    │  Endpoint-A: [merged sketch from all switches]  │  │  │
+│  │                   │  Endpoint-B: [merged sketch from all switches]  │  │  │
+│  │                   │  ...                                            │  │  │
+│  │                   └──────────────────────────────────────────────────┘  │  │
+│  │                                        │                                 │  │
+│  └────────────────────────────────────────┼─────────────────────────────────┘  │
+│                                           │                                    │
+│  ┌────────────────────────────────────────▼─────────────────────────────────┐  │
+│  │                        Unsupervised Learning Engine                       │  │
+│  │                                                                           │  │
+│  │  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────┐          │  │
+│  │  │ Feature         │  │ Incremental     │  │ Cluster         │          │  │
+│  │  │ Engineering     │──▶ Clustering      │──▶ Refinement      │          │  │
+│  │  │                 │  │ (Mini-Batch     │  │ (Merge/Split)   │          │  │
+│  │  │ • Normalize     │  │  K-Means,       │  │                 │          │  │
+│  │  │ • PCA/UMAP      │  │  HDBSCAN)       │  │                 │          │  │
+│  │  └─────────────────┘  └─────────────────┘  └────────┬────────┘          │  │
+│  │                                                      │                   │  │
+│  │  ┌─────────────────┐  ┌─────────────────┐           │                   │  │
+│  │  │ Cluster →       │◀─┤ Semantic        │◀──────────┘                   │  │
+│  │  │ SGT Mapping     │  │ Labeling        │                               │  │
+│  │  │                 │  │ (AD groups,     │                               │  │
+│  │  │                 │  │  ISE profiles)  │                               │  │
+│  │  └────────┬────────┘  └─────────────────┘                               │  │
+│  │           │                                                              │  │
+│  └───────────┼──────────────────────────────────────────────────────────────┘  │
+│              │                                                                  │
+│              ▼                                                                  │
+│  ┌───────────────────────────────────────────────────────────────────────────┐ │
+│  │                           Policy Engine                                    │ │
+│  │                                                                            │ │
+│  │  Cluster-A (Corp-Users) ──┐     ┌─────────────────────────────────────┐  │ │
+│  │  Cluster-B (Servers)    ──┼────▶│  SGT → SGT Policy Matrix            │  │ │
+│  │  Cluster-C (IoT)        ──┤     │  + SGACL Generation                 │  │ │
+│  │  Cluster-D (Printers)   ──┘     │  + Impact Simulation                │  │ │
+│  │                                 └─────────────────────────────────────┘  │ │
+│  │                                                                            │ │
+│  └────────────────────────────────────────────────────────────────────────────┘ │
 │                                                                                  │
 └──────────────────────────────────────────────────────────────────────────────────┘
                                ▲
@@ -121,209 +159,289 @@
 │  │            │  │            │  │            │  │            │  │            │ │
 │  │ • Sessions │  │ • Users    │  │ • Assets   │  │ • Leases   │  │ • Endpoints│ │
 │  │ • Profiles │  │ • Groups   │  │ • Owners   │  │ • Names    │  │ • Inventory│ │
-│  │ • Auth     │  │ • OUs      │  │ • Criticality│ │ • Subnets │  │            │ │
+│  │ • Auth     │  │ • OUs      │  │ • Critical │  │ • Subnets  │  │            │ │
 │  └────────────┘  └────────────┘  └────────────┘  └────────────┘  └────────────┘ │
 │                                                                                   │
 └───────────────────────────────────────────────────────────────────────────────────┘
 ```
 
-### Edge Container Architecture (Cisco App Hosting)
+---
 
-The Clarion Edge container runs on **Cisco Catalyst 9300/9400/9500** switches using Cisco IOx App Hosting:
+## 4. Edge Processing Design
 
-```
-┌─────────────────────────────────────────────────────────┐
-│              Catalyst 9K Switch                         │
-│  ┌───────────────────────────────────────────────────┐ │
-│  │                 Clarion Edge Container             │ │
-│  │  ┌─────────────────────────────────────────────┐  │ │
-│  │  │              Edge Services                   │  │ │
-│  │  │  ┌─────────────┐  ┌─────────────────────┐   │  │ │
-│  │  │  │ Flow        │  │ Local Graph        │   │  │ │
-│  │  │  │ Listener    │  │ Builder            │   │  │ │
-│  │  │  │ (UDP 2055)  │  │ (NetworkX)         │   │  │ │
-│  │  │  └─────────────┘  └─────────────────────┘   │  │ │
-│  │  │                                             │  │ │
-│  │  │  ┌─────────────┐  ┌─────────────────────┐   │  │ │
-│  │  │  │ SNMP/REST   │  │ Backend Sync        │   │  │ │
-│  │  │  │ Poller      │  │ (gRPC client)       │   │  │ │
-│  │  │  └─────────────┘  └─────────────────────┘   │  │ │
-│  │  └─────────────────────────────────────────────┘  │ │
-│  │                                                    │ │
-│  │  ┌─────────────────────────────────────────────┐  │ │
-│  │  │              Local Storage                   │  │ │
-│  │  │  • Flow buffer (last N hours)               │  │ │
-│  │  │  • Graph snapshot (switch-graph-1.0 JSON)   │  │ │
-│  │  │  • Config cache                             │  │ │
-│  │  └─────────────────────────────────────────────┘  │ │
-│  └───────────────────────────────────────────────────┘ │
-│                                                         │
-│  ┌───────────────────────────────────────────────────┐ │
-│  │  Switch Data Plane                                │ │
-│  │  • Flexible NetFlow → Container (UDP 2055)       │ │
-│  │  • EPC samples → Container                       │ │
-│  │  • SNMP MIBs → Container                         │ │
-│  └───────────────────────────────────────────────────┘ │
-└─────────────────────────────────────────────────────────┘
-```
+### Memory Budget (Catalyst 9K App Hosting)
 
-**Edge Container Responsibilities:**
-- Collect NetFlow/IPFIX from local switch
-- Build per-switch graph (nodes + edges)
-- Buffer flows locally (survive backend outage)
-- Sync graph summaries to backend
-- Respond to on-demand queries from backend
+| Resource | Limit | Clarion Usage |
+|----------|-------|---------------|
+| Memory | 256-512MB | ~50MB for sketches + 100MB runtime |
+| Storage | 1-4GB | Flow buffer + sketch snapshots |
+| CPU | Shared | Minimal (aggregation only) |
 
-**Container Constraints (App Hosting):**
-- Memory: 256MB - 2GB (configurable)
-- Storage: 1-4GB flash
-- CPU: Shared with switch control plane
-- Network: Management VRF or data plane
+### Endpoint Capacity Per Switch
 
-### Flow Collector Architecture (Non-Container Switches)
+| Switch Type | Ports | With Wireless | Sketch Memory |
+|-------------|-------|---------------|---------------|
+| Access (Cat 9300) | 24-48 | 100-300 | 3MB |
+| Distribution | 48 | 200-500 | 5MB |
+| Conservative Max | - | 500 | 5MB |
 
-For switches that cannot host containers (older Catalyst, third-party):
+### Behavioral Sketch Data Structure
 
-```
-┌─────────────────────────────────────────────────────────┐
-│                  Clarion Collector                       │
-│  ┌───────────────────────────────────────────────────┐  │
-│  │               Protocol Handlers                    │  │
-│  │  ┌──────────┐ ┌──────────┐ ┌──────────┐           │  │
-│  │  │NetFlow v5│ │NetFlow v9│ │  IPFIX   │           │  │
-│  │  │ Parser   │ │ Parser   │ │  Parser  │           │  │
-│  │  └────┬─────┘ └────┬─────┘ └────┬─────┘           │  │
-│  │       └────────────┼────────────┘                  │  │
-│  │                    ▼                               │  │
-│  │            ┌──────────────┐                        │  │
-│  │            │  Normalizer  │                        │  │
-│  │            │  (Common     │                        │  │
-│  │            │   Schema)    │                        │  │
-│  │            └──────┬───────┘                        │  │
-│  │                   ▼                                │  │
-│  │            ┌──────────────┐                        │  │
-│  │            │ Per-Switch   │                        │  │
-│  │            │ Graph Builder│                        │  │
-│  │            └──────┬───────┘                        │  │
-│  │                   ▼                                │  │
-│  │            ┌──────────────┐                        │  │
-│  │            │ Backend Sync │                        │  │
-│  │            └──────────────┘                        │  │
-│  └───────────────────────────────────────────────────┘  │
-└─────────────────────────────────────────────────────────┘
+Each endpoint gets a lightweight sketch (~10KB) that summarizes its behavior:
+
+```python
+@dataclass
+class EndpointSketch:
+    """
+    Lightweight behavioral fingerprint per endpoint.
+    Designed to fit in edge container memory constraints.
+    
+    Memory: ~10KB per endpoint
+    500 endpoints = 5MB total
+    """
+    endpoint_id: str              # MAC address or device_id
+    switch_id: str                # Source switch
+    
+    # Cardinality estimation (HyperLogLog)
+    unique_peers: bytes           # ~1KB - unique IPs contacted
+    unique_services: bytes        # ~1KB - unique services accessed
+    
+    # Frequency distribution (Count-Min Sketch)
+    port_frequency: bytes         # ~4KB - port usage distribution
+    service_frequency: bytes      # ~4KB - service access patterns
+    
+    # Simple aggregates
+    bytes_in: int
+    bytes_out: int
+    packets_in: int
+    packets_out: int
+    flow_count: int
+    
+    # Temporal metadata
+    first_seen: int               # Unix timestamp
+    last_seen: int                # Unix timestamp
+    active_hours: int             # 24-bit bitmap (1 bit per hour)
+    
+    # Local clustering (edge-computed)
+    local_cluster_id: int         # K-means assignment (0-7)
+    
+    # Sync metadata
+    last_sync: int                # Last backend sync timestamp
+    sketch_version: int           # For delta sync
 ```
 
-### Integration Connectors
+### Probabilistic Data Structures
 
-| Source | Protocol | Data Retrieved | Sync Frequency |
-|--------|----------|----------------|----------------|
-| **Cisco ISE** | pxGrid 2.0 (WebSocket) | Sessions, profiles, auth events | Real-time (pub/sub) |
-| **Active Directory** | LDAP/LDAPS | Users, groups, OUs, memberships | Every 15 min (delta sync) |
-| **CMDB (ServiceNow)** | REST API | Assets, owners, criticality, location | Every 1 hour |
-| **Infoblox/DHCP** | REST API / DHCP snooping | IP leases, DNS names | Every 5 min |
-| **IoT Inventory** | REST API (varies) | Device profiles, classifications | Every 1 hour |
-| **Network Inventory** | DNA Center API | Switches, sites, fabric domains | Every 1 hour |
+| Structure | Size | Purpose | Error Rate |
+|-----------|------|---------|------------|
+| **HyperLogLog** | 1KB | Count unique peers/services | ~2% |
+| **Count-Min Sketch** | 4KB | Port/service frequency | Configurable |
+| **Bloom Filter** | 1KB | "Has talked to X?" | 1% false positive |
 
-### Data Flow Summary
+### Edge Processing Pipeline
 
 ```
-                        EDGE PROCESSING
-                              │
-     ┌────────────────────────┼────────────────────────┐
-     │                        │                        │
-     ▼                        ▼                        ▼
-┌─────────┐            ┌─────────┐            ┌─────────┐
-│ Cat 9K  │            │ Cat 9K  │            │ Legacy  │
-│ + Edge  │            │ + Edge  │            │ Switch  │
-│Container│            │Container│            │         │
-└────┬────┘            └────┬────┘            └────┬────┘
-     │                      │                      │
-     │ Graph                │ Graph                │ NetFlow
-     │ Summary              │ Summary              │
-     │                      │                      │
-     └──────────┬───────────┴───────────┬──────────┘
-               │                        │
-               ▼                        ▼
-        ┌────────────┐          ┌────────────┐
-        │  Backend   │◀─────────│  Collector │
-        │  Ingest    │          │            │
-        └─────┬──────┘          └────────────┘
-              │
-              ▼
-        ┌─────────────────────────────────────────────┐
-        │              CENTRAL PROCESSING              │
-        │                                              │
-        │  ┌──────────┐  ┌──────────┐  ┌──────────┐  │
-        │  │ Identity │◀─│ ISE      │  │ AD       │  │
-        │  │ Resolver │  │ Connector│  │ Connector│  │
-        │  └────┬─────┘  └──────────┘  └──────────┘  │
-        │       │                                     │
-        │       ▼                                     │
-        │  ┌──────────┐  ┌──────────┐                │
-        │  │ Behavior │──▶│ Policy   │                │
-        │  │ Analyzer │  │ Engine   │                │
-        │  └──────────┘  └──────────┘                │
-        │                      │                      │
-        │                      ▼                      │
-        │               ┌──────────┐                  │
-        │               │ ISE/DNAC │                  │
-        │               │ Export   │                  │
-        │               └──────────┘                  │
-        │                                              │
-        └──────────────────────────────────────────────┘
+NetFlow/IPFIX (UDP 2055)
+         │
+         ▼
+┌─────────────────────┐
+│   Flow Receiver     │  ← Receive raw flow records
+│   (async UDP)       │
+└──────────┬──────────┘
+           │
+           ▼
+┌─────────────────────┐
+│   Flow Sampler      │  ← Optional 1:N sampling for high volume
+│   (configurable)    │
+└──────────┬──────────┘
+           │
+           ▼
+┌─────────────────────┐
+│   Aggregator        │  ← 5-minute time buckets
+│   (time windows)    │
+└──────────┬──────────┘
+           │
+           ▼
+┌─────────────────────┐
+│   Sketch Updater    │  ← Update per-endpoint sketches
+│   (HLL, CMS)        │
+└──────────┬──────────┘
+           │
+           ▼
+┌─────────────────────┐
+│   Local Clusterer   │  ← Lightweight K-means (k=8)
+│   (mini-batch)      │
+└──────────┬──────────┘
+           │
+           ▼
+┌─────────────────────┐
+│   Backend Sync      │  ← gRPC stream, delta only
+│   (periodic)        │
+└─────────────────────┘
 ```
-
-### Component Overview
-
-| Tier | Component | Responsibility |
-|------|-----------|----------------|
-| **Edge** | Clarion Edge Container | Collect flows, build local graph, sync to backend |
-| **Collector** | Flow Collector | Receive NetFlow/IPFIX from non-container switches |
-| **Backend** | Ingest Service | Aggregate flows and graphs from all sources |
-| **Backend** | Identity Resolver | Join flows → ISE sessions → AD users → endpoints |
-| **Backend** | Analysis Engine | Behavior clustering, pattern detection, anomalies |
-| **Backend** | Policy Engine | SGT recommendation, SGACL generation, matrix |
-| **Backend** | API/UI Service | REST API, web dashboard, reports |
-| **Integration** | ISE Connector | pxGrid subscription for real-time sessions |
-| **Integration** | AD Connector | LDAP sync for users and groups |
-| **Integration** | CMDB Connector | Asset context and ownership |
 
 ---
 
-## 4. Data Model
+## 5. Unsupervised Learning Pipeline
 
-### 4.1 Entity Types (Graph Nodes)
+### Clustering Strategy
+
+| Layer | Algorithm | Purpose | Frequency |
+|-------|-----------|---------|-----------|
+| **Edge** | Mini-Batch K-Means (k=8) | Fast local grouping | Every 5 min |
+| **Backend** | HDBSCAN | Find natural cluster shapes | Every hour |
+| **Refinement** | Hierarchical Merging | Combine similar clusters | Daily |
+
+### Feature Engineering
+
+Features extracted from behavioral sketches for clustering:
+
+```python
+@dataclass
+class ClusteringFeatures:
+    """
+    Normalized feature vector for clustering.
+    Extracted from EndpointSketch.
+    """
+    # Communication patterns (from HyperLogLog)
+    peer_diversity: float         # 0-1: few peers vs many peers
+    service_diversity: float      # 0-1: few services vs many
+    
+    # Traffic profile (from aggregates)
+    in_out_ratio: float          # 0-1: receiver vs sender
+    traffic_volume: float        # Normalized bytes
+    
+    # Port usage (from Count-Min Sketch)
+    common_ports_score: float    # Uses 80/443/22 vs exotic ports
+    port_diversity: float        # Few ports vs many ports
+    
+    # Temporal patterns
+    business_hours_ratio: float  # % traffic during 9-5
+    weekend_activity: float      # % traffic on weekends
+    
+    # Identity context (from ISE/AD join)
+    has_user: bool               # Authenticated user?
+    user_group_vector: List[float]  # AD group membership (embedded)
+    device_type_vector: List[float] # ISE profile (embedded)
+```
+
+### Clustering to SGT Mapping
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                  CLUSTER → SGT MAPPING PROCESS                   │
+│                                                                  │
+│  Step 1: Unsupervised Clustering                                │
+│  ────────────────────────────────                               │
+│  HDBSCAN identifies natural groupings based on behavior:        │
+│                                                                  │
+│  Cluster-0: [laptop-1, laptop-2, ..., laptop-500]               │
+│  Cluster-1: [server-1, server-2, ..., server-20]                │
+│  Cluster-2: [printer-1, printer-2, ..., printer-15]             │
+│  Cluster-3: [iot-cam-1, iot-sensor-1, ..., iot-50]              │
+│                                                                  │
+│  Step 2: Semantic Labeling                                      │
+│  ─────────────────────────                                      │
+│  Join with identity sources to name clusters:                   │
+│                                                                  │
+│  Cluster-0 → 80% have users in "All-Employees" AD group         │
+│           → Label: "Corporate Users"                            │
+│                                                                  │
+│  Cluster-1 → 90% receive traffic, ISE profile "Server"          │
+│           → Label: "Servers"                                    │
+│                                                                  │
+│  Cluster-2 → ISE profile "Printer", limited port usage          │
+│           → Label: "Printers"                                   │
+│                                                                  │
+│  Cluster-3 → ISE profile "IoT-*", single service access         │
+│           → Label: "IoT Devices"                                │
+│                                                                  │
+│  Step 3: SGT Assignment                                         │
+│  ──────────────────────                                         │
+│                                                                  │
+│  "Corporate Users"  → SGT 2 (Corp-Users)                        │
+│  "Servers"          → SGT 10 (Servers)                          │
+│  "Printers"         → SGT 20 (Printers)                         │
+│  "IoT Devices"      → SGT 21 (IoT)                              │
+│                                                                  │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### Incremental Clustering
+
+```python
+class IncrementalClusterer:
+    """
+    Updates clusters without reprocessing all data.
+    
+    Design for streaming:
+    - New endpoints → assign to nearest existing cluster
+    - Changed behavior → may trigger reassignment
+    - Periodic refinement → merge/split clusters
+    """
+    
+    def __init__(self):
+        self.cluster_centroids: Dict[int, np.ndarray] = {}
+        self.assignments: Dict[str, int] = {}
+        self.confidence: Dict[str, float] = {}
+    
+    def assign_new_endpoint(self, sketch: EndpointSketch) -> int:
+        """Fast path: assign to nearest existing cluster."""
+        features = self.extract_features(sketch)
+        distances = {
+            cid: np.linalg.norm(features - centroid)
+            for cid, centroid in self.cluster_centroids.items()
+        }
+        cluster_id = min(distances, key=distances.get)
+        confidence = 1.0 / (1.0 + distances[cluster_id])
+        
+        self.assignments[sketch.endpoint_id] = cluster_id
+        self.confidence[sketch.endpoint_id] = confidence
+        return cluster_id
+    
+    def refine_clusters(self, all_sketches: List[EndpointSketch]):
+        """Slow path: re-cluster with HDBSCAN, merge with existing."""
+        features = np.array([self.extract_features(s) for s in all_sketches])
+        
+        clusterer = hdbscan.HDBSCAN(min_cluster_size=10)
+        labels = clusterer.fit_predict(features)
+        
+        # Merge new clusters with existing taxonomy
+        self._merge_with_existing(labels, all_sketches)
+```
+
+---
+
+## 6. Data Model
+
+### Entity Types (Graph Nodes)
 
 | Entity | Key Attributes | Source |
 |--------|----------------|--------|
-| **User** | user_id, username, email, department, title | AD |
-| **Group** | group_id, name, type (department/role) | AD |
-| **Endpoint** | device_id, mac, hostname, device_type, os | ISE/Endpoint DB |
-| **Switch** | switch_id, site, role, model | Network Inventory |
-| **Interface** | switch_id, interface, role (access/uplink), vlan | Switch Config |
-| **Service** | service_id, name, type, ip, ports, proto | Service Catalog |
-| **IP** | ip_address, vlan, assignment_type, lease_time | DHCP/Static |
-| **SGT** | sgt_value, sgt_name, status (seed/proposed/active) | TrustSec Config |
+| **Endpoint** | endpoint_id, mac, device_type, sketch | Edge Sketches |
+| **User** | user_id, username, department | AD |
+| **Group** | group_id, name, type | AD |
+| **Service** | service_id, name, ports | Service Catalog |
+| **Cluster** | cluster_id, label, sgt_mapping | ML Engine |
+| **SGT** | sgt_value, sgt_name | TrustSec |
 
-### 4.2 Relationship Types (Graph Edges)
+### Relationship Types (Graph Edges)
 
 | Relationship | From → To | Attributes |
 |--------------|-----------|------------|
 | `MEMBER_OF` | User → Group | - |
 | `OWNS` | User → Endpoint | ownership_type |
-| `ASSIGNED_IP` | Endpoint → IP | lease_start, lease_end |
-| `ATTACHED_TO` | Endpoint → Interface | vlan, auth_method |
-| `ON_SWITCH` | Interface → Switch | - |
-| `TALKS_TO` | Endpoint → Endpoint/Service | proto, ports, bytes, packets, first_seen, last_seen |
-| `TAGGED_AS` | Endpoint → SGT | source (manual/inferred/ise) |
-| `ALLOWED_TO` | SGT → SGT | sgacl_name, action, ports |
+| `TALKS_TO` | Endpoint → Endpoint/Service | flow_count, bytes, ports |
+| `BELONGS_TO` | Endpoint → Cluster | confidence |
+| `MAPS_TO` | Cluster → SGT | confidence |
+| `ALLOWED` | SGT → SGT | sgacl, ports |
 
-### 4.3 Flow Record Schema
+### Flow Record Schema (Raw Input)
 
 ```python
 @dataclass
 class FlowRecord:
-    flow_id: str
+    """Raw flow from NetFlow/IPFIX - processed at edge, not stored."""
     src_ip: str
     dst_ip: str
     src_port: int
@@ -331,339 +449,234 @@ class FlowRecord:
     proto: str              # tcp, udp, icmp
     bytes: int
     packets: int
-    vlan: int
-    exporter_switch_id: str
-    ingress_interface: str
-    start_time: datetime
-    end_time: datetime
     src_mac: Optional[str]
-    src_sgt: Optional[int]  # Often 0/unknown initially
-    dst_sgt: Optional[int]
+    exporter_switch: str
+    timestamp: datetime
 ```
 
-### 4.4 Enriched Edge Schema
+### Enriched Communication (Backend Output)
 
 ```python
 @dataclass
-class EnrichedEdge:
-    # Source identity
+class EnrichedCommunication:
+    """Aggregated, identity-resolved communication pattern."""
+    src_endpoint: str
+    src_cluster: int
+    src_sgt: int
     src_user: Optional[str]
-    src_user_groups: List[str]
-    src_device: str
-    src_device_type: str
-    src_location: str       # site/switch/port
     
-    # Destination identity  
+    dst_endpoint: Optional[str]
     dst_service: Optional[str]
-    dst_service_type: Optional[str]
-    dst_device: Optional[str]
+    dst_cluster: int
+    dst_sgt: int
     
-    # Communication metadata
     proto: str
-    dst_ports: List[int]
+    ports: List[int]
     total_bytes: int
-    total_packets: int
     flow_count: int
     first_seen: datetime
     last_seen: datetime
-    confidence: float       # 0.0-1.0
-    
-    # TrustSec context
-    src_sgt: Optional[int]
-    dst_sgt: Optional[int]
-    recommended_src_sgt: Optional[int]
-    recommended_dst_sgt: Optional[int]
+    confidence: float
 ```
 
 ---
 
-## 5. Processing Pipeline
+## 7. Policy Generation
 
-### Phase 1: Observe Reality (No SGTs Required)
+### SGT → SGT Matrix
 
-```
-┌─────────────┐    ┌─────────────┐    ┌─────────────┐
-│   Ingest    │───▶│   Normalize │───▶│   Store     │
-│   Flows     │    │   & Dedupe  │    │   Raw       │
-└─────────────┘    └─────────────┘    └─────────────┘
-                          │
-                          ▼
-                   ┌─────────────┐
-                   │  Aggregate  │
-                   │  Time Buckets│
-                   └─────────────┘
-```
-
-**Outputs:**
-- Raw flow store (time-partitioned)
-- Aggregated edges (5-min/hourly/daily buckets)
-- Top talkers / top services
-
-### Phase 2: Resolve Identity
-
-```
-┌─────────────┐    ┌─────────────┐    ┌─────────────┐
-│   Flow      │───▶│   Join IP   │───▶│   Join      │
-│   Record    │    │   Bindings  │    │   Endpoint  │
-└─────────────┘    └─────────────┘    └─────────────┘
-                                            │
-        ┌───────────────────────────────────┤
-        ▼                                   ▼
- ┌─────────────┐                     ┌─────────────┐
- │   Join      │                     │   Join      │
- │   User/AD   │                     │   Service   │
- └─────────────┘                     └─────────────┘
-        │                                   │
-        └───────────────┬───────────────────┘
-                        ▼
-                 ┌─────────────┐
-                 │  Enriched   │
-                 │    Edge     │
-                 └─────────────┘
-```
-
-**Join Priority (Conflict Resolution):**
-1. ISE session identity (authenticated) > inferred
-2. Most recent session within TTL wins
-3. Flag collisions (IP reuse, MAC randomization)
-
-### Phase 3: Recommend SGT Taxonomy
-
-```
-┌─────────────┐    ┌─────────────┐    ┌─────────────┐
-│  Enriched   │───▶│   Cluster   │───▶│  Propose    │
-│   Edges     │    │   Behavior  │    │   SGTs      │
-└─────────────┘    └─────────────┘    └─────────────┘
-```
-
-**Clustering Signals:**
-- AD group membership
-- ISE endpoint profile
-- VLAN/subnet membership
-- Behavioral patterns (who they talk to)
-- Switch/port location (access edge vs. datacenter)
-
-**Initial SGT Recommendations (6-12 groups):**
-| SGT | Name | Detection Method |
-|-----|------|------------------|
-| 2 | Corp-Users | AD group: All-Employees, device_type=laptop |
-| 3 | Privileged-IT | AD group: Privileged-IT or Network-Admins |
-| 10 | Domain-Services | Service type: directory/name_service |
-| 11 | Shared-Services | Service type: file/proxy |
-| 12 | ERP | Service type: business_app (ERP) |
-| 13 | HR-Apps | Service type: business_app (HRIS) |
-| 20 | Printers | Endpoint profile: Printer |
-| 21 | IoT | Endpoint profile: IoT-* |
-
-### Phase 4: Generate Policy Matrix
-
-```
-┌─────────────┐    ┌─────────────┐    ┌─────────────┐
-│  SGT-Tagged │───▶│   Build     │───▶│  Generate   │
-│   Edges     │    │   Matrix    │    │   SGACLs    │
-└─────────────┘    └─────────────┘    └─────────────┘
-```
-
-**Matrix Cell Structure:**
 ```python
 @dataclass
-class MatrixCell:
+class PolicyMatrixCell:
+    """One cell in the SGT × SGT policy matrix."""
     src_sgt: int
+    src_sgt_name: str
     dst_sgt: int
-    observed_ports: Dict[str, int]  # port/proto → flow_count
-    observed_bytes: int
+    dst_sgt_name: str
+    
+    # Observed traffic
+    observed_ports: Dict[str, int]  # "tcp/443" → flow_count
+    total_bytes: int
+    endpoint_pairs: int
     first_seen: datetime
     last_seen: datetime
-    flow_confidence: float
+    
+    # Policy recommendation
     recommended_action: str         # PERMIT, DENY, MONITOR
     recommended_sgacl: List[str]    # ACE lines
-    affected_users: int
+    confidence: float
+    
+    # Impact analysis
     affected_endpoints: int
+    affected_users: int
+    critical_services: List[str]
 ```
 
-### Phase 5: Safe Rollout
+### SGACL Generation Algorithm
 
+```python
+def generate_sgacl(src_sgt: int, dst_sgt: int,
+                   observed_traffic: List[EnrichedCommunication],
+                   min_confidence: float = 0.8) -> List[str]:
+    """
+    Generate SGACL rules from observed traffic patterns.
+    
+    Strategy:
+    1. Allow stable, high-volume flows
+    2. Flag rare/one-off flows for review
+    3. Default deny for unobserved
+    """
+    rules = []
+    
+    # Aggregate by port/proto
+    port_stats = aggregate_by_port(observed_traffic)
+    
+    for (proto, port), stats in sorted(port_stats.items(), 
+                                        key=lambda x: -x[1]['flow_count']):
+        if stats['confidence'] >= min_confidence:
+            if proto == 'tcp':
+                rules.append(f"permit tcp dst eq {port}")
+            elif proto == 'udp':
+                rules.append(f"permit udp dst eq {port}")
+    
+    # Always deny at the end
+    rules.append("deny ip log")
+    
+    return rules
 ```
-┌─────────────┐    ┌─────────────┐    ┌─────────────┐
-│  Proposed   │───▶│   Deploy    │───▶│   Collect   │
-│   Policy    │    │   Monitor   │    │   Hits      │
-└─────────────┘    └─────────────┘    └─────────────┘
-                                            │
-                                            ▼
-                                     ┌─────────────┐
-                                     │  Validate   │
-                                     │  & Promote  │
-                                     └─────────────┘
-```
-
-**Workflow:**
-1. Stage policy changes
-2. Deploy in SGACL Monitor Mode
-3. Collect "would-have-dropped" stats
-4. Review impact
-5. Promote to enforce (or refine)
 
 ---
 
-## 6. Technology Stack
+## 8. Technology Stack
 
 ### Production Stack
 
 | Component | Technology | Rationale |
 |-----------|------------|-----------|
-| **Language** | Python 3.11+ | Data processing, ML, ecosystem |
-| **Edge Container** | Alpine Linux + Python | Minimal footprint for switch hosting |
-| **Backend** | FastAPI + Celery | Async API + background jobs |
-| **Flow Ingest** | Apache Kafka | Scalable streaming, replay capability |
-| **Time-Series** | ClickHouse | Fast aggregation queries at scale |
-| **Graph Store** | Neo4j | Identity relationships, path queries |
-| **Relational** | PostgreSQL | Policy storage, configuration |
-| **Cache** | Redis | Session cache, pub/sub |
-| **Message Queue** | Redis Streams / Kafka | Edge → Backend sync |
+| **Language** | Python 3.11+ | ML ecosystem, async support |
+| **Edge Container** | Alpine Linux + Python | Minimal footprint |
+| **Sketches** | datasketch library | HLL, CMS, MinHash |
+| **Clustering** | scikit-learn, hdbscan | Incremental K-means, HDBSCAN |
+| **Backend API** | FastAPI + asyncio | High-performance async |
+| **Message Queue** | Redis Streams | Edge → Backend sync |
+| **Graph Store** | NetworkX → Neo4j | Start simple, scale later |
+| **Time-Series** | DuckDB → ClickHouse | Analytical queries |
 | **Frontend** | React + D3.js | Interactive visualization |
-| **Containerization** | Docker + Kubernetes | Production deployment |
+| **Serialization** | Protocol Buffers | Efficient sketch sync |
 
 ### Edge Container Stack
 
 | Component | Technology | Constraint |
 |-----------|------------|------------|
-| **Base Image** | Alpine Linux 3.18 | < 100MB image size |
-| **Runtime** | Python 3.11-slim | Standard library + minimal deps |
-| **Flow Parser** | Custom (struct.unpack) | No heavy dependencies |
-| **Graph** | NetworkX | In-memory, serialize to JSON |
-| **Storage** | SQLite | Local flow buffer |
-| **Sync** | gRPC / REST | Backend communication |
-| **Memory** | 256MB - 512MB | App Hosting limits |
-| **Storage** | 1GB flash | Flow buffer + graph snapshots |
-
-### Collector Stack
-
-| Component | Technology | Notes |
-|-----------|------------|-------|
-| **Base Image** | python:3.11-slim | Standard container |
-| **NetFlow Parser** | Custom Python | v5, v9, IPFIX support |
-| **sFlow Parser** | python-sflow | Packet sampling |
-| **Output** | Kafka / gRPC | Stream to backend |
-| **Scaling** | Horizontal | Multiple collectors per region |
-
-### MVP Stack (Development)
-
-| Layer | Technology |
-|-------|------------|
-| **Language** | Python 3.11 |
-| **Data Store** | DuckDB (analytical queries) |
-| **Graph** | NetworkX (in-memory) |
-| **API** | FastAPI |
-| **Frontend** | Streamlit (rapid prototyping) |
-| **Container** | Docker Compose |
+| **Base Image** | python:3.11-alpine | < 100MB image |
+| **Sketches** | datasketch | HLL, CMS implementations |
+| **Clustering** | Custom mini-batch K-means | No sklearn dependency |
+| **Storage** | SQLite | Local sketch buffer |
+| **Sync** | gRPC | Efficient streaming |
+| **Memory** | 256MB target | 500 endpoints × 10KB + overhead |
 
 ---
 
-## 7. Project Structure
+## 9. Scale Analysis
+
+### Data Reduction at Edge
+
+| Metric | Raw Flows | With Sketches | Reduction |
+|--------|-----------|---------------|-----------|
+| Per switch/hour | 100K flows × 100B = 10MB | 500 endpoints × 10KB = 5MB | 2x |
+| 1000 switches/hour | 10GB | 5MB | 2000x |
+| Central storage/day | 240GB | 120MB | 2000x |
+
+### Processing Capacity
+
+| Component | Capacity | Bottleneck |
+|-----------|----------|------------|
+| Edge (per switch) | 10K flows/sec | UDP receive buffer |
+| Backend (single node) | 10K sketch updates/sec | CPU |
+| Backend (clustered) | 100K+ sketch updates/sec | Horizontal scaling |
+
+### Memory Requirements
+
+| Deployment | Endpoints | Sketch Storage | Backend RAM |
+|------------|-----------|----------------|-------------|
+| Small (10 switches) | 5,000 | 50MB | 4GB |
+| Medium (100 switches) | 50,000 | 500MB | 16GB |
+| Large (1000 switches) | 500,000 | 5GB | 64GB |
+
+---
+
+## 10. Project Structure
 
 ```
 clarion/
 ├── docs/
 │   ├── DESIGN.md              # This document
-│   ├── API.md                 # API reference
-│   └── DEPLOYMENT.md          # Deployment guide
+│   ├── PROJECT_PLAN.md        # Development roadmap
+│   └── API.md                 # API reference
 │
 ├── data/
-│   ├── raw/                   # Original data files
+│   ├── raw/                   # Synthetic datasets
 │   │   └── trustsec_copilot_synth_campus/
 │   └── processed/             # Transformed data
 │
-├── src/
-│   ├── clarion/               # Backend library
+├── src/clarion/               # Backend library
+│   ├── __init__.py
+│   ├── config.py
+│   │
+│   ├── sketches/              # Probabilistic data structures
 │   │   ├── __init__.py
-│   │   ├── config.py          # Configuration management
-│   │   │
-│   │   ├── ingest/            # Data ingestion
-│   │   │   ├── __init__.py
-│   │   │   ├── flows.py       # Flow data loader
-│   │   │   ├── ise.py         # ISE session loader
-│   │   │   └── ad.py          # AD data loader
-│   │   │
-│   │   ├── identity/          # Identity resolution
-│   │   │   ├── __init__.py
-│   │   │   ├── resolver.py    # IP → User/Device mapping
-│   │   │   └── graph.py       # Identity graph builder
-│   │   │
-│   │   ├── analysis/          # Traffic analysis
-│   │   │   ├── __init__.py
-│   │   │   ├── clustering.py  # Behavior clustering
-│   │   │   ├── patterns.py    # Pattern detection
-│   │   │   └── anomalies.py   # Anomaly detection
-│   │   │
-│   │   ├── policy/            # Policy generation
-│   │   │   ├── __init__.py
-│   │   │   ├── sgt.py         # SGT recommendation
-│   │   │   ├── matrix.py      # Policy matrix builder
-│   │   │   └── sgacl.py       # SGACL generator
-│   │   │
-│   │   ├── connectors/        # External integrations
-│   │   │   ├── __init__.py
-│   │   │   ├── ise.py         # ISE pxGrid connector
-│   │   │   ├── ad.py          # Active Directory LDAP
-│   │   │   ├── cmdb.py        # CMDB (ServiceNow, etc.)
-│   │   │   └── dhcp.py        # DHCP/DNS (Infoblox, etc.)
-│   │   │
-│   │   ├── export/            # Export & integration
-│   │   │   ├── __init__.py
-│   │   │   ├── ise.py         # ISE policy push
-│   │   │   └── reports.py     # Report generation
-│   │   │
-│   │   └── api/               # REST API
-│   │       ├── __init__.py
-│   │       ├── main.py        # FastAPI app
-│   │       └── routes/        # API endpoints
+│   │   ├── endpoint_sketch.py # EndpointSketch dataclass
+│   │   ├── hyperloglog.py     # Cardinality estimation
+│   │   └── countmin.py        # Frequency estimation
 │   │
-│   └── scripts/               # CLI utilities
-│       ├── load_data.py       # Load synthetic data
-│       ├── analyze.py         # Run analysis
-│       └── recommend.py       # Generate recommendations
-│
-├── edge/                      # Edge container (Cisco App Hosting)
-│   ├── Dockerfile             # Container image
-│   ├── iox-app.yaml           # IOx app descriptor
-│   ├── package.yaml           # Package metadata
-│   │
-│   ├── clarion_edge/          # Edge Python package
+│   ├── clustering/            # Unsupervised learning
 │   │   ├── __init__.py
-│   │   ├── config.py          # Edge configuration
-│   │   ├── collector.py       # Flow listener (UDP 2055)
-│   │   ├── graph.py           # Local graph builder
-│   │   ├── buffer.py          # Flow buffer (local storage)
-│   │   ├── sync.py            # Backend sync (gRPC client)
-│   │   └── api.py             # Edge REST API
+│   │   ├── features.py        # Feature extraction
+│   │   ├── incremental.py     # Incremental clustering
+│   │   ├── labeling.py        # Semantic cluster labeling
+│   │   └── sgt_mapping.py     # Cluster → SGT assignment
 │   │
-│   ├── scripts/
-│   │   └── entrypoint.sh      # Container entrypoint
+│   ├── ingest/                # Data ingestion
+│   │   ├── __init__.py
+│   │   ├── loader.py          # CSV/synthetic data loader
+│   │   └── sketch_builder.py  # Build sketches from flows
 │   │
-│   └── tests/
-│       └── test_edge.py
+│   ├── identity/              # Identity resolution
+│   │   ├── __init__.py
+│   │   ├── resolver.py        # IP → User/Device mapping
+│   │   └── context.py         # AD/ISE context enrichment
+│   │
+│   ├── policy/                # Policy generation
+│   │   ├── __init__.py
+│   │   ├── matrix.py          # SGT → SGT matrix
+│   │   └── sgacl.py           # SGACL generation
+│   │
+│   ├── connectors/            # External integrations
+│   │   ├── __init__.py
+│   │   ├── ise.py             # ISE pxGrid
+│   │   ├── ad.py              # Active Directory LDAP
+│   │   └── cmdb.py            # CMDB REST
+│   │
+│   └── api/                   # REST API
+│       ├── __init__.py
+│       ├── main.py
+│       └── routes/
 │
-├── collector/                 # Flow collector (non-container switches)
+├── edge/                      # Edge container
 │   ├── Dockerfile
-│   ├── docker-compose.yml
-│   │
-│   ├── clarion_collector/     # Collector Python package
+│   ├── iox-app.yaml           # IOx descriptor
+│   ├── clarion_edge/
 │   │   ├── __init__.py
-│   │   ├── config.py
-│   │   ├── netflow.py         # NetFlow v5/v9 parser
-│   │   ├── ipfix.py           # IPFIX parser
-│   │   ├── sflow.py           # sFlow parser
-│   │   ├── normalizer.py      # Common schema normalizer
-│   │   └── exporter.py        # Backend export
-│   │
+│   │   ├── receiver.py        # NetFlow/IPFIX receiver
+│   │   ├── aggregator.py      # Time-window aggregation
+│   │   ├── sketch_builder.py  # Build sketches
+│   │   ├── local_cluster.py   # Lightweight K-means
+│   │   └── sync.py            # Backend sync (gRPC)
 │   └── tests/
-│       └── test_collector.py
 │
-├── lab/                       # NetFlow lab (VM simulation)
-│   ├── setup_vm.sh
-│   ├── cleanup_vm.sh
-│   ├── check_status.sh
-│   └── build_switch_graph.py
+├── collector/                 # Flow collector (legacy switches)
+│   ├── Dockerfile
+│   └── clarion_collector/
 │
 ├── tests/
 │   ├── unit/
@@ -671,278 +684,80 @@ clarion/
 │   └── fixtures/
 │
 ├── notebooks/                 # Jupyter exploration
-│   └── exploration.ipynb
-│
 ├── deploy/                    # Deployment artifacts
-│   ├── docker-compose.yml     # Full stack local
-│   ├── k8s/                   # Kubernetes manifests
-│   └── ansible/               # Switch deployment playbooks
-│
 ├── pyproject.toml
 ├── requirements.txt
-├── Makefile
 └── README.md
 ```
 
 ---
 
-## 8. MVP Milestones
-
-### MVP 1: Identity-Labeled Flow Graph (Week 1-2)
-
-**Goal:** Load synthetic data, resolve identities, build communication graph
-
-**Deliverables:**
-- [ ] Data loaders for all CSV files
-- [ ] Identity resolver (flow → user/device/service)
-- [ ] NetworkX graph with enriched edges
-- [ ] CLI: `clarion load` and `clarion graph`
-- [ ] Basic stats output
-
-**Success Criteria:**
-- Load 100K+ flows in < 30 seconds
-- Resolve 90%+ of flows to endpoint/user
-- Graph query: "Show all communications for user X"
-
-### MVP 2: SGT Taxonomy Recommender (Week 3-4)
-
-**Goal:** Cluster endpoints and recommend initial SGT assignments
-
-**Deliverables:**
-- [ ] Behavior clustering algorithm
-- [ ] SGT recommendation engine
-- [ ] Coverage analysis ("% of traffic with SGT")
-- [ ] CLI: `clarion recommend-sgts`
-- [ ] Tagging report (CSV/JSON export)
-
-**Success Criteria:**
-- Recommend 6-12 meaningful SGTs
-- 80%+ endpoint coverage
-- Human-readable justification per SGT
-
-### MVP 3: Policy Matrix Generator (Week 5-6)
-
-**Goal:** Build SGT→SGT matrix with SGACL recommendations
-
-**Deliverables:**
-- [ ] Matrix builder from enriched edges
-- [ ] SGACL generator (allow-list per cell)
-- [ ] "What breaks if we enforce?" simulator
-- [ ] CLI: `clarion policy-matrix`
-- [ ] Matrix visualization (heatmap)
-
-**Success Criteria:**
-- Generate matrix for all observed SGT pairs
-- SGACL rules match observed traffic patterns
-- Impact analysis identifies critical dependencies
-
-### MVP 4: API & Basic UI (Week 7-8)
-
-**Goal:** REST API and simple web interface
-
-**Deliverables:**
-- [ ] FastAPI backend with key endpoints
-- [ ] Streamlit dashboard
-- [ ] Graph visualization (D3.js or similar)
-- [ ] Export to ISE-ready format
-
-**Success Criteria:**
-- API response < 500ms for common queries
-- Interactive exploration of identity graph
-- One-click policy export
-
----
-
-## 9. Key Algorithms
-
-### 9.1 Identity Resolution
-
-```python
-def resolve_identity(flow: FlowRecord, 
-                     ip_bindings: DataFrame,
-                     ise_sessions: DataFrame,
-                     endpoints: DataFrame,
-                     users: DataFrame) -> EnrichedEdge:
-    """
-    Join flow to identity context with confidence scoring.
-    
-    Priority:
-    1. ISE session (authenticated) - confidence 1.0
-    2. IP binding (DHCP/static) - confidence 0.8
-    3. Endpoint match (MAC) - confidence 0.7
-    4. Unknown - confidence 0.0
-    """
-    # Time-bounded join to IP bindings
-    binding = ip_bindings.query(
-        f"ip == '{flow.src_ip}' and "
-        f"lease_start <= '{flow.start_time}' and "
-        f"lease_end >= '{flow.start_time}'"
-    )
-    
-    # Join to ISE session for user context
-    session = ise_sessions.query(
-        f"ip == '{flow.src_ip}' and "
-        f"session_start <= '{flow.start_time}' and "
-        f"session_end >= '{flow.start_time}'"
-    )
-    
-    # Build enriched edge...
-```
-
-### 9.2 Behavior Clustering
-
-```python
-def cluster_endpoints(edges: List[EnrichedEdge],
-                      endpoints: DataFrame,
-                      users: DataFrame) -> Dict[str, List[str]]:
-    """
-    Cluster endpoints by behavior patterns.
-    
-    Features:
-    - Destination services accessed
-    - Port/protocol distribution
-    - Time-of-day patterns
-    - AD group membership
-    - ISE endpoint profile
-    - VLAN/site location
-    """
-    # Build feature matrix
-    features = build_behavior_features(edges, endpoints, users)
-    
-    # Cluster with hybrid approach:
-    # 1. Rule-based for known patterns (servers, printers, IoT)
-    # 2. ML clustering for ambiguous endpoints
-    
-    clusters = {}
-    
-    # Rule-based: servers (receive > send)
-    servers = identify_servers(edges)
-    clusters['servers'] = servers
-    
-    # Rule-based: IoT (limited service access)
-    iot = identify_iot(edges, endpoints)
-    clusters['iot'] = iot
-    
-    # ML: cluster remaining by behavior
-    remaining = [e for e in endpoints if e not in servers + iot]
-    ml_clusters = kmeans_cluster(features[remaining])
-    
-    return clusters
-```
-
-### 9.3 SGACL Generation
-
-```python
-def generate_sgacl(src_sgt: int, dst_sgt: int,
-                   observed_traffic: List[EnrichedEdge]) -> List[str]:
-    """
-    Generate SGACL rules from observed traffic patterns.
-    
-    Strategy:
-    - Allow stable, high-volume flows
-    - Flag rare/one-off flows for review
-    - Default deny for unobserved
-    """
-    # Aggregate by port/proto
-    port_stats = aggregate_by_port(observed_traffic)
-    
-    rules = []
-    for (proto, port), stats in port_stats.items():
-        if stats['flow_count'] > STABILITY_THRESHOLD:
-            if proto == 'tcp':
-                rules.append(f"permit tcp dst eq {port}")
-            elif proto == 'udp':
-                rules.append(f"permit udp dst eq {port}")
-    
-    # Always deny at the end
-    rules.append("deny ip")
-    
-    return rules
-```
-
----
-
-## 10. API Endpoints (Draft)
+## 11. API Endpoints
 
 ### Core Endpoints
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| GET | `/api/v1/graph/nodes` | List all nodes (filtered) |
-| GET | `/api/v1/graph/edges` | List all edges (filtered) |
-| GET | `/api/v1/graph/node/{id}` | Get node details |
-| GET | `/api/v1/graph/neighbors/{id}` | Get node neighbors |
-| GET | `/api/v1/users/{id}/communications` | User's traffic |
-| GET | `/api/v1/endpoints/{id}/communications` | Endpoint's traffic |
-| GET | `/api/v1/services` | List known services |
+| GET | `/api/v1/endpoints` | List all endpoints with sketches |
+| GET | `/api/v1/endpoints/{id}` | Get endpoint details + behavior |
+| GET | `/api/v1/clusters` | List all clusters |
+| GET | `/api/v1/clusters/{id}` | Get cluster details + members |
+| GET | `/api/v1/clusters/{id}/features` | Get cluster feature profile |
 | GET | `/api/v1/sgts` | List SGT taxonomy |
 | GET | `/api/v1/sgts/recommendations` | Get SGT recommendations |
 | GET | `/api/v1/matrix` | Get policy matrix |
-| GET | `/api/v1/matrix/{src_sgt}/{dst_sgt}` | Get matrix cell details |
-| GET | `/api/v1/sgacls/{src_sgt}/{dst_sgt}` | Get SGACL for cell |
+| GET | `/api/v1/matrix/{src}/{dst}` | Get matrix cell details |
 | POST | `/api/v1/export/ise` | Export to ISE format |
+
+### Streaming Endpoints
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| WS | `/api/v1/stream/sketches` | Real-time sketch updates |
+| WS | `/api/v1/stream/clusters` | Cluster assignment changes |
 
 ---
 
-## 11. Success Metrics
+## 12. Success Metrics
 
 ### Technical Metrics
 
 | Metric | Target |
 |--------|--------|
-| Flow ingestion rate | > 10,000 flows/sec |
-| Identity resolution rate | > 95% of flows |
-| Query latency (p95) | < 500ms |
-| Graph traversal | < 100ms for 2-hop |
+| Edge memory usage | < 100MB for 500 endpoints |
+| Sketch sync latency | < 1 second |
+| Clustering update | < 10 seconds for 50K endpoints |
+| API response (p95) | < 200ms |
 
 ### Business Metrics
 
 | Metric | Target |
 |--------|--------|
-| SGT coverage | > 90% of endpoints |
-| Policy accuracy | > 85% match observed traffic |
+| Endpoint coverage | > 95% with cluster assignment |
+| Cluster coherence | > 0.7 silhouette score |
+| SGT accuracy | > 85% match expert labeling |
 | Time to first policy | < 1 hour from data load |
-| False positive rate (would-deny) | < 5% |
 
 ---
 
-## 12. Open Questions
+## 13. Open Questions
 
 ### Architecture
-1. **Edge container sizing**: 256MB vs 512MB memory for App Hosting?
-2. **Sync protocol**: gRPC (efficient) vs REST (simpler)?
-3. **Edge buffering**: How many hours of flows to buffer locally?
-4. **Collector placement**: Per-site or centralized?
+1. **Edge clustering k value**: k=8 sufficient for local grouping?
+2. **Sketch sync frequency**: Every 5 min vs event-driven?
+3. **Backend clustering trigger**: Time-based vs sketch-count based?
 
-### Data & Scale
-5. **Graph database**: When to move from NetworkX to Neo4j?
-6. **Real-time vs. batch**: Start batch, add streaming later?
-7. **Historical analysis**: How far back to look? (7 days? 30 days?)
-8. **Flow sampling**: Accept sampled flows or require full capture?
+### ML/Clustering
+4. **Feature selection**: Which behavioral features matter most?
+5. **Cluster count**: Let HDBSCAN decide vs. target 6-12 SGTs?
+6. **Confidence thresholds**: When is assignment "good enough"?
 
 ### Integration
-9. **ISE integration**: Push policies directly or export for manual import?
-10. **pxGrid version**: pxGrid 2.0 (WebSocket) vs 1.0 (REST)?
-11. **AD sync**: Full sync vs delta? How often?
-12. **Multi-domain**: Support multiple AD forests?
-
-### Business
-13. **Multi-tenancy**: Single customer focus for MVP?
-14. **Deployment model**: On-prem only or SaaS option?
-15. **Licensing**: Per-switch, per-endpoint, or flat?
+7. **ISE push**: Auto-push SGT assignments or manual approval?
+8. **Multi-site**: Per-site clusters or global?
 
 ---
 
-## 13. References
-
-- [Cisco TrustSec Overview](https://www.cisco.com/c/en/us/td/docs/switches/lan/trustsec/configuration/guide/trustsec.html)
-- [Cisco pxGrid Session Directory](https://developer.cisco.com/docs/pxgrid/)
-- [Catalyst 9300 Flexible NetFlow](https://www.cisco.com/c/en/us/td/docs/switches/lan/catalyst9300/software/release/17-9/configuration_guide/fnf/b_179_fnf_9300_cg.html)
-- [SGACL Configuration Guide](https://www.cisco.com/c/en/us/td/docs/switches/lan/trustsec/configuration/guide/trustsec/sgacl_config.html)
-
----
-
-*Document Version: 1.0*  
+*Document Version: 2.0*  
 *Last Updated: December 2024*  
-*Author: Clarion Development Team*
-
+*Architecture: Scale-First with Edge ML*

@@ -1,6 +1,6 @@
 # 🔔 Clarion
 
-**TrustSec Policy Copilot** — Clear visibility into your network for intelligent policy design.
+**TrustSec Policy Copilot** — Scale-first network segmentation using edge processing and unsupervised learning.
 
 > [!CAUTION]
 > ## 🚧 Design & Concept Phase Only
@@ -14,51 +14,114 @@
 
 ## 🎯 What is Clarion?
 
-Clarion helps organizations adopt and refine **Cisco TrustSec** deployments by:
+Clarion helps organizations adopt **Cisco TrustSec** by automatically discovering endpoint behavior patterns and generating SGT (Security Group Tag) policies. Unlike traditional approaches that require manual classification, Clarion uses **unsupervised learning** to cluster endpoints by behavior and recommend policy.
 
-1. **Observing** real network traffic patterns
-2. **Resolving** IP flows to user/device identities  
-3. **Recommending** SGT (Security Group Tag) taxonomies
-4. **Generating** SGACL policies from observed behavior
-5. **Validating** policies before enforcement
+### Key Capabilities
 
-> *"Mine real network behavior into a TrustSec policy matrix, then give customers a safe path from today → desired state."*
+1. **Edge Processing** — Compress flows to behavioral sketches on-switch (Catalyst 9K App Hosting)
+2. **Behavioral Clustering** — Group endpoints by what they do, not what they are
+3. **SGT Recommendation** — Auto-generate SGT taxonomy from discovered clusters
+4. **Policy Generation** — Build SGACL rules from observed traffic patterns
+5. **Scale-First** — Handle enterprise-scale traffic without central bottlenecks
 
 ---
 
-## 🚀 Quick Start
+## 🏗️ Architecture
 
-### Prerequisites
+Clarion uses a **distributed, scale-first architecture**:
 
-- Python 3.11+
-- pip or uv
-
-### Installation
-
-```bash
-# Clone the repository
-git clone https://github.com/sgerhart/clarion.git
-cd clarion
-
-# Create virtual environment
-python -m venv .venv
-source .venv/bin/activate  # On Windows: .venv\Scripts\activate
-
-# Install dependencies
-pip install -r requirements.txt
-
-# Verify installation
-python -c "import clarion; print('Clarion ready!')"
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                              EDGE TIER (Per-Switch)                          │
+│                         Catalyst 9K App Hosting Container                     │
+│                                                                               │
+│   Flows ──▶ Aggregate ──▶ Build Sketches ──▶ Local Cluster ──▶ Sync         │
+│                              (5MB max)         (K-means k=8)     to Backend  │
+└─────────────────────────────────────────────────────────────────────────────┘
+                                        │
+                          Behavioral Sketches (KB, not GB)
+                                        ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                              BACKEND TIER                                    │
+│                                                                              │
+│   Merge Sketches ──▶ HDBSCAN Clustering ──▶ Semantic Labels ──▶ SGT Mapping │
+│                                                                              │
+│                              Policy Matrix ──▶ SGACL Generation              │
+└─────────────────────────────────────────────────────────────────────────────┘
 ```
 
-### Load Sample Data
+### Why This Architecture?
 
-```bash
-# Load the synthetic campus dataset
-python -m src.scripts.load_data
+| Traditional Approach | Clarion Approach |
+|---------------------|------------------|
+| Ship all flows to central collector | Compress to sketches at edge |
+| O(flows) memory growth | O(endpoints) memory — bounded |
+| Central processing bottleneck | Horizontally distributed |
+| Batch clustering overnight | Incremental real-time updates |
 
-# Run analysis
-python -m src.scripts.analyze
+**Scale Example:**
+- 1000 switches × 100K flows/hour = **10GB/hour** to process centrally
+- With sketches: 1000 switches × 5KB updates = **5MB/hour** to aggregate
+
+---
+
+## 🧠 How It Works
+
+### 1. Behavioral Sketches (Edge)
+
+Each endpoint gets a lightweight ~10KB behavioral fingerprint:
+
+```python
+@dataclass
+class EndpointSketch:
+    endpoint_id: str              # MAC address
+    
+    # Cardinality (HyperLogLog)
+    unique_peers: HyperLogLog     # How many IPs contacted
+    unique_services: HyperLogLog  # How many services accessed
+    
+    # Frequency (Count-Min Sketch)
+    port_frequency: CountMinSketch    # Port usage distribution
+    service_frequency: CountMinSketch # Service access patterns
+    
+    # Aggregates
+    bytes_in: int
+    bytes_out: int
+    in_out_ratio: float           # Client vs server
+    active_hours: int             # 24-bit bitmap
+```
+
+### 2. Unsupervised Clustering (Backend)
+
+HDBSCAN finds natural groupings based on behavior:
+
+```
+Cluster-0: [laptop-1, laptop-2, ...] → "Corporate Users"
+Cluster-1: [server-1, server-2, ...] → "Servers"  
+Cluster-2: [printer-1, printer-2, ...] → "Printers"
+Cluster-3: [camera-1, sensor-1, ...] → "IoT Devices"
+```
+
+### 3. SGT Mapping
+
+Clusters map to Security Group Tags:
+
+```
+"Corporate Users"  → SGT 2
+"Servers"          → SGT 10
+"Printers"         → SGT 20
+"IoT Devices"      → SGT 21
+```
+
+### 4. Policy Generation
+
+Observed traffic patterns become SGACL rules:
+
+```
+! SGT 2 (Corp-Users) → SGT 10 (Servers)
+permit tcp dst eq 443
+permit tcp dst eq 22
+deny ip log
 ```
 
 ---
@@ -78,115 +141,82 @@ Clarion includes a synthetic enterprise campus dataset for development:
 
 ---
 
-## 🏗️ Architecture
-
-Clarion uses a **distributed architecture** designed for production deployments:
-
-```
-┌─────────────────────────────────────────────────────────────────────┐
-│                           EDGE TIER                                  │
-│  ┌─────────────────────┐     ┌─────────────────────┐               │
-│  │   Catalyst 9K       │     │   Legacy Switches   │               │
-│  │   ┌─────────────┐   │     │                     │               │
-│  │   │Clarion Edge │   │     │   NetFlow Export    │               │
-│  │   │ Container   │   │     │         │           │               │
-│  │   └──────┬──────┘   │     └─────────┼───────────┘               │
-│  └──────────┼──────────┘               │                            │
-│             │ gRPC                     │ NetFlow                    │
-└─────────────┼──────────────────────────┼────────────────────────────┘
-              │                          │
-              ▼                          ▼
-┌─────────────────────────────────────────────────────────────────────┐
-│                         BACKEND TIER                                 │
-│  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐            │
-│  │ Ingest   │  │ Identity │  │ Analysis │  │ Policy   │            │
-│  │ Service  │  │ Resolver │  │ Engine   │  │ Engine   │            │
-│  └──────────┘  └──────────┘  └──────────┘  └──────────┘            │
-└─────────────────────────────────────────────────────────────────────┘
-              ▲                          ▲
-              │                          │
-     ┌────────┴────────┐        ┌────────┴────────┐
-     │   ISE (pxGrid)  │        │   AD (LDAP)     │
-     │   CMDB (REST)   │        │   DHCP/DNS      │
-     └─────────────────┘        └─────────────────┘
-```
-
-### Deployment Options
-
-| Component | Description |
-|-----------|-------------|
-| **Clarion Edge** | Lightweight container for Cisco App Hosting (Catalyst 9K) |
-| **Clarion Collector** | Central collector for non-container switches |
-| **Clarion Backend** | Analytics, policy engine, API/UI |
-
----
-
 ## 📁 Project Structure
 
 ```
 clarion/
-├── docs/                      # Documentation
-│   └── DESIGN.md             # System design document
+├── docs/
+│   ├── DESIGN.md              # System architecture (v2.0)
+│   └── PROJECT_PLAN.md        # Development roadmap
 │
 ├── data/
-│   ├── raw/                  # Original datasets
+│   ├── raw/                   # Synthetic datasets
 │   │   └── trustsec_copilot_synth_campus/
-│   └── processed/            # Transformed data
+│   └── processed/             # Transformed data
 │
-├── src/clarion/              # Backend library
-│   ├── ingest/               # Data ingestion
-│   ├── identity/             # Identity resolution
-│   ├── analysis/             # Traffic analysis
-│   ├── policy/               # Policy generation
-│   ├── connectors/           # ISE, AD, CMDB integrations
-│   ├── export/               # Policy export
-│   └── api/                  # REST API
+├── src/clarion/               # Backend library
+│   ├── sketches/              # HyperLogLog, Count-Min Sketch
+│   ├── clustering/            # HDBSCAN, feature extraction
+│   ├── ingest/                # Data loading, sketch building
+│   ├── identity/              # IP → User resolution
+│   ├── policy/                # Matrix, SGACL generation
+│   ├── connectors/            # ISE, AD, CMDB integrations
+│   └── api/                   # FastAPI REST API
 │
-├── edge/                      # Edge container (App Hosting)
+├── edge/                      # Edge container (Catalyst 9K)
 │   ├── Dockerfile
-│   ├── iox-app.yaml          # IOx descriptor
-│   └── clarion_edge/         # Edge Python package
+│   ├── iox-app.yaml           # IOx descriptor
+│   └── clarion_edge/          # Lightweight Python package
 │
-├── collector/                 # Central flow collector
-│   ├── Dockerfile
-│   └── clarion_collector/    # Collector Python package
-│
-├── lab/                       # NetFlow lab (VM simulation)
-├── deploy/                    # Deployment artifacts
-│   ├── k8s/                  # Kubernetes manifests
-│   └── ansible/              # Switch deployment playbooks
-│
+├── collector/                 # Flow collector (legacy switches)
 ├── tests/                     # Test suite
 ├── notebooks/                 # Jupyter exploration
-└── pyproject.toml            # Project config
+└── deploy/                    # K8s, Ansible artifacts
 ```
 
 ---
 
-## 🔧 Development
+## 🗺️ Roadmap
 
-### Running Tests
+### Phase 1: Core Data Structures 🟡 Current
+- [ ] EndpointSketch with HyperLogLog, Count-Min Sketch
+- [ ] Load synthetic data into sketches
+- [ ] Identity resolution (flow → user/device)
 
-```bash
-pytest tests/
-```
+### Phase 2: Clustering Pipeline ⬜ Pending
+- [ ] Feature extraction from sketches
+- [ ] HDBSCAN clustering
+- [ ] Semantic labeling (AD groups, ISE profiles)
+- [ ] SGT recommendations
 
-### Code Quality
+### Phase 3: Policy Generation ⬜ Pending
+- [ ] SGT → SGT matrix builder
+- [ ] SGACL generator
+- [ ] Impact simulator
 
-```bash
-# Format
-black src/ tests/
-ruff check src/ tests/
+### Phase 4: Edge Container ⬜ Pending
+- [ ] NetFlow/IPFIX receiver
+- [ ] On-switch sketch builder
+- [ ] gRPC sync to backend
+- [ ] IOx packaging
 
-# Type check
-mypy src/
-```
+### Phase 5: API & UI ⬜ Pending
+- [ ] FastAPI backend
+- [ ] Cluster visualization (UMAP)
+- [ ] Policy matrix heatmap
 
-### Local API Server
+---
 
-```bash
-uvicorn src.clarion.api.main:app --reload
-```
+## 🔧 Technology Stack
+
+| Component | Technology |
+|-----------|------------|
+| **Language** | Python 3.11+ |
+| **Sketches** | datasketch (HyperLogLog, CMS) |
+| **Clustering** | scikit-learn, hdbscan |
+| **API** | FastAPI |
+| **Edge Container** | Alpine Linux + Python |
+| **Serialization** | Protocol Buffers |
 
 ---
 
@@ -194,38 +224,6 @@ uvicorn src.clarion.api.main:app --reload
 
 - **[Design Document](docs/DESIGN.md)** — System architecture, data model, algorithms
 - **[Project Plan](docs/PROJECT_PLAN.md)** — Milestones, tasks, progress tracking
-- **[Lab Setup](lab/README.md)** — NetFlow lab environment
-
----
-
-## 🗺️ Roadmap
-
-### MVP 1: Identity-Labeled Flow Graph ⬜
-- [ ] Data loaders for synthetic dataset
-- [ ] Identity resolver (flow → user/device)
-- [ ] NetworkX graph builder
-- [ ] CLI tools
-
-### MVP 2: SGT Taxonomy Recommender ⬜
-- [ ] Behavior clustering
-- [ ] SGT recommendation engine
-- [ ] Coverage analysis
-
-### MVP 3: Policy Matrix Generator ⬜
-- [ ] SGT→SGT matrix builder
-- [ ] SGACL generator
-- [ ] Impact simulator
-
-### MVP 4: API & UI ⬜
-- [ ] FastAPI backend
-- [ ] Streamlit dashboard
-- [ ] Graph visualization
-
----
-
-## 🤝 Contributing
-
-Contributions are welcome! Please read our contributing guidelines before submitting PRs.
 
 ---
 
@@ -239,3 +237,4 @@ MIT License - see [LICENSE](LICENSE) for details.
 
 - Cisco TrustSec documentation and pxGrid APIs
 - Synthetic data generation inspired by enterprise campus patterns
+- datasketch library for probabilistic data structures
