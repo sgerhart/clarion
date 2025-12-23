@@ -8,23 +8,47 @@ Key components:
 - SGACLGenerator: Generate SGACL rules from traffic
 - ImpactAnalyzer: Analyze policy enforcement impact
 - ISEExporter: Export policies in ISE-ready format
+- CustomizationSession: Human-in-the-loop review and modification
 """
 
 from clarion.policy.matrix import PolicyMatrix, MatrixCell, build_policy_matrix
 from clarion.policy.sgacl import SGACLGenerator, SGACLRule, SGACLPolicy
 from clarion.policy.impact import ImpactAnalyzer, ImpactReport
 from clarion.policy.exporter import ISEExporter, PolicyExport
+from clarion.policy.customization import (
+    ApprovalStatus,
+    SGTCustomization,
+    PolicyCustomization,
+    RuleCustomization,
+    CustomizationSession,
+    PolicyCustomizer,
+    create_review_session,
+    generate_review_report,
+)
 
 __all__ = [
+    # Matrix
     "PolicyMatrix",
     "MatrixCell",
     "build_policy_matrix",
+    # SGACL
     "SGACLGenerator",
     "SGACLRule",
     "SGACLPolicy",
+    # Impact
     "ImpactAnalyzer",
     "ImpactReport",
+    # Export
     "ISEExporter",
     "PolicyExport",
+    # Customization
+    "ApprovalStatus",
+    "SGTCustomization",
+    "PolicyCustomization",
+    "RuleCustomization",
+    "CustomizationSession",
+    "PolicyCustomizer",
+    "create_review_session",
+    "generate_review_report",
 ]
 
