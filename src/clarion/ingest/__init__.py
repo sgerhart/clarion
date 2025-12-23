@@ -1,40 +1,31 @@
 """
-Ingest Module
+Clarion Ingest Module
 
-Data ingestion for flows, ISE sessions, and AD data.
+Data loading and sketch building for Clarion.
+
+Key components:
+- DataLoader: Load CSV/Parquet datasets
+- ClarionDataset: Container for all data tables
+- SketchBuilder: Convert flows to EndpointSketches
+- SketchStore: In-memory storage for sketches
 """
 
-from .loader import (
-    CampusData,
-    load_all,
-    load_switches,
-    load_interfaces,
-    load_ad_users,
-    load_ad_groups,
-    load_ad_group_membership,
-    load_endpoints,
-    load_ip_assignments,
-    load_ise_sessions,
-    load_services,
-    load_sgts,
-    load_flows,
-    load_flow_truth,
+from clarion.ingest.loader import (
+    DataLoader,
+    ClarionDataset,
+    load_dataset,
+)
+from clarion.ingest.sketch_builder import (
+    SketchBuilder,
+    SketchStore,
+    build_sketches,
 )
 
 __all__ = [
-    "CampusData",
-    "load_all",
-    "load_switches",
-    "load_interfaces",
-    "load_ad_users",
-    "load_ad_groups",
-    "load_ad_group_membership",
-    "load_endpoints",
-    "load_ip_assignments",
-    "load_ise_sessions",
-    "load_services",
-    "load_sgts",
-    "load_flows",
-    "load_flow_truth",
+    "DataLoader",
+    "ClarionDataset",
+    "load_dataset",
+    "SketchBuilder",
+    "SketchStore",
+    "build_sketches",
 ]
-
