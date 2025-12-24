@@ -164,20 +164,32 @@ clarion/
 │
 ├── src/clarion/               # Backend library
 │   ├── sketches/              # HyperLogLog, Count-Min Sketch
-│   ├── clustering/            # HDBSCAN, feature extraction
+│   ├── clustering/            # HDBSCAN, feature extraction, SGT mapping
 │   ├── ingest/                # Data loading, sketch building
 │   ├── identity/              # IP → User resolution
-│   ├── policy/                # Matrix, SGACL generation
-│   ├── connectors/            # ISE, AD, CMDB integrations
-│   └── api/                   # FastAPI REST API
+│   ├── policy/                # Matrix, SGACL generation, customization, export
+│   ├── visualization/         # Cluster and policy visualization
+│   ├── api/                   # FastAPI REST API
+│   └── ui/                    # Streamlit UI
 │
 ├── edge/                      # Edge container (Catalyst 9K)
 │   ├── Dockerfile
 │   ├── iox-app.yaml           # IOx descriptor
 │   └── clarion_edge/          # Lightweight Python package
+│       ├── sketch.py          # Edge sketches (pure Python)
+│       ├── agent.py           # Edge agent with clustering
+│       ├── simulator.py      # Flow simulator for testing
+│       └── streaming.py       # Backend sync
 │
 ├── collector/                 # Flow collector (legacy switches)
-├── tests/                     # Test suite
+├── tests/                     # Test suite (137 tests)
+│   ├── unit/                  # Unit tests
+│   └── integration/           # Integration tests
+├── scripts/                   # Utility scripts
+│   ├── run_api.py            # Start API server
+│   ├── run_streamlit.py      # Start Streamlit UI
+│   ├── test_system.py        # Full system test
+│   └── test_api.py           # API endpoint tests
 ├── notebooks/                 # Jupyter exploration
 └── deploy/                    # K8s, Ansible artifacts
 ```
@@ -186,32 +198,41 @@ clarion/
 
 ## 🗺️ Roadmap
 
-### Phase 1: Core Data Structures 🟡 Current
-- [ ] EndpointSketch with HyperLogLog, Count-Min Sketch
-- [ ] Load synthetic data into sketches
-- [ ] Identity resolution (flow → user/device)
+### Phase 1: Core Data Structures ✅ Complete
+- [x] EndpointSketch with HyperLogLog, Count-Min Sketch
+- [x] Load synthetic data into sketches
+- [x] Identity resolution (flow → user/device)
 
-### Phase 2: Clustering Pipeline ⬜ Pending
-- [ ] Feature extraction from sketches
-- [ ] HDBSCAN clustering
-- [ ] Semantic labeling (AD groups, ISE profiles)
-- [ ] SGT recommendations
+### Phase 2: Clustering Pipeline ✅ Complete
+- [x] Feature extraction from sketches
+- [x] HDBSCAN clustering
+- [x] Semantic labeling (AD groups, ISE profiles)
+- [x] SGT recommendations
 
-### Phase 3: Policy Generation ⬜ Pending
-- [ ] SGT → SGT matrix builder
-- [ ] SGACL generator
-- [ ] Impact simulator
+### Phase 3: Policy Generation ✅ Complete
+- [x] SGT → SGT matrix builder
+- [x] SGACL generator
+- [x] Impact analysis
+- [x] Policy customization (human-in-the-loop)
 
-### Phase 4: Edge Container ⬜ Pending
-- [ ] NetFlow/IPFIX receiver
-- [ ] On-switch sketch builder
-- [ ] gRPC sync to backend
-- [ ] IOx packaging
+### Phase 4: Edge Container ✅ Complete
+- [x] Flow simulator (for testing without switch)
+- [x] On-switch sketch builder
+- [x] Lightweight K-means clustering
+- [x] HTTP sync to backend
+- [x] Docker/IOx packaging
 
-### Phase 5: API & UI ⬜ Pending
-- [ ] FastAPI backend
-- [ ] Cluster visualization (UMAP)
-- [ ] Policy matrix heatmap
+### Phase 5: API & Visualization ✅ Complete
+- [x] FastAPI backend with 23 endpoints
+- [x] Cluster visualization (PCA/t-SNE)
+- [x] Policy matrix heatmap
+- [x] Streamlit UI for rapid prototyping
+
+### Phase 6: Production Integration ⬜ Future
+- [ ] NetFlow/IPFIX receiver (real switch integration)
+- [ ] ISE pxGrid connector
+- [ ] AD LDAP connector
+- [ ] Production deployment guides
 
 ---
 
@@ -232,6 +253,32 @@ clarion/
 
 - **[Design Document](docs/DESIGN.md)** — System architecture, data model, algorithms
 - **[Project Plan](docs/PROJECT_PLAN.md)** — Milestones, tasks, progress tracking
+- **[API Documentation](README_API.md)** — FastAPI endpoints and usage
+- **[Test Results](TEST_RESULTS.md)** — System test results and metrics
+
+## 🚀 Quick Start
+
+### Run Full System Test
+```bash
+python scripts/test_system.py
+```
+
+### Start API Server
+```bash
+python scripts/run_api.py --port 8000
+# Visit http://localhost:8000/api/docs
+```
+
+### Start Streamlit UI
+```bash
+python scripts/run_streamlit.py
+# Opens at http://localhost:8501
+```
+
+### Test Edge Simulator
+```bash
+cd edge && PYTHONPATH=. python -m clarion_edge.main --mode simulator --duration 60
+```
 
 ---
 
