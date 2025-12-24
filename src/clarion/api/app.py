@@ -18,6 +18,7 @@ from clarion.api.routes import (
     visualization,
     export,
 )
+from clarion.storage import init_database
 
 logger = logging.getLogger(__name__)
 
@@ -29,6 +30,10 @@ def create_app() -> FastAPI:
     Returns:
         Configured FastAPI app
     """
+    # Initialize database on startup
+    init_database()
+    logger.info("Database initialized")
+    
     app = FastAPI(
         title="Clarion TrustSec Policy Copilot API",
         description="Scale-first network segmentation using edge processing and unsupervised learning",

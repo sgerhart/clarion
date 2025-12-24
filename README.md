@@ -265,35 +265,56 @@ clarion/
 
 ## 🚀 Quick Start
 
-### Run Full System Test
+### Complete System Demo (Recommended)
+
+Run everything together with one command:
+
+```bash
+python scripts/run_complete_system.py --mode demo
+```
+
+This will:
+1. Start the backend API (port 8000)
+2. Load synthetic data into the database
+3. Start the admin console (port 8502)
+4. Open your browser automatically
+
+**See [QUICK_START.md](QUICK_START.md) for detailed instructions.**
+
+### Individual Components
+
+#### Run Full System Test
 ```bash
 python scripts/test_system.py
 ```
 
-### Start API Server
+#### Start API Server
 ```bash
 python scripts/run_api.py --port 8000
 # Visit http://localhost:8000/api/docs
 ```
 
-### Start Streamlit UI (Prototype)
-```bash
-python scripts/run_streamlit.py
-# Opens at http://localhost:8501
-```
-
-### Start Admin Console (Production UI)
+#### Start Admin Console (Production UI)
 ```bash
 python scripts/run_admin_console.py
 # Opens at http://localhost:8502
 ```
 
-### Test Edge Simulator
+#### Start Streamlit UI (Prototype)
+```bash
+python scripts/run_streamlit.py
+# Opens at http://localhost:8501
+```
+
+#### Test Edge Simulator
 ```bash
 cd edge && PYTHONPATH=. python -m clarion_edge.main --mode simulator --duration 60
 ```
 
 ### Lab Environment Setup
+
+For full lab environment with VMs:
+
 ```bash
 # On each VM
 sudo ./lab/setup_vm.sh --traffic imix
@@ -304,6 +325,8 @@ sudo ./lab/vm_netflow_sender.sh --backend-url http://BACKEND_IP:8000
 python3 lab/generate_fake_ise.py -o lab/data/ise_sessions.json
 python3 lab/generate_fake_ad.py -o lab/data/ad_logs.json
 ```
+
+**See [lab/README.md](lab/README.md) for detailed lab setup.**
 
 ---
 
