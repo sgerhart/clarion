@@ -38,8 +38,7 @@ class SketchBatch(BaseModel):
     sketches: List[EdgeSketchData]
 
 
-# In-memory storage (replace with database in production)
-_sketch_storage: Dict[str, List[EdgeSketchData]] = {}
+from clarion.storage import get_database
 
 
 @router.post("/sketches")
@@ -53,24 +52,35 @@ async def receive_sketches(batch: SketchBatch):
         f"Received {batch.sketch_count} sketches from switch {batch.switch_id}"
     )
     
-    # Store sketches (grouped by switch)
-    if batch.switch_id not in _sketch_storage:
-        _sketch_storage[batch.switch_id] = []
+    db = get_database()
+    stored_count = 0
     
-    _sketch_storage[batch.switch_id].extend(batch.sketches)
+    # Store each sketch in database
+    for sketch in batch.sketches:
+        db.store_sketch(
+            endpoint_id=sketch.endpoint_id,
+            switch_id=sketch.switch_id,
+            unique_peers=sketch.unique_peers,
+            unique_ports=sketch.unique_ports,
+            bytes_in=sketch.bytes_in,
+            bytes_out=sketch.bytes_out,
+            flow_count=sketch.flow_count,
+            first_seen=sketch.first_seen,
+            last_seen=sketch.last_seen,
+            active_hours=sketch.active_hours,
+            local_cluster_id=sketch.local_cluster_id,
+        )
+        stored_count += 1
     
-    # Keep only recent sketches (last 24 hours)
-    cutoff_time = batch.timestamp - (24 * 3600)
-    _sketch_storage[batch.switch_id] = [
-        s for s in _sketch_storage[batch.switch_id]
-        if s.last_seen >= cutoff_time
-    ]
+    # Get total sketches for this switch
+    all_sketches = db.list_sketches(switch_id=batch.switch_id)
     
     return {
         "status": "received",
         "switch_id": batch.switch_id,
         "sketches_received": batch.sketch_count,
-        "total_sketches": len(_sketch_storage[batch.switch_id]),
+        "sketches_stored": stored_count,
+        "total_sketches": len(all_sketches),
     }
 
 
@@ -95,27 +105,27 @@ async def receive_sketches_binary(
 
 
 @router.get("/sketches")
-async def list_sketches(switch_id: Optional[str] = None):
+async def list_sketches(switch_id: Optional[str] = None, limit: int = 100):
     """List all stored sketches."""
-    if switch_id:
-        sketches = _sketch_storage.get(switch_id, [])
-    else:
-        # All sketches from all switches
-        sketches = []
-        for switch_sketches in _sketch_storage.values():
-            sketches.extend(switch_sketches)
+    db = get_database()
+    sketches = db.list_sketches(switch_id=switch_id, limit=limit)
+    
+    # Get unique switches
+    all_sketches = db.list_sketches(limit=10000)  # Get enough to find switches
+    switches = list(set(s['switch_id'] for s in all_sketches))
     
     return {
         "count": len(sketches),
-        "switches": list(_sketch_storage.keys()),
+        "switches": switches,
         "sketches": [
             {
-                "endpoint_id": s.endpoint_id,
-                "switch_id": s.switch_id,
-                "flow_count": s.flow_count,
-                "unique_peers": s.unique_peers,
+                "endpoint_id": s['endpoint_id'],
+                "switch_id": s['switch_id'],
+                "flow_count": s['flow_count'],
+                "unique_peers": s['unique_peers'],
+                "last_seen": s['last_seen'],
             }
-            for s in sketches[:100]  # Limit response size
+            for s in sketches
         ],
     }
 
@@ -123,20 +133,21 @@ async def list_sketches(switch_id: Optional[str] = None):
 @router.get("/sketches/stats")
 async def sketch_stats():
     """Get statistics about stored sketches."""
-    total_sketches = sum(len(s) for s in _sketch_storage.values())
-    total_flows = sum(
-        s.flow_count
-        for sketches in _sketch_storage.values()
-        for s in sketches
-    )
+    db = get_database()
+    stats = db.get_sketch_stats()
+    
+    # Get per-switch counts
+    all_sketches = db.list_sketches(limit=100000)
+    switches_detail = {}
+    for s in all_sketches:
+        switch_id = s['switch_id']
+        switches_detail[switch_id] = switches_detail.get(switch_id, 0) + 1
     
     return {
-        "total_sketches": total_sketches,
-        "total_flows": total_flows,
-        "switches": len(_sketch_storage),
-        "switches_detail": {
-            switch_id: len(sketches)
-            for switch_id, sketches in _sketch_storage.items()
-        },
+        "total_sketches": stats.get('total_sketches', 0),
+        "total_flows": stats.get('total_flows', 0),
+        "switches": stats.get('total_switches', 0),
+        "unique_endpoints": stats.get('unique_endpoints', 0),
+        "switches_detail": switches_detail,
     }
 

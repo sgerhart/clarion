@@ -12,6 +12,7 @@ import logging
 from clarion.api.routes import (
     health,
     sketches,
+    netflow,
     clustering,
     policy,
     visualization,
@@ -48,6 +49,7 @@ def create_app() -> FastAPI:
     # Include routers
     app.include_router(health.router, tags=["Health"])
     app.include_router(sketches.router, prefix="/api/edge", tags=["Edge"])
+    app.include_router(netflow.router, prefix="/api/netflow", tags=["NetFlow"])
     app.include_router(clustering.router, prefix="/api/clustering", tags=["Clustering"])
     app.include_router(policy.router, prefix="/api/policy", tags=["Policy"])
     app.include_router(visualization.router, prefix="/api/viz", tags=["Visualization"])

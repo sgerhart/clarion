@@ -227,6 +227,9 @@ clarion/
 - [x] Cluster visualization (PCA/t-SNE)
 - [x] Policy matrix heatmap
 - [x] Streamlit UI for rapid prototyping
+- [x] **Persistent storage (SQLite database)**
+- [x] **Administrative console (production-ready UI)**
+- [x] **NetFlow ingestion endpoints**
 
 ### Phase 6: Production Integration ⬜ Future
 - [ ] NetFlow/IPFIX receiver (real switch integration)
@@ -244,6 +247,8 @@ clarion/
 | **Sketches** | datasketch (HyperLogLog, CMS) |
 | **Clustering** | scikit-learn, hdbscan |
 | **API** | FastAPI |
+| **Database** | SQLite (production: PostgreSQL) |
+| **Admin UI** | Streamlit |
 | **Edge Container** | Alpine Linux + Python |
 | **Serialization** | Protocol Buffers |
 
@@ -255,6 +260,8 @@ clarion/
 - **[Project Plan](docs/PROJECT_PLAN.md)** — Milestones, tasks, progress tracking
 - **[API Documentation](README_API.md)** — FastAPI endpoints and usage
 - **[Test Results](TEST_RESULTS.md)** — System test results and metrics
+- **[Storage & Lab Environment](STORAGE_AND_LAB.md)** — Database, admin console, lab setup
+- **[Lab README](lab/README.md)** — VM setup, edge agents, fake logs
 
 ## 🚀 Quick Start
 
@@ -269,15 +276,33 @@ python scripts/run_api.py --port 8000
 # Visit http://localhost:8000/api/docs
 ```
 
-### Start Streamlit UI
+### Start Streamlit UI (Prototype)
 ```bash
 python scripts/run_streamlit.py
 # Opens at http://localhost:8501
 ```
 
+### Start Admin Console (Production UI)
+```bash
+python scripts/run_admin_console.py
+# Opens at http://localhost:8502
+```
+
 ### Test Edge Simulator
 ```bash
 cd edge && PYTHONPATH=. python -m clarion_edge.main --mode simulator --duration 60
+```
+
+### Lab Environment Setup
+```bash
+# On each VM
+sudo ./lab/setup_vm.sh --traffic imix
+sudo ./lab/vm_agent_setup.sh --backend-url http://BACKEND_IP:8000
+sudo ./lab/vm_netflow_sender.sh --backend-url http://BACKEND_IP:8000
+
+# Generate fake logs
+python3 lab/generate_fake_ise.py -o lab/data/ise_sessions.json
+python3 lab/generate_fake_ad.py -o lab/data/ad_logs.json
 ```
 
 ---
