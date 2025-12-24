@@ -68,6 +68,9 @@ class ClarionDatabase:
         """Initialize database schema."""
         conn = self._get_connection()
         
+        # Topology tables (locations, address spaces, subnets, switches)
+        self._init_topology_schema(conn)
+        
         # Sketches table (from edge devices)
         conn.execute("""
             CREATE TABLE IF NOT EXISTS sketches (
@@ -183,6 +186,11 @@ class ClarionDatabase:
                 flow_start INTEGER,
                 flow_end INTEGER,
                 switch_id TEXT,
+                src_sgt INTEGER,  -- Source Security Group Tag (from NetFlow v9/IPFIX)
+                dst_sgt INTEGER,  -- Destination Security Group Tag (from NetFlow v9/IPFIX)
+                src_mac TEXT,     -- Source MAC address (from NetFlow v9/IPFIX)
+                dst_mac TEXT,     -- Destination MAC address (from NetFlow v9/IPFIX)
+                vlan_id INTEGER,  -- VLAN ID (from NetFlow v9/IPFIX)
                 received_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         """)
@@ -196,9 +204,128 @@ class ClarionDatabase:
             CREATE INDEX IF NOT EXISTS idx_netflow_dst 
             ON netflow(dst_ip, flow_start)
         """)
+        conn.execute("""
+            CREATE INDEX IF NOT EXISTS idx_netflow_sgt 
+            ON netflow(src_sgt, dst_sgt, flow_start)
+        """)
+        conn.execute("""
+            CREATE INDEX IF NOT EXISTS idx_netflow_mac 
+            ON netflow(src_mac, dst_mac)
+        """)
         
         conn.commit()
         logger.info(f"Database schema initialized: {self.db_path}")
+    
+    def _init_topology_schema(self, conn: sqlite3.Connection):
+        """Initialize topology-related tables."""
+        # Locations table (hierarchy: campus/branch/remote -> building -> IDF)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS locations (
+                location_id TEXT PRIMARY KEY,
+                name TEXT NOT NULL,
+                type TEXT NOT NULL,  -- CAMPUS, BRANCH, REMOTE_SITE, BUILDING, IDF, ROOM
+                parent_id TEXT,
+                address TEXT,
+                latitude REAL,
+                longitude REAL,
+                site_type TEXT,  -- Additional classification (e.g., "BRANCH_OFFICE", "WAREHOUSE")
+                contact_name TEXT,
+                contact_phone TEXT,
+                contact_email TEXT,
+                timezone TEXT,  -- e.g., "America/Chicago"
+                metadata TEXT,  -- JSON for custom fields
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (parent_id) REFERENCES locations(location_id)
+            )
+        """)
+        
+        # Address spaces (customer-defined IP ranges)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS address_spaces (
+                space_id TEXT PRIMARY KEY,
+                name TEXT NOT NULL,
+                cidr TEXT NOT NULL,  -- e.g., "10.0.0.0/8"
+                type TEXT NOT NULL,  -- GLOBAL, REGIONAL, LOCATION, VLAN
+                location_id TEXT,
+                description TEXT,
+                is_internal BOOLEAN DEFAULT 1,
+                metadata TEXT,  -- JSON
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (location_id) REFERENCES locations(location_id)
+            )
+        """)
+        
+        # Subnets (with location mapping)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS subnets (
+                subnet_id TEXT PRIMARY KEY,
+                cidr TEXT NOT NULL UNIQUE,  -- e.g., "10.1.2.0/24"
+                name TEXT NOT NULL,
+                location_id TEXT NOT NULL,
+                vlan_id INTEGER,
+                switch_id TEXT,  -- Primary switch
+                gateway_ip TEXT,
+                dhcp_start TEXT,
+                dhcp_end TEXT,
+                purpose TEXT NOT NULL,  -- USER, SERVER, IOT, GUEST, etc.
+                metadata TEXT,  -- JSON
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (location_id) REFERENCES locations(location_id)
+            )
+        """)
+        
+        # Switches (with location)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS switches (
+                switch_id TEXT PRIMARY KEY,
+                hostname TEXT NOT NULL UNIQUE,
+                model TEXT,
+                location_id TEXT NOT NULL,
+                management_ip TEXT NOT NULL,
+                serial_number TEXT,
+                software_version TEXT,
+                capabilities TEXT,  -- JSON array
+                edge_agent_enabled BOOLEAN DEFAULT 0,
+                metadata TEXT,  -- JSON
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (location_id) REFERENCES locations(location_id)
+            )
+        """)
+        
+        # Create indexes
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_locations_parent ON locations(parent_id)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_locations_type ON locations(type)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_address_spaces_cidr ON address_spaces(cidr)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_address_spaces_location ON address_spaces(location_id)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_subnets_location ON subnets(location_id)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_subnets_vlan ON subnets(vlan_id)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_subnets_switch ON subnets(switch_id)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_switches_location ON switches(location_id)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_switches_hostname ON switches(hostname)")
+        
+        # Add new columns to existing locations table if they don't exist (migration)
+        for column in ['site_type', 'contact_name', 'contact_phone', 'contact_email', 'timezone']:
+            try:
+                conn.execute(f"ALTER TABLE locations ADD COLUMN {column} TEXT")
+            except sqlite3.OperationalError:
+                # Column may already exist
+                pass
+        
+        # Add location fields to existing netflow table (if not exists)
+        try:
+            conn.execute("ALTER TABLE netflow ADD COLUMN src_location_id TEXT")
+            conn.execute("ALTER TABLE netflow ADD COLUMN dst_location_id TEXT")
+            conn.execute("ALTER TABLE netflow ADD COLUMN src_subnet_id TEXT")
+            conn.execute("ALTER TABLE netflow ADD COLUMN dst_subnet_id TEXT")
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_netflow_src_location ON netflow(src_location_id, flow_start)")
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_netflow_dst_location ON netflow(dst_location_id, flow_start)")
+        except sqlite3.OperationalError:
+            # Columns may already exist
+            pass
     
     # ========== Sketch Operations ==========
     
@@ -309,17 +436,24 @@ class ClarionDatabase:
         flow_start: int,
         flow_end: int,
         switch_id: Optional[str] = None,
+        src_sgt: Optional[int] = None,
+        dst_sgt: Optional[int] = None,
+        src_mac: Optional[str] = None,
+        dst_mac: Optional[str] = None,
+        vlan_id: Optional[int] = None,
     ) -> int:
         """Store a NetFlow record."""
         with self.transaction() as conn:
             cursor = conn.execute("""
                 INSERT INTO netflow (
                     src_ip, dst_ip, src_port, dst_port, protocol,
-                    bytes, packets, flow_start, flow_end, switch_id
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    bytes, packets, flow_start, flow_end, switch_id,
+                    src_sgt, dst_sgt, src_mac, dst_mac, vlan_id
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, (
                 src_ip, dst_ip, src_port, dst_port, protocol,
-                bytes, packets, flow_start, flow_end, switch_id
+                bytes, packets, flow_start, flow_end, switch_id,
+                src_sgt, dst_sgt, src_mac, dst_mac, vlan_id
             ))
             return cursor.lastrowid
     

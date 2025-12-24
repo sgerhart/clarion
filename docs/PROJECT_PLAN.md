@@ -229,30 +229,181 @@
 | Policy generation | ✅ Done | Generate and review policies |
 | Export functionality | ✅ Done | Download configs |
 
+#### 5.4 Clustering Explainability & Admin Controls
+| Task | Status | Notes |
+|------|--------|-------|
+| Cluster explanation system | ✅ Done | Primary reason, confidence, statistics |
+| Device-agnostic clustering | ✅ Done | Works without AD, supports all device types |
+| Admin override capabilities | ✅ Done | Full customization system |
+| Documentation | ✅ Done | CLUSTERING_AND_GROUPING.md, ADMIN_CONTROL_AND_HIERARCHY.md |
+
 **Deliverables:** ✅ Complete
 - FastAPI backend with 23 endpoints
 - React frontend (production UI with TypeScript, Tailwind CSS)
 - D3.js network visualizations, Plotly.js heatmaps
 - Complete API documentation
+- Clustering explainability and admin control documentation
 
 ---
 
-### Phase 6: Integrations ⬜ Future
+### Phase 6: Data Layer & Scalability ⬜ In Progress
 
-**Goal:** Connect to production identity sources
+**Goal:** Migrate to production-grade data architecture
 
-#### 6.1 Identity Connectors
+#### 6.1 Database Migration
 | Task | Status | Notes |
 |------|--------|-------|
-| ISE pxGrid connector | ⬜ Todo | Real-time sessions |
-| AD LDAP connector | ⬜ Todo | Users, groups |
-| CMDB connector | ⬜ Todo | ServiceNow REST |
+| PostgreSQL + TimescaleDB setup | ⬜ Todo | Time-series optimization |
+| SQLite → PostgreSQL migration | ⬜ Todo | Data migration scripts |
+| TimescaleDB hypertables | ⬜ Todo | Flow data partitioning |
+| Data retention policies | ⬜ Todo | 90 days raw, 1 year aggregated |
 
-#### 6.2 Policy Export
+#### 6.2 Graph Database Integration
 | Task | Status | Notes |
 |------|--------|-------|
-| ISE ERS API push | ⬜ Todo | Direct policy update |
-| DNA Center integration | ⬜ Todo | Fabric deployment |
+| Neo4j deployment | ⬜ Todo | Graph database cluster |
+| Graph schema design | ⬜ Todo | Nodes, edges, properties |
+| Edge graph merging | ⬜ Todo | Merge agent graphs to global |
+| Graph queries | ⬜ Todo | Relationship traversal |
+
+**Deliverables:** ⬜ In Progress
+- PostgreSQL + TimescaleDB for time-series
+- Neo4j for graph relationships
+- Migration scripts and documentation
+
+---
+
+### Phase 7: Network Topology ⬜ In Progress
+
+**Goal:** Location-aware network topology management
+
+#### 7.1 Location Hierarchy
+| Task | Status | Notes |
+|------|--------|-------|
+| Location types (Campus, Branch, Remote) | ✅ Schema Done | Database schema complete |
+| Location hierarchy API | ⬜ Todo | CRUD endpoints |
+| Location attributes | ✅ Schema Done | Contact, timezone, coordinates |
+| Topology builder UI | ⬜ Todo | Visual hierarchy editor |
+
+#### 7.2 Address Space Management
+| Task | Status | Notes |
+|------|--------|-------|
+| Address space definition | ✅ Schema Done | Customer IP ranges |
+| RFC 1918 detection | ⬜ Todo | Auto-detect internal ranges |
+| Address space API | ⬜ Todo | CRUD endpoints |
+
+#### 7.3 Subnet & Switch Mapping
+| Task | Status | Notes |
+|------|--------|-------|
+| Subnet-to-location mapping | ✅ Schema Done | Database schema complete |
+| Switch-to-location mapping | ✅ Schema Done | Database schema complete |
+| IP-to-subnet resolution | ⬜ Todo | CIDR matching |
+| Flow location correlation | ⬜ Todo | Enrich flows with location |
+
+**Deliverables:** ⬜ In Progress
+- Topology database schema ✅
+- Location management API ⬜
+- Topology builder UI ⬜
+- Flow location correlation ⬜
+
+---
+
+### Phase 8: Multi-Source Ingestion ⬜ Planned
+
+**Goal:** Ingest data from multiple sources
+
+#### 8.1 NetFlow Collector
+| Task | Status | Notes |
+|------|--------|-------|
+| NetFlow v5 parser | ⬜ Todo | Fixed format |
+| NetFlow v9 parser | ⬜ Todo | Template-based |
+| IPFIX parser | ⬜ Todo | IETF standard |
+| SGT field extraction | ⬜ Todo | IPFIX IE 411/412 |
+| Field mapping | ⬜ Todo | Unified schema |
+
+#### 8.2 ISE pxGrid Integration
+| Task | Status | Notes |
+|------|--------|-------|
+| pxGrid client setup | ⬜ Todo | Authentication, certificates |
+| Session topic subscriber | ⬜ Todo | Real-time sessions |
+| Endpoint topic subscriber | ⬜ Todo | Endpoint info |
+| SGT assignment tracking | ⬜ Todo | SGT changes |
+
+#### 8.3 AD Connector
+| Task | Status | Notes |
+|------|--------|-------|
+| LDAP connection | ⬜ Todo | User/group queries |
+| User sync | ⬜ Todo | Periodic sync |
+| Group membership | ⬜ Todo | Nested groups |
+| Device sync | ⬜ Todo | Computer objects |
+
+#### 8.4 IoT Connector Framework
+| Task | Status | Notes |
+|------|--------|-------|
+| Connector interface | ⬜ Todo | Abstract base class |
+| MediGate connector | ⬜ Todo | Medical devices |
+| ClearPass connector | ⬜ Todo | Device profiling |
+| Custom connector support | ⬜ Todo | Vendor-specific |
+
+**Deliverables:** ⬜ Planned
+- NetFlow collector (v5/v9/IPFIX)
+- pxGrid subscriber
+- AD connector
+- IoT connector framework
+
+---
+
+### Phase 9: Correlation Engine ⬜ Planned
+
+**Goal:** Correlate data across all sources
+
+#### 9.1 Identity Resolution
+| Task | Status | Notes |
+|------|--------|-------|
+| MAC → IP → User resolution | ⬜ Todo | Multi-source correlation |
+| Temporal correlation | ⬜ Todo | Time-windowed joins |
+| Confidence scoring | ⬜ Todo | Correlation quality |
+
+#### 9.2 Graph Merging
+| Task | Status | Notes |
+|------|--------|-------|
+| Edge graph merge logic | ⬜ Todo | Deduplicate, aggregate |
+| Conflict resolution | ⬜ Todo | Handle conflicts |
+| Incremental updates | ⬜ Todo | Real-time merging |
+
+#### 9.3 Policy Correlation
+| Task | Status | Notes |
+|------|--------|-------|
+| Flow-to-identity correlation | ⬜ Todo | Cross-source joins |
+| Location-aware policies | ⬜ Todo | Location-based SGTs |
+| Risk assessment | ⬜ Todo | Multi-source risk scoring |
+
+**Deliverables:** ⬜ Planned
+- Identity resolution service
+- Graph merging service
+- Policy correlation engine
+
+---
+
+### Phase 10: Production Integration ⬜ Future
+
+**Goal:** Production deployment and operations
+
+#### 10.1 Deployment
+| Task | Status | Notes |
+|------|--------|-------|
+| Kubernetes manifests | ⬜ Todo | K8s deployment |
+| Docker Compose | ⬜ Todo | Local/development |
+| Ansible playbooks | ⬜ Todo | Infrastructure as code |
+| CI/CD pipeline | ⬜ Todo | Automated testing/deployment |
+
+#### 10.2 Operations
+| Task | Status | Notes |
+|------|--------|-------|
+| Monitoring | ⬜ Todo | Prometheus, Grafana |
+| Logging | ⬜ Todo | Centralized logging |
+| Alerting | ⬜ Todo | Alert rules |
+| Backup/restore | ⬜ Todo | Data protection |
 
 ---
 
@@ -266,9 +417,18 @@
 | Phase 3: Policy Matrix | ✅ Complete | 100% |
 | Phase 4: Edge Container | ✅ Complete | 100% |
 | Phase 5: API & UI | ✅ Complete | 100% |
-| Phase 6: Integrations | ⬜ Future | 0% |
+| Phase 6: Data Layer | ⬜ In Progress | 10% (Schema design done) |
+| Phase 7: Topology | ⬜ In Progress | 30% (Schema done, API/UI pending) |
+| Phase 8: Multi-Source | ⬜ Planned | 0% |
+| Phase 9: Correlation | ⬜ Planned | 0% |
+| Phase 10: Production | ⬜ Future | 0% |
 
-**MVP Status:** ✅ **All core phases complete and tested**
+**MVP Status:** ✅ **All core phases (1-5) complete and tested**
+
+**Next Priorities:**
+1. Phase 6: PostgreSQL + TimescaleDB migration
+2. Phase 7: Topology management API and UI
+3. Phase 8: NetFlow collector with SGT support
 
 ---
 
@@ -289,10 +449,20 @@
 - API server: 23 routes functional
 
 **Next Steps:**
-- Production integrations (ISE pxGrid, AD LDAP)
-- Real NetFlow/IPFIX receiver (when switch available)
-- Performance optimization
-- Production deployment guides
+- Phase 6: Data Layer migration (PostgreSQL + TimescaleDB, Neo4j)
+- Phase 7: Topology management (API + UI)
+- Phase 8: Multi-source ingestion (NetFlow, pxGrid, AD, IoT)
+- Phase 9: Correlation engine
+- Phase 10: Production deployment
+
+**Recent Enhancements (Completed):**
+- ✅ Clustering explainability (why devices are grouped)
+- ✅ Device-agnostic support (Linux, Mac, IoT, non-AD devices)
+- ✅ Full administrative override capabilities
+- ✅ Simplified UI hierarchy design
+- ✅ Documentation: CLUSTERING_AND_GROUPING.md, ADMIN_CONTROL_AND_HIERARCHY.md
+
+**See [PROJECT_ROADMAP.md](../PROJECT_ROADMAP.md) for detailed roadmap and priorities.**
 
 ---
 

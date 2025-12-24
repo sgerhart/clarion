@@ -28,6 +28,11 @@ class NetFlowRecord(BaseModel):
     flow_start: int  # Unix timestamp
     flow_end: int
     switch_id: Optional[str] = None
+    src_sgt: Optional[int] = Field(None, description="Source Security Group Tag (IPFIX IE 411)")
+    dst_sgt: Optional[int] = Field(None, description="Destination Security Group Tag (IPFIX IE 412)")
+    src_mac: Optional[str] = Field(None, description="Source MAC address")
+    dst_mac: Optional[str] = Field(None, description="Destination MAC address")
+    vlan_id: Optional[int] = Field(None, description="VLAN ID")
 
 
 class NetFlowBatch(BaseModel):
@@ -60,6 +65,11 @@ async def receive_netflow(batch: NetFlowBatch):
             flow_start=record.flow_start,
             flow_end=record.flow_end,
             switch_id=record.switch_id or batch.switch_id,
+            src_sgt=record.src_sgt,
+            dst_sgt=record.dst_sgt,
+            src_mac=record.src_mac,
+            dst_mac=record.dst_mac,
+            vlan_id=record.vlan_id,
         )
         stored_count += 1
     
@@ -90,6 +100,11 @@ async def list_netflow(limit: int = 1000, since: Optional[int] = None):
                 "flow_start": int(r.get('flow_start', 0)) if r.get('flow_start') is not None else 0,
                 "flow_end": int(r.get('flow_end', 0)) if r.get('flow_end') is not None else 0,
                 "switch_id": str(r.get('switch_id', '')) if r.get('switch_id') else None,
+                "src_sgt": int(r.get('src_sgt', 0)) if r.get('src_sgt') is not None else None,
+                "dst_sgt": int(r.get('dst_sgt', 0)) if r.get('dst_sgt') is not None else None,
+                "src_mac": str(r.get('src_mac', '')) if r.get('src_mac') else None,
+                "dst_mac": str(r.get('dst_mac', '')) if r.get('dst_mac') else None,
+                "vlan_id": int(r.get('vlan_id', 0)) if r.get('vlan_id') is not None else None,
             }
             for r in records
         ],

@@ -264,7 +264,7 @@ class SemanticLabeler:
                 ratio,
             )
         
-        # Strategy 3: Check AD groups
+        # Strategy 3: Check AD groups (only if available)
         if ad_groups:
             # Filter out generic groups like "All-Employees"
             specific_groups = [
@@ -280,7 +280,7 @@ class SemanticLabeler:
                     ratio,
                 )
         
-        # Strategy 4: Behavioral pattern
+        # Strategy 4: Behavioral pattern (works for all device types)
         if is_server_cluster:
             return (
                 "Server-Like Endpoints",
@@ -288,10 +288,18 @@ class SemanticLabeler:
                 0.6 if avg_in_out_ratio > 0.7 else 0.5,
             )
         
-        # Fallback: use member count as identifier
+        # Strategy 5: Client behavior pattern (for non-AD devices)
+        if avg_in_out_ratio < 0.3:
+            return (
+                "Client Devices",
+                "Majority have client behavior (send > receive)",
+                0.5,
+            )
+        
+        # Fallback: use member count as identifier (works for any device)
         return (
             f"Endpoint Group {n_members}",
-            "Could not determine dominant characteristic",
+            "Could not determine dominant characteristic (no identity data)",
             0.3,
         )
     
@@ -376,16 +384,41 @@ class SemanticLabeler:
     
     def _device_type_to_name(self, device_type: str) -> str:
         """Convert device type to cluster name."""
+        dtype_lower = device_type.lower()
         mapping = {
+            # Windows devices
             "laptop": "Corporate Laptops",
+            "workstation": "Corporate Workstations",
+            "desktop": "Corporate Desktops",
+            
+            # Linux devices
+            "linux": "Linux Devices",
+            "linux-server": "Linux Servers",
+            "linux-workstation": "Linux Workstations",
+            
+            # Mac devices
+            "mac": "Mac Devices",
+            "macbook": "Mac Users",
+            "imac": "Mac Users",
+            
+            # Servers (any OS)
             "server": "Servers",
-            "printer": "Printers",
+            "windows-server": "Windows Servers",
+            
+            # IoT and embedded
             "iot": "IoT Devices",
-            "phone": "Mobile Devices",
+            "printer": "Printers",
             "camera": "Security Cameras",
             "sensor": "Sensors",
+            "phone": "Mobile Devices",
+            "mobile": "Mobile Devices",
+            
+            # Network devices
+            "switch": "Network Switches",
+            "router": "Network Routers",
+            "firewall": "Network Firewalls",
         }
-        return mapping.get(device_type.lower(), f"{device_type.title()} Devices")
+        return mapping.get(dtype_lower, f"{device_type.title()} Devices")
     
     def _ad_group_to_name(self, group: str) -> str:
         """Convert AD group name to cluster name."""

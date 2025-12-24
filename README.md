@@ -31,6 +31,11 @@ Clarion helps organizations adopt **Cisco TrustSec** by automatically discoverin
 3. **SGT Recommendation** — Auto-generate SGT taxonomy from discovered clusters
 4. **Policy Generation** — Build SGACL rules from observed traffic patterns
 5. **Scale-First** — Handle enterprise-scale traffic without central bottlenecks
+6. **Device-Agnostic** — Works with Windows, Linux, Mac, IoT, and non-AD devices
+7. **Full Admin Control** — Override any AI recommendation (groups, SGTs, policies)
+8. **Network Topology** — Location-aware policy recommendations (Campus, Branch, Remote Sites)
+9. **Multi-Source Correlation** — Integrate NetFlow, ISE pxGrid, AD, and IoT data
+10. **Graph Database** — Merge edge agent graphs for global policy view
 
 ---
 
@@ -234,11 +239,31 @@ clarion/
 - [x] **Persistent storage (SQLite database)**
 - [x] **NetFlow ingestion endpoints**
 
-### Phase 6: Production Integration ⬜ Future
-- [ ] NetFlow/IPFIX receiver (real switch integration)
-- [ ] ISE pxGrid connector
-- [ ] AD LDAP connector
+### Phase 6: Data Layer & Scalability ⬜ In Progress
+- [ ] PostgreSQL + TimescaleDB migration (time-series optimization)
+- [ ] Neo4j graph database integration (edge graph merging)
+- [ ] Multi-source data ingestion architecture
+- [ ] Correlation engine for cross-source data joins
+
+### Phase 7: Network Topology ⬜ In Progress
+- [ ] Location hierarchy (Campus, Branch, Remote Site)
+- [ ] Address space management (customer-defined IP ranges)
+- [ ] Subnet-to-location mapping
+- [ ] Switch-to-location mapping
+- [ ] Flow location correlation
+- [ ] Topology builder UI
+
+### Phase 8: Multi-Source Ingestion ⬜ Planned
+- [ ] NetFlow collector (v5, v9, IPFIX with SGT support)
+- [ ] ISE pxGrid subscriber (identity & SGT data)
+- [ ] AD LDAP connector (users, groups, devices)
+- [ ] IoT connector framework (MediGate, ClearPass, etc.)
+
+### Phase 9: Production Integration ⬜ Future
 - [ ] Production deployment guides
+- [ ] High availability setup
+- [ ] Performance optimization
+- [ ] Monitoring and alerting
 
 ---
 
@@ -250,20 +275,39 @@ clarion/
 | **Sketches** | datasketch (HyperLogLog, CMS) |
 | **Clustering** | scikit-learn, hdbscan |
 | **API** | FastAPI |
-| **Database** | SQLite (production: PostgreSQL) |
+| **Database** | SQLite (dev) → PostgreSQL + TimescaleDB (prod) |
+| **Graph DB** | Neo4j (for relationships & edge graph merging) |
 | **Frontend** | React + TypeScript + Tailwind CSS |
 | **Edge Container** | Alpine Linux + Python |
 | **Serialization** | Protocol Buffers |
+| **NetFlow** | v5, v9, IPFIX (with SGT support) |
+| **Identity** | ISE pxGrid, AD LDAP, IoT connectors |
 
 ---
 
 ## 📖 Documentation
 
+### Core Documentation
 - **[Design Document](docs/DESIGN.md)** — System architecture, data model, algorithms
 - **[Project Plan](docs/PROJECT_PLAN.md)** — Milestones, tasks, progress tracking
+- **[Project Roadmap](PROJECT_ROADMAP.md)** — 6-month roadmap, priorities, task tracking
 - **[API Documentation](README_API.md)** — FastAPI endpoints and usage
+
+### Frontend
 - **[React Frontend Guide](REACT_FRONTEND.md)** — Frontend setup and development
 - **[Frontend Troubleshooting](FRONTEND_TROUBLESHOOTING.md)** — Common issues and solutions
+
+### Data & Topology
+- **[Data Architecture](docs/DATA_ARCHITECTURE.md)** — Data sources, storage, correlation requirements
+- **[Topology Architecture](docs/TOPOLOGY_ARCHITECTURE.md)** — Location hierarchy, address spaces, subnet mapping
+- **[Topology Examples](docs/TOPOLOGY_EXAMPLES.md)** — Real-world topology examples
+- **[Data Layer Implementation](docs/IMPLEMENTATION_PLAN_DATA_LAYER.md)** — Migration plan for scalable data layer
+
+### Clustering & Administration
+- **[Clustering & Grouping](docs/CLUSTERING_AND_GROUPING.md)** — How clusters are created, modified, and explained
+- **[Admin Control & Hierarchy](docs/ADMIN_CONTROL_AND_HIERARCHY.md)** — Full administrative override, device-agnostic support, simplified UI
+
+### Testing & Setup
 - **[Test Results](TEST_RESULTS.md)** — System test results and metrics
 - **[Storage & Lab Environment](STORAGE_AND_LAB.md)** — Database, lab setup
 - **[Lab README](lab/README.md)** — VM setup, edge agents, fake logs
