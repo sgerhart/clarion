@@ -5,7 +5,7 @@ Complete System Orchestrator
 Starts the full Clarion system:
 1. Backend API with database
 2. Loads synthetic data (optional)
-3. Admin console
+3. React frontend
 4. Opens browser
 
 Usage:
@@ -70,7 +70,6 @@ def check_dependencies():
     
     try:
         import fastapi
-        import streamlit
         import pandas
         import plotly
         ok("All dependencies installed")
@@ -126,20 +125,37 @@ def load_synthetic_data():
         warn("Synthetic data loading had issues (may be expected)")
         return False
 
-def start_admin_console(port=8502):
-    """Start the admin console."""
-    log(f"Starting admin console on port {port}...")
+def start_frontend(port=3000):
+    """Start the React frontend."""
+    log(f"Starting React frontend on port {port}...")
     
-    script_path = Path(__file__).parent / "run_admin_console.py"
+    frontend_dir = Path(__file__).parent.parent / "frontend"
+    if not frontend_dir.exists():
+        err("Frontend directory not found. Run: cd frontend && npm install")
+        return False
+    
+    # Check if node_modules exists
+    if not (frontend_dir / "node_modules").exists():
+        warn("Frontend dependencies not installed. Installing...")
+        proc = subprocess.run(
+            ["npm", "install"],
+            cwd=frontend_dir,
+            capture_output=True,
+        )
+        if proc.returncode != 0:
+            err("Failed to install frontend dependencies")
+            return False
+    
     proc = subprocess.Popen(
-        [sys.executable, str(script_path)],
+        ["npm", "run", "dev"],
+        cwd=frontend_dir,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
     )
     processes.append(proc)
     
-    # Wait for Streamlit to start
-    time.sleep(5)
+    # Wait for frontend to start
+    time.sleep(8)
     
     import requests
     max_retries = 30
@@ -147,7 +163,7 @@ def start_admin_console(port=8502):
         try:
             response = requests.get(f"http://localhost:{port}", timeout=1)
             if response.status_code == 200:
-                ok(f"Admin console started on http://localhost:{port}")
+                ok(f"Frontend started on http://localhost:{port}")
                 return True
         except:
             pass
@@ -187,10 +203,10 @@ def main():
         help="API server host (default: 127.0.0.1, use 0.0.0.0 for VMs)",
     )
     parser.add_argument(
-        "--admin-port",
+        "--frontend-port",
         type=int,
-        default=8502,
-        help="Admin console port (default: 8502)",
+        default=3000,
+        help="Frontend port (default: 3000)",
     )
     parser.add_argument(
         "--no-browser",
@@ -222,15 +238,15 @@ def main():
     if args.mode == "demo" and not args.skip_data:
         load_synthetic_data()
     
-    # Start admin console (if not api-only)
+    # Start frontend (if not api-only)
     if args.mode != "api-only":
-        if not start_admin_console(port=args.admin_port):
-            warn("Admin console may not be ready")
+        if not start_frontend(port=args.frontend_port):
+            warn("Frontend may not be ready")
         
         # Open browser
         if not args.no_browser:
             time.sleep(2)
-            open_browser(f"http://localhost:{args.admin_port}")
+            open_browser(f"http://localhost:{args.frontend_port}")
     
     # Summary
     print(f"\n{GREEN}╔═══════════════════════════════════════════════════════════╗{NC}")
@@ -240,7 +256,7 @@ def main():
     print(f"API Server:     http://{args.api_host}:{args.api_port}")
     print(f"API Docs:       http://{args.api_host}:{args.api_port}/api/docs")
     if args.mode != "api-only":
-        print(f"Admin Console:  http://localhost:{args.admin_port}")
+        print(f"Frontend:       http://localhost:{args.frontend_port}")
     print(f"\nDatabase:       clarion.db")
     print(f"\nPress Ctrl+C to stop all services\n")
     

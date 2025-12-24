@@ -10,7 +10,7 @@
 > - Generate SGT taxonomies and SGACL policies
 > - Customize recommendations via human-in-the-loop review
 > - Run edge processing with simulator (no physical switch required)
-> - Visualize clusters and policies via API and Streamlit UI
+> - Visualize clusters and policies via API and React frontend
 > 
 > **Ready for testing and evaluation with synthetic data.**
 
@@ -170,7 +170,7 @@ clarion/
 │   ├── policy/                # Matrix, SGACL generation, customization, export
 │   ├── visualization/         # Cluster and policy visualization
 │   ├── api/                   # FastAPI REST API
-│   └── ui/                    # Streamlit UI
+│   └── ui/                    # Legacy Streamlit UI (deprecated)
 │
 ├── edge/                      # Edge container (Catalyst 9K)
 │   ├── Dockerfile
@@ -185,9 +185,13 @@ clarion/
 ├── tests/                     # Test suite (137 tests)
 │   ├── unit/                  # Unit tests
 │   └── integration/           # Integration tests
+├── frontend/                  # React frontend (production UI)
+│   ├── src/                  # React components and pages
+│   ├── public/               # Static assets
+│   └── package.json          # Frontend dependencies
 ├── scripts/                   # Utility scripts
 │   ├── run_api.py            # Start API server
-│   ├── run_streamlit.py      # Start Streamlit UI
+│   ├── setup_frontend.sh     # Setup React frontend
 │   ├── test_system.py        # Full system test
 │   └── test_api.py           # API endpoint tests
 ├── notebooks/                 # Jupyter exploration
@@ -226,9 +230,8 @@ clarion/
 - [x] FastAPI backend with 23 endpoints
 - [x] Cluster visualization (PCA/t-SNE)
 - [x] Policy matrix heatmap
-- [x] Streamlit UI for rapid prototyping
+- [x] **React frontend (production-ready UI)**
 - [x] **Persistent storage (SQLite database)**
-- [x] **Administrative console (production-ready UI)**
 - [x] **NetFlow ingestion endpoints**
 
 ### Phase 6: Production Integration ⬜ Future
@@ -248,7 +251,7 @@ clarion/
 | **Clustering** | scikit-learn, hdbscan |
 | **API** | FastAPI |
 | **Database** | SQLite (production: PostgreSQL) |
-| **Admin UI** | Streamlit |
+| **Frontend** | React + TypeScript + Tailwind CSS |
 | **Edge Container** | Alpine Linux + Python |
 | **Serialization** | Protocol Buffers |
 
@@ -259,25 +262,29 @@ clarion/
 - **[Design Document](docs/DESIGN.md)** — System architecture, data model, algorithms
 - **[Project Plan](docs/PROJECT_PLAN.md)** — Milestones, tasks, progress tracking
 - **[API Documentation](README_API.md)** — FastAPI endpoints and usage
+- **[React Frontend Guide](REACT_FRONTEND.md)** — Frontend setup and development
+- **[Frontend Troubleshooting](FRONTEND_TROUBLESHOOTING.md)** — Common issues and solutions
 - **[Test Results](TEST_RESULTS.md)** — System test results and metrics
-- **[Storage & Lab Environment](STORAGE_AND_LAB.md)** — Database, admin console, lab setup
+- **[Storage & Lab Environment](STORAGE_AND_LAB.md)** — Database, lab setup
 - **[Lab README](lab/README.md)** — VM setup, edge agents, fake logs
 
 ## 🚀 Quick Start
 
 ### Complete System Demo (Recommended)
 
-Run everything together with one command:
+Start the backend and frontend:
 
 ```bash
-python scripts/run_complete_system.py --mode demo
+# Terminal 1: Start backend API
+python scripts/run_api.py --port 8000
+
+# Terminal 2: Start React frontend
+cd frontend
+npm install  # First time only
+npm run dev
 ```
 
-This will:
-1. Start the backend API (port 8000)
-2. Load synthetic data into the database
-3. Start the admin console (port 8502)
-4. Open your browser automatically
+Then open http://localhost:3000 in your browser.
 
 **See [QUICK_START.md](QUICK_START.md) for detailed instructions.**
 
@@ -294,16 +301,17 @@ python scripts/run_api.py --port 8000
 # Visit http://localhost:8000/api/docs
 ```
 
-#### Start Admin Console (Production UI)
+#### Start React Frontend (Production UI)
 ```bash
-python scripts/run_admin_console.py
-# Opens at http://localhost:8502
+cd frontend
+npm install  # First time only
+npm run dev
+# Opens at http://localhost:3000
 ```
 
-#### Start Streamlit UI (Prototype)
+#### Setup Frontend (First Time)
 ```bash
-python scripts/run_streamlit.py
-# Opens at http://localhost:8501
+./scripts/setup_frontend.sh
 ```
 
 #### Test Edge Simulator

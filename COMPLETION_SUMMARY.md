@@ -108,8 +108,8 @@
 - ✅ Policy generation endpoints
 - ✅ Visualization endpoints
 - ✅ Export endpoints
-- ✅ Streamlit UI (5-tab interface)
-- ✅ Plotly interactive charts
+- ✅ React frontend (production UI with 5 pages)
+- ✅ D3.js network graphs, Plotly.js heatmaps
 - ✅ Cluster visualization (PCA/t-SNE)
 - ✅ Policy matrix heatmaps
 
@@ -149,7 +149,8 @@
 - ✅ `policy/` - Matrix, SGACL, impact, export, customization
 - ✅ `visualization/` - Cluster and policy visualization
 - ✅ `api/` - FastAPI REST API
-- ✅ `ui/` - Streamlit dashboard
+- ✅ `frontend/` - React frontend (production UI)
+- ✅ `ui/` - Legacy Streamlit UI (deprecated)
 
 ### Edge Module (`edge/clarion_edge/`)
 - ✅ `sketch.py` - Edge sketches (pure Python)
@@ -160,7 +161,7 @@
 
 ### Scripts
 - ✅ `run_api.py` - Start API server
-- ✅ `run_streamlit.py` - Start Streamlit UI
+- ✅ `setup_frontend.sh` - Setup React frontend
 - ✅ `test_system.py` - Full system test
 - ✅ `test_api.py` - API endpoint tests
 
@@ -200,7 +201,7 @@
 
 ### API & UI
 - ✅ REST API with 23 endpoints
-- ✅ Interactive Streamlit dashboard
+- ✅ Interactive React frontend with D3.js and Plotly.js
 - ✅ Cluster visualizations
 - ✅ Policy matrix heatmaps
 

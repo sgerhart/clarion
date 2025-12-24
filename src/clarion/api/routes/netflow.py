@@ -80,15 +80,16 @@ async def list_netflow(limit: int = 1000, since: Optional[int] = None):
         "count": len(records),
         "records": [
             {
-                "src_ip": r['src_ip'],
-                "dst_ip": r['dst_ip'],
-                "src_port": r['src_port'],
-                "dst_port": r['dst_port'],
-                "protocol": r['protocol'],
-                "bytes": r['bytes'],
-                "packets": r['packets'],
-                "flow_start": r['flow_start'],
-                "switch_id": r['switch_id'],
+                "src_ip": str(r.get('src_ip', '')),
+                "dst_ip": str(r.get('dst_ip', '')),
+                "src_port": int(r.get('src_port', 0)) if r.get('src_port') is not None else 0,
+                "dst_port": int(r.get('dst_port', 0)) if r.get('dst_port') is not None else 0,
+                "protocol": int(r.get('protocol', 0)) if r.get('protocol') is not None else 0,
+                "bytes": int(r.get('bytes', 0)) if r.get('bytes') is not None else 0,
+                "packets": int(r.get('packets', 0)) if r.get('packets') is not None else 0,
+                "flow_start": int(r.get('flow_start', 0)) if r.get('flow_start') is not None else 0,
+                "flow_end": int(r.get('flow_end', 0)) if r.get('flow_end') is not None else 0,
+                "switch_id": str(r.get('switch_id', '')) if r.get('switch_id') else None,
             }
             for r in records
         ],

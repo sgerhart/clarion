@@ -54,7 +54,7 @@ clean:
 	find . -type f -name "*.pyc" -delete 2>/dev/null || true
 
 api:
-	uvicorn src.clarion.api.main:app --reload --host 0.0.0.0 --port 8000
+	python scripts/run_api.py --port 8000
 
 notebook:
 	jupyter notebook notebooks/

@@ -17,19 +17,19 @@ The API will be available at:
 - **ReDoc**: http://localhost:8000/api/redoc
 - **Health Check**: http://localhost:8000/health
 
-## Running the Streamlit UI
+## Running the React Frontend
 
-Start the interactive UI:
+Start the production React UI:
 
 ```bash
-# Using the script
-python scripts/run_streamlit.py
-
-# Or directly with streamlit
-streamlit run src/clarion/ui/streamlit_app.py
+cd frontend
+npm install  # First time only
+npm run dev
 ```
 
-The UI will open in your browser at http://localhost:8501
+The UI will open in your browser at http://localhost:3000
+
+For setup instructions, see [REACT_FRONTEND.md](REACT_FRONTEND.md).
 
 ## API Endpoints
 

@@ -15,6 +15,8 @@ from clarion.identity import enrich_sketches
 from clarion.clustering.clusterer import EndpointClusterer
 from clarion.clustering.labeling import SemanticLabeler
 from clarion.clustering.sgt_mapper import generate_sgt_taxonomy
+from clarion.storage import get_database
+from clarion.policy.matrix import build_policy_matrix
 
 logger = logging.getLogger(__name__)
 
@@ -108,4 +110,110 @@ async def get_clustering_results():
     return {
         "message": "No clustering results available. Run /api/clustering/run first.",
     }
+
+
+@router.get("/clusters")
+async def get_clusters():
+    """Get all clusters from database."""
+    db = get_database()
+    clusters = db.get_clusters()
+    return clusters
+
+
+@router.get("/clusters/{cluster_id}/members")
+async def get_cluster_members(cluster_id: int):
+    """Get all devices in a cluster."""
+    db = get_database()
+    
+    # Get cluster assignments
+    conn = db._get_connection()
+    assignments = conn.execute("""
+        SELECT ca.endpoint_id, s.switch_id, s.flow_count,
+               i.user_name, i.device_name, i.ad_groups
+        FROM cluster_assignments ca
+        JOIN sketches s ON ca.endpoint_id = s.endpoint_id
+        LEFT JOIN identity i ON s.endpoint_id = i.mac_address
+        WHERE ca.cluster_id = ?
+        ORDER BY s.flow_count DESC
+    """, (cluster_id,)).fetchall()
+    
+    members = [dict(row) for row in assignments]
+    
+    return {
+        "cluster_id": cluster_id,
+        "members": members,
+        "count": len(members),
+    }
+
+
+# Store matrix in session/cache (in production, use Redis or database)
+_matrix_cache: Optional[Dict[str, Any]] = None
+
+
+@router.post("/matrix/build")
+async def build_matrix():
+    """Build SGT matrix from current data."""
+    global _matrix_cache
+    
+    try:
+        # Load data
+        import os
+        default_path = os.path.join(
+            os.path.dirname(__file__),
+            "..", "..", "..", "..", "data", "raw", "trustsec_copilot_synth_campus"
+        )
+        dataset = load_dataset(default_path)
+        
+        # Build sketches
+        store = build_sketches(dataset)
+        enrich_sketches(store, dataset)
+        
+        # Cluster
+        clusterer = EndpointClusterer(min_cluster_size=50, min_samples=10)
+        result = clusterer.cluster(store)
+        
+        # Generate taxonomy
+        taxonomy = generate_sgt_taxonomy(store, result)
+        
+        # Build matrix
+        matrix = build_policy_matrix(dataset, store, result, taxonomy)
+        
+        # Convert to JSON-serializable format
+        cells = []
+        for (src_sgt, dst_sgt), cell in matrix.cells.items():
+            cells.append({
+                "src_sgt": src_sgt,
+                "src_sgt_name": cell.src_sgt_name,
+                "dst_sgt": dst_sgt,
+                "dst_sgt_name": cell.dst_sgt_name,
+                "total_flows": cell.total_flows,
+                "total_bytes": cell.total_bytes,
+                "top_ports": ", ".join([p[0] for p in cell.top_ports(3)]),
+            })
+        
+        _matrix_cache = {
+            "cells": cells,
+            "sgt_values": matrix.sgt_values,
+            "n_cells": matrix.n_cells,
+        }
+        
+        return {
+            "status": "success",
+            "matrix": _matrix_cache,
+        }
+        
+    except Exception as e:
+        logger.error(f"Matrix build failed: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/matrix")
+async def get_matrix():
+    """Get the built SGT matrix."""
+    if _matrix_cache is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Matrix not built. Call POST /api/clustering/matrix/build first."
+        )
+    return _matrix_cache
 

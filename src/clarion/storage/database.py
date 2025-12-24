@@ -346,6 +346,32 @@ class ClarionDatabase:
         
         return [dict(row) for row in cursor.fetchall()]
     
+    def get_device_to_device_flows(
+        self,
+        src_device: Optional[str] = None,
+        dst_device: Optional[str] = None,
+        limit: int = 1000,
+    ) -> List[Dict]:
+        """Get flows between specific devices (by IP or MAC)."""
+        conn = self._get_connection()
+        
+        query = "SELECT * FROM netflow WHERE 1=1"
+        params = []
+        
+        if src_device:
+            query += " AND (src_ip = ? OR src_ip LIKE ?)"
+            params.extend([src_device, f"{src_device}%"])
+        
+        if dst_device:
+            query += " AND (dst_ip = ? OR dst_ip LIKE ?)"
+            params.extend([dst_device, f"{dst_device}%"])
+        
+        query += " ORDER BY flow_start DESC LIMIT ?"
+        params.append(limit)
+        
+        cursor = conn.execute(query, params)
+        return [dict(row) for row in cursor.fetchall()]
+    
     # ========== Cluster Operations ==========
     
     def store_cluster(

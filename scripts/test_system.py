@@ -332,7 +332,7 @@ print("  - API: ✅")
 print()
 print("Next steps:")
 print("  1. Run API server: python scripts/run_api.py")
-print("  2. Run Streamlit UI: python scripts/run_streamlit.py")
+print("  2. Run React Frontend: cd frontend && npm run dev")
 print("  3. Test edge simulator: cd edge && PYTHONPATH=. python -m clarion_edge.main --mode simulator")
 print("=" * 70)
 

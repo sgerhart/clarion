@@ -179,7 +179,8 @@ SQLite is single-writer. If you see lock errors:
 pip list | grep streamlit
 
 # Try running directly
-streamlit run src/clarion/ui/admin_console.py --server.port 8502
+cd frontend && npm run dev
+# Opens at http://localhost:3000
 ```
 
 ---

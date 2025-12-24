@@ -38,16 +38,21 @@ This will:
 - Generate policies
 - Store everything in the database
 
-### Step 3: Start the Admin Console
+### Step 3: Start the React Frontend
 
 ```bash
 # Terminal 3
-python scripts/run_admin_console.py
+cd frontend
+npm install  # First time only
+npm run dev
 ```
 
-Open your browser to `http://localhost:8502` to see:
+Open your browser to `http://localhost:3000` to see:
 - Dashboard with system metrics
-- Sketches from the synthetic data
+- Network flows visualization
+- Clusters and device memberships
+- SGT matrix heatmap
+- Policy builder
 - Clusters and policies
 - Visualizations
 
@@ -121,7 +126,7 @@ python3 lab/generate_fake_ad.py \
 python scripts/run_admin_console.py
 ```
 
-Open `http://localhost:8502` to monitor:
+Open `http://localhost:3000` to monitor:
 - Sketches coming from edge agents
 - NetFlow records
 - Real-time system metrics
@@ -275,17 +280,18 @@ python --version  # Should be 3.11+
 pip list | grep fastapi
 ```
 
-### Admin Console Not Loading
+### Frontend Not Loading
 
 ```bash
 # Check if port is in use
-lsof -i :8502
+lsof -i :3000
 
-# Check Streamlit
-pip list | grep streamlit
+# Check Node.js
+node --version
+npm --version
 
 # Try running directly
-streamlit run src/clarion/ui/admin_console.py --server.port 8502
+cd frontend && npm run dev
 ```
 
 ### No Data in Admin Console
@@ -316,7 +322,7 @@ SQLite is single-writer. If you see lock errors:
 Once everything is running:
 
 1. **Explore the Admin Console** - Navigate through all tabs
-2. **Run Clustering** - Use the API or Streamlit UI to cluster endpoints
+2. **Run Clustering** - Use the API or React frontend to cluster endpoints
 3. **Generate Policies** - Create SGACL policies from clusters
 4. **Customize Policies** - Use the customization workflow
 5. **Export Policies** - Export to Cisco ISE format

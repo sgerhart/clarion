@@ -668,7 +668,7 @@ clarion/
 │   │
 │   └── ui/                     # User interfaces
 │       ├── __init__.py
-│       └── streamlit_app.py   # Streamlit dashboard
+│       └── admin_console.py   # Legacy Streamlit UI (deprecated)
 │
 ├── edge/                      # Edge container
 │   ├── Dockerfile
@@ -692,7 +692,7 @@ clarion/
 │   └── fixtures/
 ├── scripts/                   # Utility scripts
 │   ├── run_api.py            # Start API server
-│   ├── run_streamlit.py      # Start Streamlit UI
+│   ├── setup_frontend.sh     # Setup React frontend
 │   ├── test_system.py        # Full system test
 │   └── test_api.py           # API endpoint tests
 │

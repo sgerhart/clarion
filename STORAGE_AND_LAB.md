@@ -99,7 +99,7 @@ db.cleanup_old_data(days=30)  # Remove data older than 30 days
 
 **Location:** `src/clarion/ui/admin_console.py`
 
-**Technology:** Streamlit (production-ready admin interface)
+**Technology:** React + TypeScript (production-ready frontend)
 
 ### Features
 
@@ -149,7 +149,8 @@ db.cleanup_old_data(days=30)  # Remove data older than 30 days
 python scripts/run_admin_console.py
 
 # Or directly
-streamlit run src/clarion/ui/admin_console.py --server.port 8502
+cd frontend && npm run dev
+# Opens at http://localhost:3000
 ```
 
 Access at: `http://localhost:8502`

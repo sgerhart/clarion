@@ -76,4 +76,9 @@ Thumbs.db
 .env.local
 *.local.py
 
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+
 

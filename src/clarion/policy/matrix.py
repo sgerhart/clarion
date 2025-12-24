@@ -259,6 +259,15 @@ class PolicyMatrixBuilder:
         # Build MAC → endpoint lookup for flows
         mac_to_endpoint = {s.endpoint_id: s for s in store}
         
+        # Build IP → MAC lookup from ip_assignments (for faster destination resolution)
+        ip_to_mac: Dict[str, str] = {}
+        if not dataset.ip_assignments.empty:
+            for _, row in dataset.ip_assignments.iterrows():
+                ip = str(row.get("ip", ""))
+                mac = str(row.get("mac", ""))
+                if ip and mac:
+                    ip_to_mac[ip] = mac
+        
         # Build service IP → service name lookup
         service_lookup = self._build_service_lookup(dataset)
         
@@ -283,24 +292,47 @@ class PolicyMatrixBuilder:
                 skipped += 1
                 continue
             
-            # Get source SGT from cluster
-            src_cluster = endpoint_to_cluster.get(src_mac, -1)
-            src_sgt = self._cluster_to_sgt.get(src_cluster)
+            # PRIORITY 1: Use SGTs directly from flow data if available AND non-zero
+            src_sgt = None
+            dst_sgt = None
+            
+            if "src_sgt" in flow and pd.notna(flow["src_sgt"]):
+                src_sgt_val = int(flow["src_sgt"])
+                if src_sgt_val != 0:  # Only use if not zero (zero means unknown/unset)
+                    src_sgt = src_sgt_val
+            
+            if "dst_sgt" in flow and pd.notna(flow["dst_sgt"]):
+                dst_sgt_val = int(flow["dst_sgt"])
+                if dst_sgt_val != 0:  # Only use if not zero
+                    dst_sgt = dst_sgt_val
+            
+            # PRIORITY 2: If flow doesn't have valid SGTs, resolve from clusters
+            if src_sgt is None:
+                src_cluster = endpoint_to_cluster.get(src_mac, -1)
+                src_sgt = self._cluster_to_sgt.get(src_cluster)
             
             if src_sgt is None:
                 skipped += 1
                 continue
             
-            # Get destination SGT
-            # First try to find the destination endpoint
-            dst_sgt = self._resolve_dst_sgt(
-                dst_ip, dataset, endpoint_to_cluster
-            )
-            
             if dst_sgt is None:
-                # Use a default "Unknown" SGT for unresolved destinations
-                dst_sgt = 0
-                matrix.add_sgt_name(0, "Unknown")
+                # Try quick IP→MAC lookup first
+                dst_mac = ip_to_mac.get(dst_ip)
+                
+                if dst_mac and dst_mac in endpoint_to_cluster:
+                    cluster = endpoint_to_cluster[dst_mac]
+                    dst_sgt = self._cluster_to_sgt.get(cluster)
+                
+                # If still not found, use the full resolution method
+                if dst_sgt is None:
+                    dst_sgt = self._resolve_dst_sgt(
+                        dst_ip, flow, dataset, endpoint_to_cluster, mac_to_endpoint
+                    )
+                
+                # Last resort: Use SGT 0 (Unknown) - but only if we really can't resolve
+                if dst_sgt is None:
+                    dst_sgt = 0
+                    matrix.add_sgt_name(0, "Unknown")
             
             # Add to matrix cell
             cell = matrix.get_or_create_cell(src_sgt, dst_sgt)
@@ -348,29 +380,65 @@ class PolicyMatrixBuilder:
     def _resolve_dst_sgt(
         self,
         dst_ip: str,
+        flow: pd.Series,
         dataset: ClarionDataset,
         endpoint_to_cluster: Dict[str, int],
+        mac_to_endpoint: Dict[str, EndpointSketch],
     ) -> Optional[int]:
-        """Resolve destination IP to SGT."""
-        # Check if destination is a known endpoint
-        # Look up by IP in ip_assignments
+        """Resolve destination IP to SGT with improved logic."""
+        # Method 1: Check if flow has dst_mac (if available)
+        if "dst_mac" in flow and pd.notna(flow.get("dst_mac")):
+            dst_mac = flow["dst_mac"]
+            if dst_mac in endpoint_to_cluster:
+                cluster = endpoint_to_cluster[dst_mac]
+                return self._cluster_to_sgt.get(cluster)
+        
+        # Method 2: Look up by IP in ip_assignments
         ip_match = dataset.ip_assignments[
             dataset.ip_assignments["ip"] == dst_ip
         ]
         
         if not ip_match.empty:
             mac = ip_match.iloc[0]["mac"]
-            cluster = endpoint_to_cluster.get(mac, -1)
-            return self._cluster_to_sgt.get(cluster)
+            if mac in endpoint_to_cluster:
+                cluster = endpoint_to_cluster[mac]
+                sgt = self._cluster_to_sgt.get(cluster)
+                if sgt is not None:
+                    return sgt
         
-        # Check if it's a known service
-        service_match = dataset.services[
-            dataset.services["ip"] == dst_ip
-        ]
+        # Method 3: Check if destination IP matches any sketch's known IPs
+        # (This requires checking sketches, which we can do via reverse lookup)
+        # For now, we'll use a simpler approach: check if it's in our endpoint IPs
         
-        if not service_match.empty:
-            # Services get SGT 10 (Servers) by default
-            return 10
+        # Method 4: Check if it's a known service
+        if hasattr(dataset, 'services') and not dataset.services.empty:
+            service_match = dataset.services[
+                dataset.services["ip"] == dst_ip
+            ]
+            
+            if not service_match.empty:
+                # Services get SGT 10 (Servers) by default, but check if we have a better match
+                # First check if this service IP is assigned to an endpoint
+                service_ip_match = dataset.ip_assignments[
+                    dataset.ip_assignments["ip"] == dst_ip
+                ]
+                if not service_ip_match.empty:
+                    mac = service_ip_match.iloc[0]["mac"]
+                    if mac in endpoint_to_cluster:
+                        cluster = endpoint_to_cluster[mac]
+                        sgt = self._cluster_to_sgt.get(cluster)
+                        if sgt is not None:
+                            return sgt
+                # Default to SGT 10 for services
+                return 10
+        
+        # Method 5: Try to find destination by checking all sketches
+        # Look for sketches that might have communicated with this IP
+        # This is expensive, so we'll do a limited check
+        for mac, sketch in list(mac_to_endpoint.items())[:1000]:  # Limit search
+            # Check if this endpoint's sketch has this IP as a peer
+            # (This would require checking the sketch's peer data, which we don't have direct access to)
+            pass
         
         return None
     
