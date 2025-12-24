@@ -1,18 +1,20 @@
 # Clarion Edge - Minimal dependencies for App Hosting
 # Keep this list SMALL - every MB counts on switch flash
 
-# Core
-networkx>=3.0,<4.0        # Graph building (pure Python)
+# Core (no heavy dependencies - pure Python sketches)
+# - HyperLogLog, Count-Min Sketch: built-in (clarion_edge.sketch)
+# - Mini-Batch K-Means: built-in (clarion_edge.agent)
 
-# API
+# API (optional - only needed for API mode)
 fastapi>=0.100.0,<1.0     # REST API
-uvicorn[standard]>=0.23.0 # ASGI server
+uvicorn>=0.23.0           # ASGI server
 
-# Sync
-httpx>=0.24.0             # HTTP client for backend sync
-# grpcio>=1.50.0          # Optional: gRPC for high-performance sync
+# HTTP Client (for backend sync)
+httpx>=0.24.0             # Async HTTP client
 
 # Utilities
-pydantic>=2.0,<3.0        # Data validation
-python-dotenv>=1.0.0      # Environment config
+pydantic>=2.0,<3.0        # Data validation (used by FastAPI)
+
+# Optional: gRPC for high-performance streaming
+# grpcio>=1.50.0
 
