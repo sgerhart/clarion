@@ -1,10 +1,11 @@
 import { useState } from 'react'
-import { useQuery, useMutation } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { apiClient } from '../lib/api'
 import { Play, Download } from 'lucide-react'
 
 export default function PolicyBuilder() {
   const [selectedPolicyIdx, setSelectedPolicyIdx] = useState<number>(0)
+  const queryClient = useQueryClient()
 
   const generateMutation = useMutation({
     mutationFn: async () => {
