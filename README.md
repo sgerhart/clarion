@@ -2,6 +2,11 @@
 
 **TrustSec Policy Copilot** — Scale-first network segmentation using edge processing and unsupervised learning.
 
+<div align="center">
+  <img src="frontend/public/clarion.jpg" alt="Clarion Logo" width="400"/>
+  <img src="frontend/public/clarionicon.jpg" alt="Clarion Icon" width="100"/>
+</div>
+
 > [!NOTE]
 > ## ✅ MVP Implementation Complete
 > **All core phases are implemented and functional.** The system can:

@@ -16,6 +16,7 @@ import {
   Server
 } from 'lucide-react'
 import ClarionLogo from '/clarion.jpg'
+import ClarionIcon from '/clarionicon.jpg'
 
 interface LayoutProps {
   children: ReactNode
@@ -130,7 +131,8 @@ export default function Layout({ children }: LayoutProps) {
       <header className="bg-white border-b border-gray-200 shadow-sm">
         <div className="w-full">
           <div className="flex items-center justify-between h-16 px-4">
-            <div className="flex items-center">
+            <div className="flex items-center space-x-3">
+              <img src={ClarionIcon} alt="Clarion Icon" className="h-8 w-8 object-contain" />
               <img src={ClarionLogo} alt="Clarion" className="h-12 w-auto object-contain" />
             </div>
             <div className="flex items-center space-x-4">
