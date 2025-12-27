@@ -14,6 +14,7 @@ from clarion.clustering.features import FeatureExtractor, FeatureVector
 from clarion.clustering.clusterer import EndpointClusterer, ClusterResult
 from clarion.clustering.labeling import SemanticLabeler, ClusterLabel
 from clarion.clustering.sgt_mapper import SGTMapper, SGTRecommendation
+from clarion.clustering.explanation import generate_cluster_explanation
 
 __all__ = [
     "FeatureExtractor",
@@ -24,5 +25,6 @@ __all__ = [
     "ClusterLabel",
     "SGTMapper",
     "SGTRecommendation",
+    "generate_cluster_explanation",
 ]
 

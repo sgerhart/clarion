@@ -9,6 +9,7 @@ export default function NetworkFlows() {
   const [protocolFilter, setProtocolFilter] = useState<string>('All')
   const [srcDevice, setSrcDevice] = useState('')
   const [dstDevice, setDstDevice] = useState('')
+  const [selectedNode, setSelectedNode] = useState<{ ip_address?: string; mac_address?: string } | null>(null)
 
   const { data: flowsData, isLoading } = useQuery({
     queryKey: ['netflow', limit],
@@ -33,6 +34,26 @@ export default function NetworkFlows() {
     }
     if (srcDevice && !flow.src_ip.includes(srcDevice)) return false
     if (dstDevice && !flow.dst_ip.includes(dstDevice)) return false
+    
+    // Filter by selected node (if a node is selected in the graph)
+    if (selectedNode) {
+      let matchesSelectedNode = false
+      
+      // Match by IP address
+      if (selectedNode.ip_address) {
+        matchesSelectedNode = flow.src_ip === selectedNode.ip_address || flow.dst_ip === selectedNode.ip_address
+      }
+      
+      // Match by MAC address if IP didn't match and MAC is available
+      if (!matchesSelectedNode && selectedNode.mac_address) {
+        matchesSelectedNode = 
+          (flow.src_mac && flow.src_mac === selectedNode.mac_address) ||
+          (flow.dst_mac && flow.dst_mac === selectedNode.mac_address)
+      }
+      
+      if (!matchesSelectedNode) return false
+    }
+    
     return true
   })
 
@@ -133,14 +154,37 @@ export default function NetworkFlows() {
       </div>
 
       {/* Flow Graph */}
-      {filteredFlows.length > 0 && (
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">
-            Flow Graph
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-semibold text-gray-900">
+            Flow Graph Visualization
           </h2>
-          <FlowGraph flows={filteredFlows.slice(0, 100)} />
+          {selectedNode && (
+            <div className="text-sm text-blue-600 bg-blue-50 px-3 py-1 rounded-md">
+              Showing flows for: {selectedNode.ip_address || selectedNode.mac_address}
+              <button
+                onClick={() => setSelectedNode(null)}
+                className="ml-2 text-blue-800 hover:text-blue-900"
+              >
+                × Clear filter
+              </button>
+            </div>
+          )}
         </div>
-      )}
+        <FlowGraph 
+          limit={limit} 
+          onNodeClick={(node) => {
+            if (node) {
+              setSelectedNode({
+                ip_address: node.ip_address,
+                mac_address: node.mac_address,
+              })
+            } else {
+              setSelectedNode(null)
+            }
+          }}
+        />
+      </div>
 
       {/* Flow Table */}
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">

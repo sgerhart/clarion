@@ -12,6 +12,8 @@ from clarion.api.routes import (
     policy,
     visualization,
     export,
+    devices,
+    groups,
 )
 
 __all__ = [
@@ -22,5 +24,7 @@ __all__ = [
     "policy",
     "visualization",
     "export",
+    "devices",
+    "groups",
 ]
 

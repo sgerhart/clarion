@@ -170,12 +170,28 @@ class SemanticLabeler:
                 if eid in endpoint_lookup
             ]
             if noise_members:
+                # Calculate behavioral metrics for noise cluster
+                n_noise = len(noise_members)
+                avg_peer_diversity = sum(m.peer_diversity for m in noise_members) / n_noise
+                avg_in_out_ratio = sum(m.in_out_ratio for m in noise_members) / n_noise
+                
+                # Count statistics for noise cluster
+                ad_groups = self._count_ad_groups(noise_members)
+                ise_profiles = self._count_ise_profiles(noise_members)
+                device_types = self._count_device_types(noise_members)
+                
                 labels[-1] = ClusterLabel(
                     cluster_id=-1,
                     name="Unclustered (Noise)",
                     primary_reason="Did not fit any cluster pattern",
                     confidence=0.0,
-                    member_count=len(noise_members),
+                    member_count=n_noise,
+                    top_ad_groups=ad_groups[:5],
+                    top_ise_profiles=ise_profiles[:5],
+                    top_device_types=device_types[:5],
+                    avg_peer_diversity=avg_peer_diversity,
+                    avg_in_out_ratio=avg_in_out_ratio,
+                    is_server_cluster=False,
                 )
         
         logger.info(f"Labeled {len(labels)} clusters")
@@ -254,9 +270,35 @@ class SemanticLabeler:
                 ratio,
             )
         
-        # Strategy 2: Check device type
+        # Strategy 2: Check device type, but use traffic patterns to refine
         if device_types and device_types[0][1] >= self.group_threshold:
             dtype, ratio = device_types[0]
+            
+            # Special handling for phones: distinguish IP phones from mobile phones
+            # This is critical because they have completely different traffic patterns
+            if dtype in ("phone", "mobile"):
+                # Analyze traffic patterns to distinguish
+                # IP phones: low peer diversity, high destination concentration, VoIP ports
+                # Mobile phones: high peer diversity, low destination concentration, many protocols
+                avg_peer_div = sum(m.peer_diversity for m in members) / len(members) if members else 0
+                avg_dest_conc = sum(
+                    (1.0 / (1.0 + math.log1p(m.peer_diversity))) if m.peer_diversity > 0 else 1.0
+                    for m in members
+                ) / len(members) if members else 0
+                
+                # IP phone pattern: low peer diversity (< 10), high concentration (> 0.6)
+                # IP phones talk primarily to call manager (1-3 destinations)
+                # Mobile phones talk to many services (email, web, apps, etc.)
+                if avg_peer_div < 10 and avg_dest_conc > 0.6:
+                    name = "IP Phones"
+                    reason = f"{ratio*100:.0f}% are phones with IP phone traffic pattern (low peer diversity {avg_peer_div:.1f}, VoIP-like)"
+                else:
+                    name = "Mobile Devices"
+                    reason = f"{ratio*100:.0f}% are phones with mobile device traffic pattern (high peer diversity {avg_peer_div:.1f})"
+                
+                return (name, reason, ratio)
+            
+            # For other device types, use standard naming
             name = self._device_type_to_name(dtype)
             return (
                 name,

@@ -118,7 +118,7 @@ def main():
     
     # Label clusters
     print("\n8. Labeling clusters...")
-    labeler = SemanticLabeler(dataset)
+    labeler = SemanticLabeler()
     labels = labeler.label_clusters(store, result)
     
     # Generate SGT taxonomy
@@ -126,15 +126,21 @@ def main():
     taxonomy = generate_sgt_taxonomy(store, result)
     print(f"   ✅ Generated taxonomy with {len(taxonomy.recommendations)} SGTs")
     
-    # Update cluster labels with SGT info
+    # Update cluster labels with SGT info and explanation
+    from clarion.clustering.explanation import generate_cluster_explanation
+    
     sgt_map = {rec.cluster_id: rec for rec in taxonomy.recommendations}
     for cluster_id, label in labels.items():
         sgt_rec = sgt_map.get(cluster_id)
+        explanation = generate_cluster_explanation(label)
         db.store_cluster(
             cluster_id=cluster_id,
             cluster_label=label.name,
             sgt_value=sgt_rec.sgt_value if sgt_rec else None,
             sgt_name=sgt_rec.sgt_name if sgt_rec else None,
+            explanation=explanation,
+            primary_reason=label.primary_reason,
+            confidence=label.confidence,
         )
     print(f"   ✅ Labeled {len(labels)} clusters with SGTs")
     

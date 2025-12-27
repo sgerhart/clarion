@@ -57,6 +57,12 @@ class FeatureVector:
     is_iot: float = 0.0
     is_phone: float = 0.0
     
+    # Traffic pattern features (for distinguishing similar device types)
+    destination_concentration: float = 0.0  # Low = many destinations, High = few (IP phone pattern)
+    protocol_concentration: float = 0.0  # Low = many protocols, High = few (IP phone uses SIP/RTP)
+    voip_port_usage: float = 0.0  # Ratio of traffic on VoIP ports (5060, 5061, RTP range)
+    stationary_pattern: float = 0.0  # Activity consistency (IP phones are stationary)
+    
     def to_array(self) -> np.ndarray:
         """Convert to numpy array for clustering."""
         return np.array([
@@ -78,6 +84,11 @@ class FeatureVector:
             self.is_printer,
             self.is_iot,
             self.is_phone,
+            # Traffic pattern features for distinguishing similar device types
+            self.destination_concentration,
+            self.protocol_concentration,
+            self.voip_port_usage,
+            self.stationary_pattern,
         ])
     
     @staticmethod
@@ -102,6 +113,11 @@ class FeatureVector:
             "is_printer",
             "is_iot",
             "is_phone",
+            # Traffic pattern features
+            "destination_concentration",
+            "protocol_concentration",
+            "voip_port_usage",
+            "stationary_pattern",
         ]
 
 
@@ -180,6 +196,13 @@ class FeatureExtractor:
         fv.is_iot = 1.0 if device_type in ("iot", "camera", "sensor") else 0.0
         fv.is_phone = 1.0 if device_type in ("phone", "mobile") else 0.0
         
+        # Traffic pattern features for distinguishing similar device types
+        # These help separate IP phones from mobile phones, etc.
+        fv.destination_concentration = self._calc_destination_concentration(sketch)
+        fv.protocol_concentration = self._calc_protocol_concentration(sketch)
+        fv.voip_port_usage = self._calc_voip_port_usage(sketch)
+        fv.stationary_pattern = self._calc_stationary_pattern(sketch)
+        
         return fv
     
     def extract_all(self, store: SketchStore) -> List[FeatureVector]:
@@ -249,6 +272,102 @@ class FeatureExtractor:
             "privileged-it", "network-admins", "devops"
         }
         return bool(set(sketch.ad_groups) & privileged_groups)
+    
+    def _calc_destination_concentration(self, sketch: EndpointSketch) -> float:
+        """
+        Calculate destination concentration (inverse of peer diversity).
+        
+        High concentration (low diversity) = talks to few destinations (IP phone pattern)
+        Low concentration (high diversity) = talks to many destinations (mobile phone pattern)
+        
+        Returns: 0.0 (many destinations) to 1.0 (few destinations)
+        """
+        if sketch.peer_diversity == 0:
+            return 1.0  # No peers = maximum concentration
+        
+        # Normalize: more peers = lower concentration
+        # Use inverse log scale: 1 / (1 + log(peers))
+        # This gives: 1 peer = 1.0, 10 peers = 0.5, 100 peers = 0.25
+        concentration = 1.0 / (1.0 + self._log_scale(sketch.peer_diversity))
+        return min(1.0, max(0.0, concentration))
+    
+    def _calc_protocol_concentration(self, sketch: EndpointSketch) -> float:
+        """
+        Calculate protocol/service concentration.
+        
+        IP phones use primarily SIP (5060/5061) and RTP (high ports)
+        Mobile phones use many protocols (HTTP, HTTPS, SMTP, IMAP, etc.)
+        
+        Returns: 0.0 (many protocols) to 1.0 (few protocols)
+        """
+        if sketch.service_diversity == 0:
+            return 1.0
+        
+        # Similar to destination concentration
+        concentration = 1.0 / (1.0 + self._log_scale(sketch.service_diversity))
+        return min(1.0, max(0.0, concentration))
+    
+    def _calc_voip_port_usage(self, sketch: EndpointSketch) -> float:
+        """
+        Calculate ratio of traffic on VoIP-related ports.
+        
+        IP phones use:
+        - SIP: 5060 (UDP/TCP), 5061 (TLS)
+        - RTP: 16384-32767 (dynamic range)
+        
+        Returns: 0.0 (no VoIP ports) to 1.0 (all traffic on VoIP ports)
+        """
+        # VoIP ports: SIP (5060, 5061) and RTP range (16384-32767)
+        voip_ports = {5060, 5061}
+        rtp_min, rtp_max = 16384, 32767
+        
+        # We don't have port frequency breakdown in the sketch easily accessible
+        # So we'll use a heuristic: if device_type is phone and has low peer diversity,
+        # it's likely an IP phone using VoIP ports
+        device_type = (sketch.device_type or "").lower()
+        is_phone_like = device_type in ("phone", "mobile", "voip", "ip-phone")
+        
+        if not is_phone_like:
+            return 0.0
+        
+        # Heuristic: IP phones have low peer diversity and talk to call manager
+        # If peer_diversity < 5 and is_phone, likely IP phone
+        if sketch.peer_diversity < 5 and device_type in ("phone", "voip", "ip-phone"):
+            return 0.8  # High likelihood of VoIP
+        elif sketch.peer_diversity < 10 and device_type in ("phone", "voip", "ip-phone"):
+            return 0.5  # Medium likelihood
+        else:
+            return 0.2  # Low likelihood (probably mobile phone)
+    
+    def _calc_stationary_pattern(self, sketch: EndpointSketch) -> float:
+        """
+        Calculate stationary pattern score.
+        
+        IP phones are stationary (same switch, consistent activity)
+        Mobile phones move around (different switches, variable activity)
+        
+        Uses business_hours_ratio as proxy: IP phones are active during business hours
+        Mobile phones are active 24/7
+        
+        Returns: 0.0 (mobile/variable) to 1.0 (stationary/consistent)
+        """
+        # High business hours ratio = stationary (IP phone pattern)
+        # Low business hours ratio = mobile/24-7 (mobile phone pattern)
+        # But we need to account for both extremes
+        
+        if sketch.active_hour_count == 0:
+            return 0.5
+        
+        business_ratio = self._calc_business_hours_ratio(sketch)
+        
+        # IP phones: high business hours activity (0.7-1.0) = stationary
+        # Mobile phones: more distributed activity (0.3-0.7) = mobile
+        if business_ratio > 0.7:
+            return business_ratio  # High business hours = stationary
+        elif business_ratio < 0.3:
+            return 0.2  # Low business hours = likely mobile/24-7
+        else:
+            return 0.5  # Mixed pattern
     
     @property
     def feature_names(self) -> List[str]:

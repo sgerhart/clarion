@@ -121,6 +121,21 @@ class ClarionDatabase:
             )
         """)
         
+        # Add explanation columns if they don't exist (migration)
+        for col in ["explanation", "primary_reason", "confidence"]:
+            try:
+                if col == "confidence":
+                    conn.execute(f"ALTER TABLE clusters ADD COLUMN {col} REAL")
+                else:
+                    conn.execute(f"ALTER TABLE clusters ADD COLUMN {col} TEXT")
+            except sqlite3.OperationalError:
+                # Column already exists
+                pass
+        
+        # Create indexes for clusters
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_clusters_cluster_id ON clusters(cluster_id)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_clusters_sgt ON clusters(sgt_value)")
+        
         # Cluster assignments (endpoint -> cluster)
         conn.execute("""
             CREATE TABLE IF NOT EXISTS cluster_assignments (
@@ -186,16 +201,22 @@ class ClarionDatabase:
                 flow_start INTEGER,
                 flow_end INTEGER,
                 switch_id TEXT,
-                src_sgt INTEGER,  -- Source Security Group Tag (from NetFlow v9/IPFIX)
-                dst_sgt INTEGER,  -- Destination Security Group Tag (from NetFlow v9/IPFIX)
-                src_mac TEXT,     -- Source MAC address (from NetFlow v9/IPFIX)
-                dst_mac TEXT,     -- Destination MAC address (from NetFlow v9/IPFIX)
-                vlan_id INTEGER,  -- VLAN ID (from NetFlow v9/IPFIX)
                 received_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         """)
         
-        # Create indexes for netflow
+        # Add SGT/MAC columns to netflow if they don't exist (migration for old databases)
+        try:
+            conn.execute("ALTER TABLE netflow ADD COLUMN src_sgt INTEGER")
+            conn.execute("ALTER TABLE netflow ADD COLUMN dst_sgt INTEGER")
+            conn.execute("ALTER TABLE netflow ADD COLUMN src_mac TEXT")
+            conn.execute("ALTER TABLE netflow ADD COLUMN dst_mac TEXT")
+            conn.execute("ALTER TABLE netflow ADD COLUMN vlan_id INTEGER")
+        except sqlite3.OperationalError:
+            # Columns may already exist (if table was created with newer schema)
+            pass
+        
+        # Create indexes for netflow (basic indexes first)
         conn.execute("""
             CREATE INDEX IF NOT EXISTS idx_netflow_src 
             ON netflow(src_ip, flow_start)
@@ -204,14 +225,20 @@ class ClarionDatabase:
             CREATE INDEX IF NOT EXISTS idx_netflow_dst 
             ON netflow(dst_ip, flow_start)
         """)
-        conn.execute("""
-            CREATE INDEX IF NOT EXISTS idx_netflow_sgt 
-            ON netflow(src_sgt, dst_sgt, flow_start)
-        """)
-        conn.execute("""
-            CREATE INDEX IF NOT EXISTS idx_netflow_mac 
-            ON netflow(src_mac, dst_mac)
-        """)
+        
+        # Create indexes for SGT/MAC columns (only if columns exist)
+        try:
+            conn.execute("""
+                CREATE INDEX IF NOT EXISTS idx_netflow_sgt 
+                ON netflow(src_sgt, dst_sgt, flow_start)
+            """)
+            conn.execute("""
+                CREATE INDEX IF NOT EXISTS idx_netflow_mac 
+                ON netflow(src_mac, dst_mac)
+            """)
+        except sqlite3.OperationalError:
+            # Index creation may fail if columns don't exist (very old databases)
+            pass
         
         conn.commit()
         logger.info(f"Database schema initialized: {self.db_path}")
@@ -515,15 +542,20 @@ class ClarionDatabase:
         sgt_value: Optional[int] = None,
         sgt_name: Optional[str] = None,
         endpoint_count: int = 0,
+        explanation: Optional[str] = None,
+        primary_reason: Optional[str] = None,
+        confidence: Optional[float] = None,
     ):
-        """Store cluster metadata."""
+        """Store cluster metadata including explanation."""
         with self.transaction() as conn:
             conn.execute("""
                 INSERT OR REPLACE INTO clusters (
                     cluster_id, cluster_label, sgt_value, sgt_name, endpoint_count,
+                    explanation, primary_reason, confidence,
                     updated_at
-                ) VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
-            """, (cluster_id, cluster_label, sgt_value, sgt_name, endpoint_count))
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+            """, (cluster_id, cluster_label, sgt_value, sgt_name, endpoint_count,
+                  explanation, primary_reason, confidence))
     
     def assign_endpoint_to_cluster(self, endpoint_id: str, cluster_id: int):
         """Assign an endpoint to a cluster."""
