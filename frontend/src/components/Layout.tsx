@@ -16,7 +16,6 @@ import {
   Server
 } from 'lucide-react'
 import ClarionLogo from '/clarion.jpg'
-import ClarionIcon from '/clarionicon.jpg'
 
 interface LayoutProps {
   children: ReactNode
