@@ -341,3 +341,4 @@ def enrich_sketches(store: SketchStore, dataset: ClarionDataset) -> Dict[str, Id
     resolver = IdentityResolver(dataset)
     return resolver.enrich_store(store)
 
+

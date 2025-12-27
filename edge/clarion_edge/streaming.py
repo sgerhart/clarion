@@ -402,3 +402,4 @@ async def test_streaming(backend_url: str, switch_id: str = "test-switch") -> Di
     
     return results
 
+

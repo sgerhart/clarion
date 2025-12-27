@@ -366,3 +366,4 @@ class ImpactAnalyzer:
         else:
             report.low_risk_blocks += 1
 
+

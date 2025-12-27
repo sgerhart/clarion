@@ -192,3 +192,4 @@ class TestEndToEndClustering:
         assigned = sum(1 for s in enriched_store if s.local_cluster_id >= 0)
         assert assigned > len(enriched_store) * 0.5
 
+

@@ -46,3 +46,4 @@ The frontend connects to the FastAPI backend at `http://localhost:8000/api`. All
 
 Place the Clarion logo as `public/clarion-logo.svg` for it to appear in the header.
 
+

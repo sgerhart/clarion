@@ -14,6 +14,7 @@ from clarion.api.routes import (
     export,
     devices,
     groups,
+    topology,
 )
 
 __all__ = [
@@ -26,5 +27,6 @@ __all__ = [
     "export",
     "devices",
     "groups",
+    "topology",
 ]
 

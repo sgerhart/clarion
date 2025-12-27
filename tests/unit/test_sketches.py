@@ -337,3 +337,4 @@ class TestEndpointSketch:
         assert len(d["ad_groups"]) == 2
         assert d["ise_profile"] == "CorporateLaptop"
 
+

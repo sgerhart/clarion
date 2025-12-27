@@ -295,3 +295,4 @@ GROUP BY src_loc.type, dst_loc.type;
    - Filter by type
    - Show connections between locations
 
+

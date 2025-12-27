@@ -190,3 +190,4 @@ python scripts/load_flows_to_db.py
 3. Verify database has data: `sqlite3 clarion.db "SELECT COUNT(*) FROM sketches;"`
 4. Test API directly: `curl http://localhost:8000/api/edge/sketches/stats`
 
+

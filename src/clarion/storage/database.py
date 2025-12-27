@@ -291,28 +291,46 @@ class ClarionDatabase:
                 cidr TEXT NOT NULL UNIQUE,  -- e.g., "10.1.2.0/24"
                 name TEXT NOT NULL,
                 location_id TEXT NOT NULL,
+                address_space_id TEXT,  -- Reference to address space
                 vlan_id INTEGER,
                 switch_id TEXT,  -- Primary switch
                 gateway_ip TEXT,
                 dhcp_start TEXT,
                 dhcp_end TEXT,
                 purpose TEXT NOT NULL,  -- USER, SERVER, IOT, GUEST, etc.
+                description TEXT,
                 metadata TEXT,  -- JSON
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                FOREIGN KEY (location_id) REFERENCES locations(location_id)
+                FOREIGN KEY (location_id) REFERENCES locations(location_id),
+                FOREIGN KEY (address_space_id) REFERENCES address_spaces(space_id)
             )
         """)
         
+        # Migration: Add address_space_id and description columns if they don't exist
+        try:
+            conn.execute("ALTER TABLE subnets ADD COLUMN address_space_id TEXT")
+        except sqlite3.OperationalError:
+            pass  # Column already exists
+        
+        try:
+            conn.execute("ALTER TABLE subnets ADD COLUMN description TEXT")
+        except sqlite3.OperationalError:
+            pass  # Column already exists
+        
         # Switches (with location)
+        # Note: For existing databases, management_ip may still be NOT NULL
+        # The API code handles this by providing a default empty string
         conn.execute("""
             CREATE TABLE IF NOT EXISTS switches (
                 switch_id TEXT PRIMARY KEY,
                 hostname TEXT NOT NULL UNIQUE,
+                name TEXT,  -- Display name (can be same as hostname)
                 model TEXT,
                 location_id TEXT NOT NULL,
-                management_ip TEXT NOT NULL,
+                management_ip TEXT,  -- Nullable for new databases
                 serial_number TEXT,
+                description TEXT,
                 software_version TEXT,
                 capabilities TEXT,  -- JSON array
                 edge_agent_enabled BOOLEAN DEFAULT 0,
@@ -322,6 +340,20 @@ class ClarionDatabase:
                 FOREIGN KEY (location_id) REFERENCES locations(location_id)
             )
         """)
+        
+        # Migration: Add name and description columns if they don't exist
+        try:
+            conn.execute("ALTER TABLE switches ADD COLUMN name TEXT")
+        except sqlite3.OperationalError:
+            pass  # Column already exists
+        
+        try:
+            conn.execute("ALTER TABLE switches ADD COLUMN description TEXT")
+        except sqlite3.OperationalError:
+            pass  # Column already exists
+        
+        # Migration: Make management_ip nullable if it's currently NOT NULL
+        # SQLite doesn't support ALTER COLUMN, so we'll handle this in the API code
         
         # Create indexes
         conn.execute("CREATE INDEX IF NOT EXISTS idx_locations_parent ON locations(parent_id)")

@@ -423,3 +423,4 @@ def generate_sgt_taxonomy(
     mapper = SGTMapper()
     return mapper.generate_taxonomy(store, result, labels)
 
+

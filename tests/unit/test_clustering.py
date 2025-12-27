@@ -306,3 +306,4 @@ class TestSGTMapper:
         # With our test data, should have reasonable coverage
         assert coverage > 0.5
 
+
