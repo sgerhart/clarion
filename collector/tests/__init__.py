@@ -1,0 +1,4 @@
+"""
+Collector test suite.
+"""
+

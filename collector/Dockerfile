@@ -43,7 +43,8 @@ ENV CLARION_COLLECTOR_SFLOW_PORT=6343
 EXPOSE 2055/udp
 EXPOSE 4739/udp
 EXPOSE 6343/udp
-EXPOSE 8080/tcp
+EXPOSE 8080/tcp  # Agent collector HTTP
+EXPOSE 8081/tcp  # Native collector HTTP (health/metrics)
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \

@@ -68,6 +68,9 @@ class ClarionDatabase:
         """Initialize database schema."""
         conn = self._get_connection()
         
+        # Collectors table (collector registry)
+        self._init_collectors_schema(conn)
+        
         # Topology tables (locations, address spaces, subnets, switches)
         self._init_topology_schema(conn)
         

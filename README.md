@@ -191,7 +191,11 @@ clarion/
 │       ├── simulator.py      # Flow simulator for testing
 │       └── streaming.py       # Backend sync
 │
-├── collector/                 # Flow collector (legacy switches)
+├── collector/                 # Flow collector (NetFlow/IPFIX + agent collector)
+│   ├── clarion_collector/     # Collector implementation
+│   ├── Dockerfile             # Container image
+│   ├── docker-compose.yml     # Docker Compose config
+│   └── README.md              # Collector documentation
 ├── tests/                     # Test suite (137 tests)
 │   ├── unit/                  # Unit tests
 │   └── integration/           # Integration tests
@@ -258,8 +262,11 @@ clarion/
 - [ ] Flow location correlation
 - [ ] Topology builder UI
 
-### Phase 8: Multi-Source Ingestion ⬜ Planned
-- [ ] NetFlow collector (v5, v9, IPFIX with SGT support)
+### Phase 8: Multi-Source Ingestion ⬜ In Progress
+- [x] NetFlow collector (v5 ✅, v9 ⚠️ stubbed, IPFIX ⚠️ stubbed)
+- [x] Native NetFlow collector (UDP listener for switches)
+- [x] Agent collector (HTTP endpoint for edge agents)
+- [ ] NetFlow v9/IPFIX template parsing (SGT extraction pending)
 - [ ] ISE pxGrid subscriber (identity & SGT data)
 - [ ] AD LDAP connector (users, groups, devices)
 - [ ] IoT connector framework (MediGate, ClearPass, etc.)
@@ -316,6 +323,9 @@ clarion/
 - **[Test Results](TEST_RESULTS.md)** — System test results and metrics
 - **[Storage & Lab Environment](STORAGE_AND_LAB.md)** — Database, lab setup
 - **[Lab README](lab/README.md)** — VM setup, edge agents, fake logs
+
+### Collectors
+- **[Collector README](collector/README.md)** — NetFlow and agent collector setup and usage
 
 ## 🚀 Quick Start
 

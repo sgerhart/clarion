@@ -51,20 +51,25 @@
 
 ---
 
-### Priority 3: NetFlow Collector (Phase 8.1)
+### Priority 3: NetFlow Collector (Phase 8.1) ✅ In Progress
 **Timeline:** 3-4 weeks
+**Status:** Core implementation complete, v9/IPFIX template parsing pending
 
 **Tasks:**
-- [ ] Implement NetFlow v5 parser
-- [ ] Implement NetFlow v9 template handling
-- [ ] Implement IPFIX parser
-- [ ] Extract SGT fields (IPFIX IE 411/412)
-- [ ] Field mapping to unified schema
-- [ ] Integration with TimescaleDB
+- [x] Implement NetFlow v5 parser ✅
+- [ ] Implement NetFlow v9 template handling (stubbed, needs template parsing)
+- [ ] Implement IPFIX parser (stubbed, needs template parsing)
+- [ ] Extract SGT fields (IPFIX IE 411/412) (pending template parsing)
+- [x] Field mapping to unified schema ✅
+- [x] Native NetFlow collector (UDP listener) ✅
+- [x] Agent collector (HTTP endpoint) ✅
+- [x] Basic integration with backend API ✅
+- [ ] Integration with TimescaleDB (pending Phase 6)
 - [ ] Testing with sample NetFlow data
 
-**Dependencies:** Phase 6 (TimescaleDB)  
+**Dependencies:** Phase 6 (TimescaleDB) for production integration  
 **Blockers:** None
+**Notes:** See `collector/README.md` for usage instructions
 
 ---
 
@@ -153,7 +158,7 @@
 - [ ] PostgreSQL migration script
 - [ ] Neo4j graph schema design
 - [ ] Topology API endpoints
-- [ ] NetFlow v5 parser
+- [ ] NetFlow v9/IPFIX template parsing
 
 ### Blocked Tasks
 - None currently
@@ -163,6 +168,7 @@
 - ✅ SGT fields in NetFlow schema
 - ✅ Data architecture documentation
 - ✅ Topology architecture documentation
+- ✅ NetFlow Collector implementation (v5 parser, native collector, agent collector)
 
 ---
 
