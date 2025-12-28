@@ -9,25 +9,26 @@
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0"
   },
   "dependencies": {
-    "react": "^18.2.0",
-    "react-dom": "^18.2.0",
-    "react-router-dom": "^6.20.0",
     "@tanstack/react-query": "^5.12.0",
     "axios": "^1.6.2",
-    "plotly.js": "^2.27.0",
-    "react-plotly.js": "^2.6.0",
+    "clsx": "^2.0.0",
     "cytoscape": "^3.27.0",
     "cytoscape-react": "^1.0.0",
     "d3": "^7.8.5",
-    "recharts": "^2.10.3",
     "lucide-react": "^0.294.0",
-    "clsx": "^2.0.0"
+    "plotly.js": "^2.27.0",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "react-plotly.js": "^2.6.0",
+    "react-router-dom": "^6.20.0",
+    "recharts": "^2.10.3"
   },
   "devDependencies": {
+    "@types/d3": "^7.4.3",
+    "@types/plotly.js": "^2.12.29",
     "@types/react": "^18.2.43",
     "@types/react-dom": "^18.2.17",
-    "@types/plotly.js": "^2.12.29",
-    "@types/d3": "^7.4.3",
+    "@types/react-plotly.js": "^2.6.4",
     "@typescript-eslint/eslint-plugin": "^6.14.0",
     "@typescript-eslint/parser": "^6.14.0",
     "@vitejs/plugin-react": "^4.2.1",
@@ -41,5 +42,3 @@
     "vite": "^5.0.8"
   }
 }
-
-

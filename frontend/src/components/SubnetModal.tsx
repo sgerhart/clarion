@@ -13,11 +13,6 @@ interface Subnet {
   description?: string
 }
 
-interface Location {
-  location_id: string
-  name: string
-  type: string
-}
 
 interface SubnetModalProps {
   subnetId?: string | null

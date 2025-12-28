@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { apiClient } from '../lib/api'
-import { Search, Filter, Server, User, Building, Tag } from 'lucide-react'
+import { Search, Server, User, Building, Tag } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import DeviceDetailModal from '../components/DeviceDetailModal'
 

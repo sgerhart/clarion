@@ -156,9 +156,9 @@ export default function Topology() {
   const locationMap = new Map<string, Location>()
   locations.forEach(loc => locationMap.set(loc.location_id, loc))
 
-  const rootLocations = locations.filter(loc => !loc.parent_id)
+  const rootLocations = locations.filter((loc: Location) => !loc.parent_id)
   const childMap = new Map<string, Location[]>()
-  locations.forEach(loc => {
+  locations.forEach((loc: Location) => {
     if (loc.parent_id) {
       if (!childMap.has(loc.parent_id)) {
         childMap.set(loc.parent_id, [])

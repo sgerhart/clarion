@@ -1,8 +1,7 @@
 import { useState } from 'react'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useQuery } from '@tanstack/react-query'
 import { apiClient } from '../lib/api'
-import { Search, Tag, Users, Edit2, X } from 'lucide-react'
-import { Link } from 'react-router-dom'
+import { Search, Tag, Users } from 'lucide-react'
 import GroupDetailModal from '../components/GroupDetailModal'
 
 interface Group {
@@ -19,7 +18,6 @@ interface Group {
 }
 
 export default function Groups() {
-  const queryClient = useQueryClient()
   const [search, setSearch] = useState('')
   const [hasSgtFilter, setHasSgtFilter] = useState<string>('')
   const [page, setPage] = useState(0)

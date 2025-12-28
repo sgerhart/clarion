@@ -13,11 +13,6 @@ interface Switch {
   description?: string
 }
 
-interface Location {
-  location_id: string
-  name: string
-  type: string
-}
 
 interface SwitchModalProps {
   switchId?: string | null

@@ -287,7 +287,7 @@ export default function GroupDetailModal({ clusterId, onClose }: GroupDetailModa
                         <Link
                           key={idx}
                           to={`/devices`}
-                          onClick={(e) => {
+                          onClick={() => {
                             // Store device ID in sessionStorage to filter on devices page
                             sessionStorage.setItem('selectedDevice', member.endpoint_id)
                           }}

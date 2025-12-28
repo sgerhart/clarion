@@ -251,7 +251,7 @@ export default function FlowGraph({ limit = 500, onNodeClick }: FlowGraphProps) 
           .style('left', event.pageX + 15 + 'px')
           .style('top', event.pageY - 10 + 'px')
       })
-      .on('mouseout', function (event, d) {
+      .on('mouseout', function (_event, d) {
         // Unfix node position when not hovering
         d.fx = null
         d.fy = null
@@ -325,7 +325,7 @@ export default function FlowGraph({ limit = 500, onNodeClick }: FlowGraphProps) 
               simulationRef.current.alphaTarget(0.3).restart()
             }
           })
-          .on('end', function (event, d) {
+          .on('end', function (event, _d) {
             if (!event.active && simulationRef.current) {
               simulationRef.current.alphaTarget(0)
             }

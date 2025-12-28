@@ -21,7 +21,8 @@ export default function SGTMatrix() {
     },
   })
 
-  const { data: matrixResponse } = useQuery({
+  // Matrix response query (disabled, only used for manual refresh)
+  useQuery({
     queryKey: ['matrix'],
     queryFn: () => apiClient.getMatrix(),
     enabled: false, // Only fetch when explicitly requested

@@ -161,7 +161,7 @@ export default function LocationModal({ locationId, parentId, onClose }: Locatio
   // Extract locations array from response data structure
   const locations = Array.isArray(locationsData?.locations) ? locationsData.locations : []
   
-  const availableParents = locations.filter(loc => 
+  const availableParents = locations.filter((loc: Location) => 
     loc.location_id !== locationId && 
     (formData.type === 'BUILDING' ? loc.type === 'CAMPUS' :
      formData.type === 'IDF' ? loc.type === 'BUILDING' :
