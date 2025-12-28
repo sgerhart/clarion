@@ -44,8 +44,8 @@ jobs:
         pytest tests/integration/ -v
     
     - name: Upload coverage to Codecov
-      if: secrets.CODECOV_TOKEN != ''
       uses: codecov/codecov-action@v4
+      continue-on-error: true
       with:
         file: ./coverage.xml
         flags: unittests
@@ -53,11 +53,6 @@ jobs:
         fail_ci_if_error: false
         token: ${{ secrets.CODECOV_TOKEN }}
         verbose: true
-    
-    - name: Codecov setup reminder
-      if: secrets.CODECOV_TOKEN == ''
-      run: |
-        echo "::notice::Codecov not configured. Set CODECOV_TOKEN secret to enable coverage reporting."
 
   validate-ground-truth:
     name: Validate Ground Truth Datasets
@@ -263,8 +258,9 @@ jobs:
         fi
     
     - name: Send email notification on failure
-      if: steps.check.outputs.status == 'failure' && secrets.EMAIL_USERNAME != ''
+      if: steps.check.outputs.status == 'failure'
       uses: dawidd6/action-send-mail@v3
+      continue-on-error: true
       with:
         server_address: smtp.gmail.com
         server_port: 465
@@ -306,9 +302,4 @@ jobs:
           </ul>
           
           <p><a href="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}">View Details</a></p>
-    
-    - name: Notification setup reminder
-      if: steps.check.outputs.status == 'failure' && secrets.EMAIL_USERNAME == ''
-      run: |
-        echo "::notice::Email notifications not configured. Set EMAIL_USERNAME and EMAIL_PASSWORD secrets to receive failure notifications."
 
