@@ -70,7 +70,7 @@ export default function SubnetModal({ subnetId, onClose }: SubnetModalProps) {
     if (isEdit && subnetId && subnetsData) {
       // Extract subnets array from response data structure
       const subnets = Array.isArray(subnetsData?.subnets) ? subnetsData.subnets : []
-      const subnet = subnets.find(s => s.subnet_id === subnetId)
+      const subnet = subnets.find((s: Subnet) => s.subnet_id === subnetId)
       if (subnet) {
         setFormData({
           subnet_id: subnet.subnet_id,

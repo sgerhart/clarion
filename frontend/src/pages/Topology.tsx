@@ -180,8 +180,8 @@ export default function Topology() {
   const renderLocationTree = (location: Location, level: number = 0) => {
     const children = childMap.get(location.location_id) || []
     const isExpanded = expandedLocations.has(location.location_id)
-    const locationSubnets = subnets.filter(s => s.location_id === location.location_id)
-    const locationSwitches = switches.filter(s => s.location_id === location.location_id)
+    const locationSubnets = subnets.filter((s: Subnet) => s.location_id === location.location_id)
+    const locationSwitches = switches.filter((s: Switch) => s.location_id === location.location_id)
 
     return (
       <div key={location.location_id} className="ml-4">

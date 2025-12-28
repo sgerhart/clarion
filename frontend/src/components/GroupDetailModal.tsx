@@ -92,7 +92,7 @@ export default function GroupDetailModal({ clusterId, onClose }: GroupDetailModa
     const type = deviceType.toLowerCase()
     if (type === 'server') return <Server className="h-4 w-4 text-blue-500" />
     if (type === 'laptop') return <User className="h-4 w-4 text-green-500" />
-    return <Building className="h-4 w-4 text-gray-500" />
+    return <Server className="h-4 w-4 text-gray-500" />
   }
 
   const handleSave = () => {
