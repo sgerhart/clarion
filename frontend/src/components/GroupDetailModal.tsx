@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { apiClient } from '../lib/api'
-import { X, Save, Edit2, Tag, Users, Server, User, Building, Brain, Info } from 'lucide-react'
+import { X, Save, Edit2, Tag, Users, Server, User, Brain, Info } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 

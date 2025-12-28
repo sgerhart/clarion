@@ -61,7 +61,7 @@ export default function SwitchModal({ switchId, onClose }: SwitchModalProps) {
     if (isEdit && switchId && switchesData) {
       // Extract switches array from response data structure
       const switches = Array.isArray(switchesData?.switches) ? switchesData.switches : []
-      const sw = switches.find(s => s.switch_id === switchId)
+      const sw = switches.find((s: Switch) => s.switch_id === switchId)
       if (sw) {
         setFormData({
           switch_id: sw.switch_id,

@@ -19,12 +19,6 @@ interface Location {
   type: string
 }
 
-interface AddressSpace {
-  space_id: string
-  name: string
-  cidr: string
-}
-
 interface SubnetModalProps {
   subnetId?: string | null
   onClose: () => void

@@ -39,7 +39,7 @@ export default function AddressSpaceModal({ spaceId, onClose }: AddressSpaceModa
   useEffect(() => {
     if (isEdit && spaceId && spacesData) {
       const addressSpaces = Array.isArray(spacesData?.address_spaces) ? spacesData.address_spaces : []
-      const space = addressSpaces.find(s => s.space_id === spaceId)
+      const space = addressSpaces.find((s: AddressSpace) => s.space_id === spaceId)
       if (space) {
         setFormData({
           space_id: space.space_id,

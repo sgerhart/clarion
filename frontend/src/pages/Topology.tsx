@@ -33,13 +33,6 @@ interface Location {
   metadata?: Record<string, any>
 }
 
-interface AddressSpace {
-  space_id: string
-  name: string
-  cidr: string
-  description?: string
-}
-
 interface Subnet {
   subnet_id: string
   name: string

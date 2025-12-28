@@ -79,8 +79,8 @@ export default function FlowGraph({ limit = 500, onNodeClick }: FlowGraphProps) 
         // Disable drag-to-pan on background to prevent conflicts with page scrolling
         return false
       })
-      .on('zoom', (event) => {
-        g.attr('transform', event.transform)
+      .on('zoom', (evt) => {
+        g.attr('transform', evt.transform)
       })
 
     svg
@@ -146,14 +146,15 @@ export default function FlowGraph({ limit = 500, onNodeClick }: FlowGraphProps) 
         d3
           .forceLink<FlowGraphNode, FlowGraphLink>(linkData)
           .id((d) => d.id)
-          .distance((d) => {
+          .distance((link) => {
             // Distance based on flow count (more flows = closer)
-            return 80 + (120 / (1 + Math.log(d.flow_count + 1)))
+            const linkFlowCount = (link as FlowGraphLink).flow_count || 0
+            return 80 + (120 / (1 + Math.log(linkFlowCount + 1)))
           })
       )
       .force('charge', d3.forceManyBody().strength(-400))
       .force('center', d3.forceCenter(width / 2, height / 2))
-      .force('collision', d3.forceCollide().radius((d) => Math.sqrt(d.flow_count) * 5 + 25))
+      .force('collision', d3.forceCollide().radius((node) => Math.sqrt((node as FlowGraphNode).flow_count) * 5 + 25))
       .alpha(1)
       .alphaDecay(0.0228) // Faster decay for quicker stabilization
       .alphaMin(0.001) // Lower minimum to stop sooner
