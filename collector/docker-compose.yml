@@ -21,7 +21,6 @@ services:
     
     environment:
       - CLARION_COLLECTOR_BACKEND_URL=${BACKEND_URL:-http://backend:8000}
-      - CLARION_COLLECTOR_KAFKA_BROKERS=${KAFKA_BROKERS:-kafka:9092}
       - CLARION_COLLECTOR_LOG_LEVEL=INFO
     
     volumes:

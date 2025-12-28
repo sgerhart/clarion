@@ -12,6 +12,7 @@ LABEL version="0.1.0"
 # Install system dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libpcap-dev \
+    curl \
     && rm -rf /var/lib/apt/lists/*
 
 # Create app user
@@ -46,9 +47,10 @@ EXPOSE 6343/udp
 EXPOSE 8080/tcp  # Agent collector HTTP
 EXPOSE 8081/tcp  # Native collector HTTP (health/metrics)
 
-# Health check
+# Health check (check native collector on 8081, or agent collector on 8080)
+# Note: When running in "both" mode, both ports are available
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-    CMD curl -f http://localhost:8080/health || exit 1
+    CMD curl -f http://localhost:8081/health || curl -f http://localhost:8080/health || exit 1
 
 # Entrypoint
 ENTRYPOINT ["python", "-m", "clarion_collector.main"]

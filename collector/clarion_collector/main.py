@@ -116,12 +116,6 @@ async def main():
         config.retry_max_attempts = args.retry_attempts
     if args.retry_backoff:
         config.retry_backoff_factor = args.retry_backoff
-    if args.udp_rcvbuf:
-        config.udp_rcvbuf_size = args.udp_rcvbuf
-    if args.retry_attempts:
-        config.retry_max_attempts = args.retry_attempts
-    if args.retry_backoff:
-        config.retry_backoff_factor = args.retry_backoff
     
     logger = logging.getLogger(__name__)
     logger.info("Starting Clarion Collector")
