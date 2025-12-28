@@ -116,6 +116,7 @@ docker run -d \
   -p 2055:2055/udp \
   -p 4739:4739/udp \
   -p 8080:8080/tcp \
+  -p 8081:8081/tcp \
   -e CLARION_COLLECTOR_BACKEND_URL=http://backend:8000 \
   clarion-collector:latest \
   --mode both
@@ -143,21 +144,23 @@ Fields extracted:
 
 ### NetFlow v9
 
-⚠️ Partially supported - Template-based format, requires template parsing
+✅ Fully supported - Template-based format with full template parsing
 
-Currently stubbed out. Full implementation requires:
-- Template record handling
+Features:
+- Template record handling and storage
 - Dynamic field mapping based on templates
-- Support for enterprise-specific fields (e.g., SGT)
+- Support for enterprise-specific fields (e.g., SGT via enterprise field IDs)
+- Data flow set parsing with template-based field extraction
 
 ### IPFIX
 
-⚠️ Partially supported - Template-based format, similar to NetFlow v9
+✅ Fully supported - Template-based format with full IE mapping
 
-Currently stubbed out. Full implementation requires:
-- Information Element (IE) mapping
-- Template record handling
-- Support for enterprise-specific IEs (e.g., SGT - IE 411/412)
+Features:
+- Information Element (IE) mapping (standard IANA IEs)
+- Template record handling and storage
+- Support for enterprise-specific IEs (SGT via IE 411/412)
+- Data set parsing with template-based field extraction
 
 ### sFlow
 
@@ -251,6 +254,8 @@ See [TESTING.md](TESTING.md) for comprehensive testing guide including:
 - Docker testing
 - Performance testing
 
+See [COMPLETENESS_CHECK.md](COMPLETENESS_CHECK.md) for a detailed status report of all components, features, and known limitations.
+
 ### Code Structure
 
 ```
@@ -259,13 +264,21 @@ collector/
 │   ├── __init__.py
 │   ├── main.py              # Entry point
 │   ├── config.py            # Configuration
-│   ├── native_collector.py  # NetFlow collector
+│   ├── native_collector.py  # Native NetFlow/IPFIX collector
 │   ├── agent_collector.py   # Agent collector
-│   └── netflow_parser.py    # NetFlow parsing
+│   ├── netflow_parser.py    # NetFlow v5 parser
+│   ├── netflow_v9.py        # NetFlow v9 parser (templates)
+│   ├── ipfix_parser.py      # IPFIX parser (templates)
+│   └── retry.py             # Retry logic with backoff
+├── tests/                   # Unit tests
 ├── Dockerfile
 ├── docker-compose.yml
 ├── requirements.txt
-└── README.md
+├── README.md
+├── TESTING.md               # Testing guide
+├── SCALABILITY.md           # Scalability guide
+├── MISSING_FEATURES.md      # Feature status
+└── COMPLETENESS_CHECK.md    # Component status report
 ```
 
 ## Scalability
