@@ -390,7 +390,7 @@ export default function Topology() {
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
-                    {subnets.map((subnet) => {
+                    {subnets.map((subnet: Subnet) => {
                       const location = locationMap.get(subnet.location_id || '')
                       return (
                         <tr key={subnet.subnet_id} className="hover:bg-gray-50">
