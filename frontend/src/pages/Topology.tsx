@@ -226,7 +226,7 @@ export default function Topology() {
         
         {isExpanded && children.length > 0 && (
           <div className="ml-4">
-            {children.map(child => renderLocationTree(child, level + 1))}
+            {children.map((child: Location) => renderLocationTree(child, level + 1))}
           </div>
         )}
       </div>
