@@ -10,19 +10,6 @@ export default function NetworkFlows() {
   const [srcDevice, setSrcDevice] = useState('')
   const [dstDevice, setDstDevice] = useState('')
   const [selectedNode, setSelectedNode] = useState<{ ip_address?: string; mac_address?: string } | null>(null)
-  
-  const filteredFlows = flows.filter((flow) => {
-    if (protocolFilter !== 'All' && protocolMap[flow.protocol] !== protocolFilter) {
-      return false
-    }
-    if (srcDevice && flow.src_ip !== srcDevice) {
-      return false
-    }
-    if (dstDevice && flow.dst_ip !== dstDevice) {
-      return false
-    }
-    return true
-  }).slice(0, limit)
 
   const { data: flowsData, isLoading } = useQuery({
     queryKey: ['netflow', limit],
@@ -59,9 +46,10 @@ export default function NetworkFlows() {
       
       // Match by MAC address if IP didn't match and MAC is available
       if (!matchesSelectedNode && selectedNode.mac_address) {
-        matchesSelectedNode = 
+        matchesSelectedNode = Boolean(
           (flow.src_mac && flow.src_mac === selectedNode.mac_address) ||
           (flow.dst_mac && flow.dst_mac === selectedNode.mac_address)
+        )
       }
       
       if (!matchesSelectedNode) return false

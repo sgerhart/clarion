@@ -460,7 +460,7 @@ export default function Topology() {
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
-                    {switches.map((sw) => {
+                    {switches.map((sw: Switch) => {
                       const location = locationMap.get(sw.location_id)
                       return (
                         <tr key={sw.switch_id} className="hover:bg-gray-50">

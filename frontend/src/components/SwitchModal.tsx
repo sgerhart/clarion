@@ -196,7 +196,7 @@ export default function SwitchModal({ switchId, onClose }: SwitchModalProps) {
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               <option value="">Select location</option>
-              {(Array.isArray(locationsData?.locations) ? locationsData.locations : []).map((loc) => (
+              {(Array.isArray(locationsData?.locations) ? locationsData.locations : []).map((loc: { location_id: string; name: string; type: string }) => (
                 <option key={loc.location_id} value={loc.location_id}>
                   {loc.name} ({loc.type})
                 </option>
