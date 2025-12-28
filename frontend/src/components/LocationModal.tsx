@@ -251,7 +251,7 @@ export default function LocationModal({ locationId, parentId, onClose }: Locatio
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
                 <option value="">None (Top Level)</option>
-                {availableParents.map((loc) => (
+                {availableParents.map((loc: Location) => (
                   <option key={loc.location_id} value={loc.location_id}>
                     {loc.name} ({loc.type})
                   </option>

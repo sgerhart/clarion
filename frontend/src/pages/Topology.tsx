@@ -154,7 +154,7 @@ export default function Topology() {
 
   // Build location tree
   const locationMap = new Map<string, Location>()
-  locations.forEach(loc => locationMap.set(loc.location_id, loc))
+  locations.forEach((loc: Location) => locationMap.set(loc.location_id, loc))
 
   const rootLocations = locations.filter((loc: Location) => !loc.parent_id)
   const childMap = new Map<string, Location[]>()
