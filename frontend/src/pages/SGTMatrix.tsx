@@ -147,7 +147,7 @@ export default function SGTMatrix() {
               <tbody className="bg-white divide-y divide-gray-200">
                 {cells
                   .sort((a: SGTMatrixCell, b: SGTMatrixCell) => b.total_flows - a.total_flows)
-                  .map((cell: SGTMatrixCell, _idx: number) => (
+                  .map((cell: SGTMatrixCell) => (
                     <tr key={idx} className="hover:bg-gray-50">
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                         {cell.src_sgt} ({cell.src_sgt_name})

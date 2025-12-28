@@ -10,6 +10,19 @@ export default function NetworkFlows() {
   const [srcDevice, setSrcDevice] = useState('')
   const [dstDevice, setDstDevice] = useState('')
   const [selectedNode, setSelectedNode] = useState<{ ip_address?: string; mac_address?: string } | null>(null)
+  
+  const filteredFlows = flows.filter((flow) => {
+    if (protocolFilter !== 'All' && protocolMap[flow.protocol] !== protocolFilter) {
+      return false
+    }
+    if (srcDevice && flow.src_ip !== srcDevice) {
+      return false
+    }
+    if (dstDevice && flow.dst_ip !== dstDevice) {
+      return false
+    }
+    return true
+  }).slice(0, limit)
 
   const { data: flowsData, isLoading } = useQuery({
     queryKey: ['netflow', limit],

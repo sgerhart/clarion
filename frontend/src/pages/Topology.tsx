@@ -292,7 +292,7 @@ export default function Topology() {
               </div>
             ) : (
               <div className="space-y-1">
-                {rootLocations.map(loc => renderLocationTree(loc))}
+                {rootLocations.map((loc: Location) => renderLocationTree(loc))}
               </div>
             )}
           </div>
@@ -329,7 +329,7 @@ export default function Topology() {
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
-                    {addressSpaces.map((space) => (
+                    {addressSpaces.map((space: { space_id: string; name: string; cidr: string; description?: string }) => (
                       <tr key={space.space_id} className="hover:bg-gray-50">
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">{space.name}</td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-mono">{space.cidr}</td>
