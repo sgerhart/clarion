@@ -168,7 +168,7 @@
 #### 4.1 Core Edge Services
 | Task | Status | Notes |
 |------|--------|-------|
-| NetFlow/IPFIX receiver | ⬜ Future | Real switch integration pending |
+| NetFlow/IPFIX receiver | ✅ Done | Native collector implemented (v5 complete, v9/IPFIX stubbed) |
 | Flow simulator | ✅ Done | Synthetic + CSV replay for testing |
 | Flow aggregator | ✅ Done | Time-bucket flows |
 | Sketch builder | ✅ Done | Build EdgeSketch per MAC (pure Python) |
@@ -329,11 +329,17 @@
 
 **Goal:** Ingest data from multiple sources
 
-#### 8.1 NetFlow Collector
+#### 8.1 NetFlow Collector ✅ In Progress
 | Task | Status | Notes |
 |------|--------|-------|
-| NetFlow v5 parser | ⬜ Todo | Fixed format |
-| NetFlow v9 parser | ⬜ Todo | Template-based |
+| NetFlow v5 parser | ✅ Done | Fixed format, fully implemented |
+| NetFlow v9 parser | ⬜ Stubbed | Template-based parsing needed |
+| IPFIX parser | ⬜ Stubbed | Template-based parsing needed |
+| Native NetFlow collector | ✅ Done | UDP listener (ports 2055, 4739) |
+| Agent collector | ✅ Done | HTTP endpoint (port 8080) |
+| SGT field extraction | ⬜ Pending | Requires template parsing |
+| Backend integration | ✅ Done | Sends to /api/netflow/netflow |
+| Documentation | ✅ Done | See collector/README.md |
 | IPFIX parser | ⬜ Todo | IETF standard |
 | SGT field extraction | ⬜ Todo | IPFIX IE 411/412 |
 | Field mapping | ⬜ Todo | Unified schema |

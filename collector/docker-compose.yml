@@ -16,7 +16,8 @@ services:
       - "2055:2055/udp"   # NetFlow v5/v9
       - "4739:4739/udp"   # IPFIX
       - "6343:6343/udp"   # sFlow
-      - "8080:8080/tcp"   # API
+      - "8080:8080/tcp"   # Agent collector API
+      - "8081:8081/tcp"   # Native collector health/metrics
     
     environment:
       - CLARION_COLLECTOR_BACKEND_URL=${BACKEND_URL:-http://backend:8000}
@@ -30,7 +31,7 @@ services:
       - clarion-net
     
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      test: ["CMD", "curl", "-f", "http://localhost:8081/health"]
       interval: 30s
       timeout: 5s
       retries: 3

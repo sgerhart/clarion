@@ -20,6 +20,7 @@ from clarion.api.routes import (
     devices,
     groups,
     topology,
+    collectors,
 )
 from clarion.storage import init_database
 
@@ -71,6 +72,7 @@ def create_app() -> FastAPI:
     app.include_router(devices.router, prefix="/api", tags=["Devices"])
     app.include_router(groups.router, prefix="/api", tags=["Groups"])
     app.include_router(topology.router, prefix="/api", tags=["Topology"])
+    app.include_router(collectors.router, prefix="/api", tags=["Collectors"])
     
     @app.exception_handler(Exception)
     async def global_exception_handler(request, exc):
