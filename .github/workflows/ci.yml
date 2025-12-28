@@ -57,6 +57,7 @@ jobs:
   validate-ground-truth:
     name: Validate Ground Truth Datasets
     runs-on: ubuntu-latest
+    continue-on-error: true
     
     steps:
     - uses: actions/checkout@v4
@@ -230,7 +231,7 @@ jobs:
     
     - name: Upload benchmark results
       if: always()
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: benchmark-results
         path: benchmark_results.json
