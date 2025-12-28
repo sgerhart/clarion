@@ -1,12 +1,29 @@
 # Quick Start Guide - Complete System
 
-This guide walks you through running the complete Clarion system end-to-end, including the backend, admin console, and lab environment.
+This guide walks you through running the complete Clarion system end-to-end, including the backend, frontend UI, and lab environment.
 
 ## Prerequisites
 
 - Python 3.11+
-- Virtual environment activated
+- Virtual environment activated (recommended: `pyenv`)
 - All dependencies installed (`pip install -r requirements.txt`)
+- Node.js 18+ (for React frontend)
+
+## 🎯 Quickest Start (One Command)
+
+**Run this one command to see everything:**
+
+```bash
+python scripts/run_complete_system.py --mode demo
+```
+
+This will:
+1. ✅ Start the backend API (port 8000)
+2. ✅ Initialize the SQLite database
+3. ✅ Load synthetic data (flows → sketches → clusters → policies)
+4. ✅ Start the React frontend (port 3000)
+
+**Then open:** `http://localhost:3000` to see the UI with all your data!
 
 ## Option 1: Quick Demo (Synthetic Data)
 
@@ -67,6 +84,166 @@ curl http://localhost:8000/api/edge/sketches/stats
 
 # Check database
 ls -lh clarion.db
+
+# Verify data loaded
+sqlite3 clarion.db "SELECT COUNT(*) FROM sketches;"
+```
+
+---
+
+## Troubleshooting
+
+### Frontend Issues
+
+#### No Data Showing in React Frontend
+
+**Quick Checks:**
+1. **Is the backend API running?**
+   ```bash
+   curl http://localhost:8000/health
+   ```
+   Should return: `{"status":"healthy",...}`
+
+2. **Is data in the database?**
+   ```bash
+   sqlite3 clarion.db "SELECT COUNT(*) FROM sketches;"
+   ```
+   Should show: `13300` (or similar)
+
+3. **Check browser console**
+   - Open DevTools (F12)
+   - Check Console tab for errors
+   - Check Network tab for failed API calls
+
+#### Issue 1: API Not Running
+
+**Symptoms:**
+- Frontend shows "Loading..." forever
+- Browser console shows network errors
+- API calls return 404 or connection refused
+
+**Solution:**
+```bash
+# Start the backend API
+python scripts/run_api.py --port 8000
+```
+
+#### Issue 2: CORS Errors
+
+**Symptoms:**
+- Browser console shows CORS errors
+- Network tab shows preflight failures
+
+**Solution:**
+- CORS is already configured in `src/clarion/api/app.py`
+- Make sure backend is running on port 8000
+- Frontend should be on port 3000
+
+#### Issue 3: No Data in Database
+
+**Symptoms:**
+- API returns empty arrays
+- Dashboard shows zeros
+
+**Solution:**
+```bash
+# Load data into database
+python scripts/load_data_to_db.py
+python scripts/load_flows_to_db.py
+```
+
+#### Issue 4: API Returns Data But Frontend Doesn't Show It
+
+**Symptoms:**
+- API calls succeed (check Network tab)
+- But UI shows empty/loading
+
+**Solution:**
+- Check browser console for JavaScript errors
+- Verify data structure matches what frontend expects
+- Hard refresh: Cmd+Shift+R (Mac) or Ctrl+Shift+R (Windows)
+
+### Common Issues
+
+#### "Port already in use"
+
+```bash
+# Find what's using the port
+lsof -i :8000
+lsof -i :3000
+
+# Kill the process or use different ports
+python scripts/run_api.py --port 8001
+# Update frontend/.env to point to port 8001
+```
+
+#### "Database locked"
+
+SQLite is single-writer. If you see lock errors:
+- Close any other database connections
+- Restart the API
+- Ensure only one process is writing
+
+#### "Admin console not loading" / Frontend Issues
+
+```bash
+# Check if Node.js is installed
+node --version
+
+# Reinstall dependencies
+cd frontend
+rm -rf node_modules package-lock.json
+npm install
+
+# Try running directly
+npm run dev
+# Opens at http://localhost:3000
+```
+
+### Testing API Endpoints Manually
+
+```bash
+# Health check
+curl http://localhost:8000/health
+
+# Sketch stats
+curl http://localhost:8000/api/edge/sketches/stats
+
+# Clusters
+curl http://localhost:8000/api/clustering/clusters
+
+# NetFlow (first 5 records)
+curl 'http://localhost:8000/api/netflow/netflow?limit=5'
+
+# Cluster members (cluster 0)
+curl http://localhost:8000/api/clustering/clusters/0/members
+```
+
+### Quick Fixes
+
+**Restart Everything:**
+```bash
+# Stop all processes
+pkill -f "run_api"
+pkill -f "vite"
+
+# Start backend
+python scripts/run_api.py --port 8000 &
+
+# Start frontend (in another terminal)
+cd frontend
+npm run dev
+```
+
+**Clear Browser Cache:**
+- Hard refresh: Cmd+Shift+R (Mac) or Ctrl+Shift+R (Windows)
+- Or open in incognito/private window
+
+**Reload Data:**
+```bash
+# Reload all data
+python scripts/load_data_to_db.py
+python scripts/load_flows_to_db.py
 ```
 
 ---
@@ -328,7 +505,7 @@ Once everything is running:
 5. **Export Policies** - Export to Cisco ISE format
 
 For more details, see:
-- [Storage & Lab Environment](STORAGE_AND_LAB.md)
-- [Lab README](lab/README.md)
-- [API Documentation](README_API.md)
+- [Lab README](lab/README.md) - Complete lab setup guide
+- [VM Architecture](lab/VM_ARCHITECTURE.md) - VM specifications
+- [API Documentation](http://localhost:8000/api/docs) - Interactive API docs (when API is running)
 

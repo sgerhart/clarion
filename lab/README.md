@@ -1,15 +1,17 @@
 # Clarion Lab Environment
 
-This directory contains scripts and tools for setting up a lab environment to test Clarion with VMs, edge agents, NetFlow collectors, and fake ISE/AD logs.
+This directory contains scripts and tools for setting up a lab environment to test Clarion with VMs, edge agents, NetFlow collectors, Active Directory, and Cisco ISE.
 
 ## Overview
 
-The lab environment simulates a real network with:
-- **3 VMs** (VM1, VM2, VM3) each with 24 network namespaces (h1-h24)
-- **Edge Agents** running on VMs to process flows and send sketches
-- **NetFlow Senders** to send NetFlow data to the backend
-- **Fake ISE Logs** matching traffic patterns
-- **Fake AD Logs** matching user activity
+The lab environment provides a complete testing infrastructure with:
+- **6 VMs** (recommended) or **4 VMs** (minimum) for full system testing
+- **Clarion Server** running Backend, UI, and Native NetFlow Collector
+- **Edge Agents** with NetFlow simulation for edge processing testing
+- **Active Directory Server** for user/group management and identity resolution
+- **Cisco ISE Server** for TrustSec/SGT assignment and network access control
+
+**See [VM_ARCHITECTURE.md](VM_ARCHITECTURE.md) for detailed VM specifications and network design.**
 
 ## Quick Start
 
@@ -69,17 +71,34 @@ python3 generate_fake_ad.py -o lab/data/ad_logs.json -d 24
 
 ## VM Configuration
 
-### VM1 (192.168.193.129)
+**For the complete VM architecture, see [VM_ARCHITECTURE.md](VM_ARCHITECTURE.md).**
+
+### Recommended Lab Setup (6 VMs)
+
+| VM | Name | IP | Role |
+|----|------|----|----|
+| VM1 | clarion-server | 192.168.110.11 | Backend + UI + Native NetFlow Collector |
+| VM2 | edge-agent-1 | 192.168.110.12 | Edge Agent + NetFlow Simulator |
+| VM3 | edge-agent-2 | 192.168.110.13 | Edge Agent + NetFlow Simulator |
+| VM4 | edge-agent-3 | 192.168.110.14 | Edge Agent + NetFlow Simulator |
+| VM5 | dc-server | 192.168.110.10 | Active Directory Domain Controller |
+| VM6 | ise-server | TBD | Cisco ISE (not yet built - requires 16GB+ RAM, 32GB recommended) |
+
+### Legacy Configuration (3 VMs - for reference only)
+
+The old 3-VM setup is deprecated. Use the new architecture above.
+
+**Legacy VM1 (192.168.193.129)**
 - Subnet: 10.10.0.0/24
 - Hosts: h1-h8 (10.10.0.11-18)
 - Gateway: 10.10.0.1
 
-### VM2 (192.168.193.130)
+**Legacy VM2 (192.168.193.130)**
 - Subnet: 10.10.1.0/24
 - Hosts: h9-h16 (10.10.1.11-18)
 - Gateway: 10.10.1.1
 
-### VM3 (192.168.193.131)
+**Legacy VM3 (192.168.193.131)**
 - Subnet: 10.10.2.0/24
 - Hosts: h17-h24 (10.10.2.11-18)
 - Gateway: 10.10.2.1

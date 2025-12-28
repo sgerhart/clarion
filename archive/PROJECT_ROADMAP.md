@@ -106,7 +106,11 @@
 - User/group sync
 - Device mapping
 
-**Month 6: IoT Connectors**
+**Month 6: DNS Resolution & IoT Connectors**
+- DNS resolution service (hostname/IP lookups)
+- URL/FQDN resolution for flows
+- DNS cache and TTL management
+- Reverse DNS (PTR) lookups
 - Connector framework
 - MediGate connector
 - ClearPass connector
@@ -144,6 +148,8 @@
 - [ ] SGT fields extracted correctly
 - [ ] pxGrid real-time updates working
 - [ ] AD sync completes in < 5 minutes
+- [ ] DNS resolution service operational
+- [ ] Hostname/FQDN enrichment for flows
 
 ### Phase 9: Correlation
 - [ ] Identity resolution accuracy > 95%
