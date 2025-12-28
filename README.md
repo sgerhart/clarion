@@ -18,6 +18,9 @@
 > - Visualize clusters and policies via React frontend
 > - Ingest NetFlow v5/v9/IPFIX from switches
 > - Support network topology management (locations, subnets, switches)
+> - **Track first-seen endpoints and manage SGT lifecycle**
+> - **Incremental clustering for fast new endpoint assignment**
+> - **Confidence scoring and explanations for all decisions**
 > 
 > **Key Metrics:**
 > - Memory per endpoint: ~32 KB (backend), ~18 KB (edge)
@@ -38,6 +41,13 @@
 ## 🎯 What is Clarion?
 
 Clarion helps organizations adopt **Cisco TrustSec** by automatically discovering endpoint behavior patterns and generating SGT (Security Group Tag) policies. Unlike traditional approaches that require manual classification, Clarion uses **unsupervised learning** to cluster endpoints by behavior and recommend policy.
+
+### MVP Categorization Engine (Latest)
+- **First-Seen Tracking**: Automatically detects when new endpoints appear on the network
+- **SGT Lifecycle Management**: Stable SGT registry with dynamic endpoint membership and assignment history
+- **Incremental Clustering**: Fast assignment (<100ms) of new endpoints to existing clusters using stored centroids
+- **Confidence Scoring**: Consistent confidence scores (0.0-1.0) for all cluster and SGT assignments
+- **Basic Explanations**: Human-readable explanations for clustering decisions
 
 ### Key Capabilities
 

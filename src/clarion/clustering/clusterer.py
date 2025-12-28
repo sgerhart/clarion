@@ -19,6 +19,7 @@ from sklearn.metrics import silhouette_score
 from clarion.sketches import EndpointSketch
 from clarion.ingest.sketch_builder import SketchStore
 from clarion.clustering.features import FeatureExtractor, FeatureVector
+from clarion.clustering.confidence import ConfidenceScorer
 
 logger = logging.getLogger(__name__)
 
@@ -46,6 +47,9 @@ class ClusterResult:
     
     # Probabilities (HDBSCAN provides soft clustering)
     probabilities: Optional[np.ndarray] = None
+    
+    # Confidence scores per endpoint (calculated after clustering)
+    confidence_scores: Dict[str, float] = field(default_factory=dict)
     
     def get_cluster_members(self, cluster_id: int) -> List[str]:
         """Get endpoint IDs for a specific cluster."""
@@ -194,6 +198,19 @@ class EndpointClusterer:
             probabilities=probabilities,
         )
         
+        # Calculate confidence scores for each assignment
+        result.confidence_scores = {}
+        for i, (endpoint_id, cluster_id) in enumerate(zip(endpoint_ids, labels)):
+            prob = probabilities[i] if probabilities is not None else None
+            cluster_size = cluster_sizes.get(int(cluster_id))
+            conf = ConfidenceScorer.for_cluster_assignment(
+                cluster_id=int(cluster_id),
+                probability=float(prob) if prob is not None else None,
+                cluster_size=cluster_size,
+                silhouette=silhouette,
+            )
+            result.confidence_scores[endpoint_id] = conf
+        
         logger.info(
             f"Clustering complete: {n_clusters} clusters, "
             f"{n_noise} noise points ({n_noise/len(labels)*100:.1f}%), "
@@ -206,22 +223,42 @@ class EndpointClusterer:
         self,
         store: SketchStore,
         result: ClusterResult,
+        store_in_db: bool = False,
+        db=None,
     ) -> None:
         """
         Apply cluster assignments back to the sketch store.
         
         Updates each sketch's local_cluster_id field.
+        Optionally stores assignments in database with confidence scores.
         
         Args:
             store: SketchStore to update
             result: ClusterResult with assignments
+            store_in_db: If True, store assignments in database
+            db: Database instance (uses get_database() if None)
         """
+        from clarion.storage import get_database
+        database = db or get_database()
+        
         id_to_cluster = dict(zip(result.endpoint_ids, result.labels))
         
         updated = 0
         for sketch in store:
             if sketch.endpoint_id in id_to_cluster:
-                sketch.local_cluster_id = int(id_to_cluster[sketch.endpoint_id])
+                cluster_id = int(id_to_cluster[sketch.endpoint_id])
+                sketch.local_cluster_id = cluster_id
+                
+                # Store in database if requested
+                if store_in_db:
+                    confidence = result.confidence_scores.get(sketch.endpoint_id, 0.5)
+                    database.assign_endpoint_to_cluster(
+                        endpoint_id=sketch.endpoint_id,
+                        cluster_id=cluster_id,
+                        confidence=confidence,
+                        assigned_by='clustering',
+                    )
+                
                 updated += 1
         
         logger.info(f"Applied cluster assignments to {updated} sketches")

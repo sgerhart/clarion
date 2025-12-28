@@ -23,11 +23,23 @@ This document outlines the prioritized development plan for Clarion, focusing on
 - [ ] SGT lifecycle management (stable SGTs, dynamic membership)
 - [ ] Cluster stability tracking
 - [ ] Database schema updates (first_seen, SGT registry, centroids)
+- [ ] **Enhanced confidence scoring system** (all decisions have confidence scores)
+- [ ] **Enhanced explainability system** (clear "why" explanations for all decisions)
+- [ ] **Quality assurance framework** (validation and quality monitoring)
+- [ ] **Edge case handling** (ambiguous endpoints, outliers, low-confidence cases)
+- [ ] **Override tracking and feedback loop** (learn from user overrides)
 
 **Files:**
 - `src/clarion/clustering/incremental.py`
 - `src/clarion/clustering/sgt_lifecycle.py`
+- `src/clarion/clustering/confidence.py` (confidence scoring)
+- `src/clarion/clustering/explanation.py` (enhanced explanations)
+- `src/clarion/clustering/quality.py` (quality monitoring)
+- `src/clarion/clustering/edge_cases.py` (edge case handling)
+- `src/clarion/clustering/override_learning.py` (override feedback loop)
 - `src/clarion/storage/database.py` (schema updates)
+
+**See:** `docs/CATEGORIZATION_ENGINE_REVIEW.md` for detailed quality enhancements
 
 #### 1.2 AI/LLM Integration (Optional)
 
@@ -41,15 +53,20 @@ This document outlines the prioritized development plan for Clarion, focusing on
 - [ ] Optional RAG (database context)
 - [ ] Fallback to rule-based labeling
 - [ ] Configuration management
+- [ ] **AI explainability** (show AI reasoning to users)
+- [ ] **AI vs rule-based comparison** (show both options when they differ)
+- [ ] **AI enhancement framework** (AI augments, doesn't replace rule-based)
 
 **Files:**
 - `src/clarion/clustering/ai_agent.py`
 - `src/clarion/clustering/llm_backend.py`
 - `src/clarion/clustering/rag_context.py` (optional)
+- `src/clarion/clustering/ai_enhancer.py` (AI augmentation framework)
 
 **Dependencies:**
 - Verify architecture can support local models before implementation
 - Ensure optional nature (can disable AI completely)
+- AI must enhance, not replace rule-based logic
 
 #### 1.3 Streaming Data Processing
 
@@ -219,12 +236,19 @@ This document outlines the prioritized development plan for Clarion, focusing on
 - First-seen tracking
 - SGT lifecycle management
 - Database schema updates
+- Enhanced confidence scoring system
+- Enhanced explainability system
+- Quality assurance framework
+- Edge case handling
 
 **Weeks 5-6: AI Integration**
 - Architecture validation
 - LLM backend implementation
 - Local model support (Ollama)
 - Optional RAG
+- AI explainability framework
+- AI enhancement system (augments rule-based)
+- Override tracking and feedback loop
 
 **Weeks 7-10: Test Scenarios**
 - Ground truth dataset creation
@@ -302,6 +326,11 @@ This document outlines the prioritized development plan for Clarion, focusing on
 - [ ] AI integration optional and functional
 - [ ] SGT lifecycle stable (>95% stability)
 - [ ] First-seen tracking accurate
+- [ ] All decisions have confidence scores (0.0-1.0)
+- [ ] All decisions have clear explanations
+- [ ] Quality framework operational (validation, monitoring)
+- [ ] Edge cases handled gracefully
+- [ ] Override tracking and feedback loop functional
 
 ### Test Scenarios
 

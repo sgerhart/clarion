@@ -18,6 +18,7 @@ import logging
 from clarion.sketches import EndpointSketch
 from clarion.ingest.sketch_builder import SketchStore
 from clarion.clustering.clusterer import ClusterResult
+from clarion.clustering.confidence import ConfidenceScorer
 
 logger = logging.getLogger(__name__)
 
@@ -35,6 +36,7 @@ class ClusterLabel:
     # Justification data
     primary_reason: str  # e.g., "80% are in Engineering-Users AD group"
     confidence: float  # 0.0 - 1.0
+    explanation: Optional[str] = None  # Detailed explanation (generated from generate_cluster_explanation)
     
     # Supporting statistics
     member_count: int = 0
@@ -49,7 +51,7 @@ class ClusterLabel:
     
     def to_dict(self) -> Dict:
         """Convert to dictionary."""
-        return {
+        result = {
             "cluster_id": self.cluster_id,
             "name": self.name,
             "primary_reason": self.primary_reason,
@@ -62,6 +64,9 @@ class ClusterLabel:
             "avg_in_out_ratio": self.avg_in_out_ratio,
             "is_server_cluster": self.is_server_cluster,
         }
+        if self.explanation:
+            result["explanation"] = self.explanation
+        return result
 
 
 class SemanticLabeler:
@@ -180,7 +185,7 @@ class SemanticLabeler:
                 ise_profiles = self._count_ise_profiles(noise_members)
                 device_types = self._count_device_types(noise_members)
                 
-                labels[-1] = ClusterLabel(
+                noise_label = ClusterLabel(
                     cluster_id=-1,
                     name="Unclustered (Noise)",
                     primary_reason="Did not fit any cluster pattern",
@@ -193,6 +198,10 @@ class SemanticLabeler:
                     avg_in_out_ratio=avg_in_out_ratio,
                     is_server_cluster=False,
                 )
+                # Generate explanation for noise cluster (import here to avoid circular import)
+                from clarion.clustering.explanation import generate_cluster_explanation
+                noise_label.explanation = generate_cluster_explanation(noise_label)
+                labels[-1] = noise_label
         
         logger.info(f"Labeled {len(labels)} clusters")
         return labels
@@ -225,13 +234,23 @@ class SemanticLabeler:
         is_server_cluster = server_count / n_members > 0.5
         
         # Try to find the best label
-        name, reason, confidence = self._determine_label(
+        name, reason, base_confidence = self._determine_label(
             ad_groups, ise_profiles, device_types,
             avg_in_out_ratio, is_server_cluster,
             n_members
         )
         
-        return ClusterLabel(
+        # Enhance confidence using ConfidenceScorer with cluster size
+        confidence = ConfidenceScorer.for_cluster_assignment(
+            cluster_id=cluster_id,
+            cluster_size=n_members,
+        )
+        # Combine base confidence from labeling with size-based confidence
+        if base_confidence > 0:
+            confidence = (confidence + base_confidence) / 2.0
+        
+        # Create label
+        label = ClusterLabel(
             cluster_id=cluster_id,
             name=name,
             primary_reason=reason,
@@ -244,6 +263,12 @@ class SemanticLabeler:
             avg_in_out_ratio=avg_in_out_ratio,
             is_server_cluster=is_server_cluster,
         )
+        
+        # Generate explanation (import here to avoid circular import)
+        from clarion.clustering.explanation import generate_cluster_explanation
+        label.explanation = generate_cluster_explanation(label)
+        
+        return label
     
     def _determine_label(
         self,

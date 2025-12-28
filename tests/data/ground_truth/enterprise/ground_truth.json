@@ -1,0 +1,95 @@
+{
+  "company_type": "enterprise",
+  "description": "Enterprise Corporation with multiple departments",
+  "expected_clusters": [
+    {
+      "cluster_id": 0,
+      "label": "Corporate Laptops - Engineering",
+      "device_types": [
+        "laptop"
+      ],
+      "ad_groups": [
+        "Engineering-Users"
+      ],
+      "expected_count": 150
+    },
+    {
+      "cluster_id": 1,
+      "label": "Corporate Laptops - Sales",
+      "device_types": [
+        "laptop"
+      ],
+      "ad_groups": [
+        "Sales-Users"
+      ],
+      "expected_count": 100
+    },
+    {
+      "cluster_id": 2,
+      "label": "IP Phones",
+      "device_types": [
+        "ip_phone"
+      ],
+      "traffic_patterns": {
+        "no_internet": true,
+        "ports": [
+          5060,
+          5061
+        ]
+      },
+      "expected_count": 50
+    },
+    {
+      "cluster_id": 3,
+      "label": "Mobile Phones",
+      "device_types": [
+        "mobile_phone"
+      ],
+      "traffic_patterns": {
+        "internet_access": true,
+        "has_apps": true
+      },
+      "expected_count": 50
+    },
+    {
+      "cluster_id": 4,
+      "label": "Servers",
+      "device_types": [
+        "server"
+      ],
+      "expected_count": 20
+    },
+    {
+      "cluster_id": 5,
+      "label": "Printers",
+      "device_types": [
+        "printer"
+      ],
+      "expected_count": 10
+    }
+  ],
+  "device_distinctions": {
+    "ip_phone_vs_mobile_phone": {
+      "ip_phone": {
+        "description": "Only talks to voice servers, never Internet",
+        "ports": [
+          5060,
+          5061,
+          "RTP_range"
+        ],
+        "destinations": "voice_servers_only",
+        "internet_access": false
+      },
+      "mobile_phone": {
+        "description": "Talks to central servers, voice via app",
+        "ports": [
+          443,
+          "various"
+        ],
+        "destinations": "many_servers",
+        "internet_access": true,
+        "has_apps": true
+      }
+    }
+  }
+}

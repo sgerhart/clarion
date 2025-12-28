@@ -1,0 +1,46 @@
+{
+  "company_type": "retail",
+  "description": "Retail Chain with POS systems, inventory, warehouse, corporate office",
+  "expected_clusters": [
+    {
+      "cluster_id": 0,
+      "label": "POS Systems",
+      "device_types": [
+        "iot"
+      ],
+      "expected_count": 150
+    },
+    {
+      "cluster_id": 1,
+      "label": "Inventory Systems",
+      "device_types": [
+        "iot"
+      ],
+      "expected_count": 30
+    },
+    {
+      "cluster_id": 2,
+      "label": "Corporate Office",
+      "device_types": [
+        "laptop"
+      ],
+      "expected_count": 50
+    },
+    {
+      "cluster_id": 3,
+      "label": "Warehouse/DC",
+      "device_types": [
+        "iot"
+      ],
+      "expected_count": 40
+    },
+    {
+      "cluster_id": 4,
+      "label": "Guest WiFi",
+      "device_types": [
+        "guest_device"
+      ],
+      "expected_count": 60
+    }
+  ]
+}

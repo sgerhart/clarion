@@ -15,8 +15,11 @@ from clarion.identity import enrich_sketches
 from clarion.clustering.clusterer import EndpointClusterer
 from clarion.clustering.labeling import SemanticLabeler
 from clarion.clustering.sgt_mapper import generate_sgt_taxonomy
+from clarion.clustering.incremental import IncrementalClusterer
+from clarion.clustering.features import FeatureExtractor
 from clarion.storage import get_database
 from clarion.policy.matrix import build_policy_matrix
+from clarion.sketches import EndpointSketch
 
 logger = logging.getLogger(__name__)
 
@@ -216,4 +219,79 @@ async def get_matrix():
             detail="Matrix not built. Call POST /api/clustering/matrix/build first."
         )
     return _matrix_cache
+
+
+class IncrementalAssignmentRequest(BaseModel):
+    """Request for incremental cluster assignment."""
+    endpoint_id: str
+
+
+class IncrementalAssignmentResponse(BaseModel):
+    """Response from incremental assignment."""
+    endpoint_id: str
+    cluster_id: int
+    confidence: float
+    distance: float
+    sgt_value: Optional[int] = None
+
+
+@router.post("/incremental-assign", response_model=IncrementalAssignmentResponse)
+async def incremental_assign_endpoint(request: IncrementalAssignmentRequest):
+    """
+    Assign a new endpoint to an existing cluster using incremental clustering.
+    
+    This provides a fast path (<100ms) for assigning new endpoints without
+    running full clustering.
+    
+    Note: Full implementation requires sketch reconstruction from database.
+    This endpoint is a placeholder for MVP.
+    """
+    try:
+        # TODO: Implement sketch reconstruction from database
+        # For now, return not implemented
+        raise HTTPException(
+            status_code=501,
+            detail="Incremental assignment requires sketch reconstruction from database - not yet implemented in MVP"
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error in incremental assignment: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/pending-assignments")
+async def get_pending_assignments(
+    limit: int = Query(100, ge=1, le=1000, description="Maximum number of endpoints to return"),
+):
+    """
+    Get endpoints that are waiting for cluster assignment.
+    
+    These are endpoints that have been seen (have sketches) but haven't been
+    assigned to a cluster yet.
+    """
+    try:
+        db = get_database()
+        conn = db._get_connection()
+        
+        # Find endpoints with sketches but no cluster assignment
+        query = """
+            SELECT DISTINCT s.endpoint_id, s.first_seen, s.last_seen, s.flow_count
+            FROM sketches s
+            LEFT JOIN cluster_assignments ca ON s.endpoint_id = ca.endpoint_id
+            WHERE ca.endpoint_id IS NULL
+            ORDER BY s.first_seen DESC
+            LIMIT ?
+        """
+        cursor = conn.execute(query, (limit,))
+        endpoints = [dict(row) for row in cursor.fetchall()]
+        
+        return {
+            "endpoints": endpoints,
+            "count": len(endpoints),
+        }
+        
+    except Exception as e:
+        logger.error(f"Error getting pending assignments: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
 

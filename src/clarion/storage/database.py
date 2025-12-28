@@ -51,6 +51,8 @@ class ClarionDatabase:
                 check_same_thread=False,
             )
             _local.connection.row_factory = sqlite3.Row
+            # Enable foreign keys (SQLite requires explicit enable)
+            _local.connection.execute("PRAGMA foreign_keys = ON")
         return _local.connection
     
     @contextmanager
@@ -73,6 +75,9 @@ class ClarionDatabase:
         
         # Topology tables (locations, address spaces, subnets, switches)
         self._init_topology_schema(conn)
+        
+        # MVP Schema: Categorization Engine Enhancements
+        self._init_mvp_schema(conn)
         
         # Sketches table (from edge devices)
         conn.execute("""
@@ -144,6 +149,8 @@ class ClarionDatabase:
             CREATE TABLE IF NOT EXISTS cluster_assignments (
                 endpoint_id TEXT NOT NULL,
                 cluster_id INTEGER NOT NULL,
+                confidence REAL,
+                assigned_by TEXT,
                 assigned_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 PRIMARY KEY (endpoint_id, cluster_id)
             )
@@ -245,6 +252,30 @@ class ClarionDatabase:
         
         conn.commit()
         logger.info(f"Database schema initialized: {self.db_path}")
+    
+    def _init_collectors_schema(self, conn: sqlite3.Connection):
+        """Initialize collectors table."""
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS collectors (
+                collector_id TEXT PRIMARY KEY,
+                name TEXT NOT NULL,
+                type TEXT NOT NULL,  -- 'native' or 'agent'
+                host TEXT NOT NULL,
+                http_port INTEGER NOT NULL,
+                backend_url TEXT,
+                netflow_port INTEGER,
+                ipfix_port INTEGER,
+                batch_size INTEGER,
+                batch_interval_seconds REAL,
+                enabled INTEGER DEFAULT 1,
+                description TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                last_seen TIMESTAMP
+            )
+        """)
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_collectors_type ON collectors(type)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_collectors_enabled ON collectors(enabled)")
     
     def _init_topology_schema(self, conn: sqlite3.Connection):
         """Initialize topology-related tables."""
@@ -405,21 +436,156 @@ class ClarionDatabase:
         active_hours: int,
         local_cluster_id: int = -1,
         sketch_data: Optional[bytes] = None,
-    ) -> int:
-        """Store or update a sketch."""
+    ) -> tuple[int, bool]:
+        """
+        Store or update a sketch.
+        
+        Returns:
+            Tuple of (sketch_id, is_new_endpoint) where is_new_endpoint is True
+            if this endpoint was never seen before on this switch.
+        """
         with self.transaction() as conn:
+            # Check if this endpoint already exists for this switch
             cursor = conn.execute("""
-                INSERT OR REPLACE INTO sketches (
+                SELECT id, first_seen FROM sketches 
+                WHERE endpoint_id = ? AND switch_id = ?
+            """, (endpoint_id, switch_id))
+            existing = cursor.fetchone()
+            
+            is_new = existing is None
+            
+            # If endpoint exists, preserve original first_seen unless new first_seen is earlier
+            if existing and first_seen < existing[1]:
+                # Update with earlier first_seen
+                cursor = conn.execute("""
+                    UPDATE sketches SET
+                        unique_peers = ?,
+                        unique_ports = ?,
+                        bytes_in = ?,
+                        bytes_out = ?,
+                        flow_count = ?,
+                        first_seen = ?,
+                        last_seen = ?,
+                        active_hours = ?,
+                        local_cluster_id = ?,
+                        sketch_data = ?
+                    WHERE endpoint_id = ? AND switch_id = ?
+                """, (
+                    unique_peers, unique_ports,
+                    bytes_in, bytes_out, flow_count,
+                    first_seen, last_seen,
+                    active_hours, local_cluster_id, sketch_data,
+                    endpoint_id, switch_id
+                ))
+                return existing[0], False
+            else:
+                # Insert new or replace
+                cursor = conn.execute("""
+                    INSERT OR REPLACE INTO sketches (
+                        endpoint_id, switch_id, unique_peers, unique_ports,
+                        bytes_in, bytes_out, flow_count, first_seen, last_seen,
+                        active_hours, local_cluster_id, sketch_data
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """, (
                     endpoint_id, switch_id, unique_peers, unique_ports,
                     bytes_in, bytes_out, flow_count, first_seen, last_seen,
                     active_hours, local_cluster_id, sketch_data
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """, (
-                endpoint_id, switch_id, unique_peers, unique_ports,
-                bytes_in, bytes_out, flow_count, first_seen, last_seen,
-                active_hours, local_cluster_id, sketch_data
-            ))
-            return cursor.lastrowid
+                ))
+                return cursor.lastrowid, is_new
+    
+    def is_endpoint_first_seen(self, endpoint_id: str, switch_id: Optional[str] = None) -> bool:
+        """
+        Check if an endpoint is being seen for the first time.
+        
+        Args:
+            endpoint_id: Endpoint identifier (MAC address)
+            switch_id: Optional switch ID. If None, checks across all switches.
+            
+        Returns:
+            True if endpoint has never been seen before, False otherwise.
+        """
+        conn = self._get_connection()
+        if switch_id:
+            cursor = conn.execute("""
+                SELECT COUNT(*) FROM sketches 
+                WHERE endpoint_id = ? AND switch_id = ?
+            """, (endpoint_id, switch_id))
+        else:
+            cursor = conn.execute("""
+                SELECT COUNT(*) FROM sketches 
+                WHERE endpoint_id = ?
+            """, (endpoint_id,))
+        
+        count = cursor.fetchone()[0]
+        return count == 0
+    
+    def get_endpoint_first_seen(self, endpoint_id: str, switch_id: Optional[str] = None) -> Optional[int]:
+        """
+        Get the first_seen timestamp for an endpoint.
+        
+        Args:
+            endpoint_id: Endpoint identifier
+            switch_id: Optional switch ID. If None, gets earliest across all switches.
+            
+        Returns:
+            Unix timestamp of first_seen, or None if endpoint not found.
+        """
+        conn = self._get_connection()
+        if switch_id:
+            cursor = conn.execute("""
+                SELECT MIN(first_seen) FROM sketches 
+                WHERE endpoint_id = ? AND switch_id = ?
+            """, (endpoint_id, switch_id))
+        else:
+            cursor = conn.execute("""
+                SELECT MIN(first_seen) FROM sketches 
+                WHERE endpoint_id = ?
+            """, (endpoint_id,))
+        
+        result = cursor.fetchone()[0]
+        return result if result is not None else None
+    
+    def list_first_seen_endpoints(
+        self,
+        since: Optional[int] = None,
+        limit: int = 1000,
+        switch_id: Optional[str] = None,
+    ) -> List[Dict]:
+        """
+        List endpoints that were first seen within a time range.
+        
+        This is a simplified version that uses the sketches table.
+        For more accurate tracking, we'd want a separate endpoints table.
+        
+        Args:
+            since: Unix timestamp. Only return endpoints first seen after this time.
+            limit: Maximum number of results.
+            switch_id: Optional switch ID filter.
+            
+        Returns:
+            List of dicts with endpoint_id, switch_id, first_seen, last_seen.
+        """
+        conn = self._get_connection()
+        query = """
+            SELECT endpoint_id, switch_id, MIN(first_seen) as first_seen, MAX(last_seen) as last_seen
+            FROM sketches
+            WHERE 1=1
+        """
+        params = []
+        
+        if switch_id:
+            query += " AND switch_id = ?"
+            params.append(switch_id)
+        
+        if since:
+            query += " AND first_seen >= ?"
+            params.append(since)
+        
+        query += " GROUP BY endpoint_id, switch_id ORDER BY first_seen DESC LIMIT ?"
+        params.append(limit)
+        
+        cursor = conn.execute(query, params)
+        return [dict(row) for row in cursor.fetchall()]
     
     def get_sketch(self, endpoint_id: str, switch_id: Optional[str] = None) -> Optional[Dict]:
         """Get a sketch by endpoint ID."""
@@ -592,13 +758,21 @@ class ClarionDatabase:
             """, (cluster_id, cluster_label, sgt_value, sgt_name, endpoint_count,
                   explanation, primary_reason, confidence))
     
-    def assign_endpoint_to_cluster(self, endpoint_id: str, cluster_id: int):
+    def assign_endpoint_to_cluster(
+        self, 
+        endpoint_id: str, 
+        cluster_id: int,
+        confidence: Optional[float] = None,
+        assigned_by: Optional[str] = None,
+    ):
         """Assign an endpoint to a cluster."""
         with self.transaction() as conn:
+            # Check if columns exist (they were added in MVP schema migration)
             conn.execute("""
                 INSERT OR REPLACE INTO cluster_assignments 
-                (endpoint_id, cluster_id) VALUES (?, ?)
-            """, (endpoint_id, cluster_id))
+                (endpoint_id, cluster_id, confidence, assigned_by, assigned_at) 
+                VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)
+            """, (endpoint_id, cluster_id, confidence, assigned_by))
     
     def get_clusters(self) -> List[Dict]:
         """Get all clusters."""
@@ -712,6 +886,286 @@ class ClarionDatabase:
             """, (cutoff,))
             
             logger.info(f"Cleaned up data older than {days} days")
+    
+    # ========== MVP: SGT Registry Operations ==========
+    
+    def create_sgt(self, sgt_value: int, sgt_name: str, category: Optional[str] = None, 
+                   description: Optional[str] = None) -> None:
+        """Create a new SGT in the registry."""
+        with self.transaction() as conn:
+            conn.execute("""
+                INSERT OR REPLACE INTO sgt_registry 
+                (sgt_value, sgt_name, category, description, updated_at)
+                VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)
+            """, (sgt_value, sgt_name, category, description))
+    
+    def get_sgt(self, sgt_value: int) -> Optional[Dict]:
+        """Get an SGT from the registry."""
+        conn = self._get_connection()
+        cursor = conn.execute("SELECT * FROM sgt_registry WHERE sgt_value = ?", (sgt_value,))
+        row = cursor.fetchone()
+        return dict(row) if row else None
+    
+    def list_sgts(self, active_only: bool = True) -> List[Dict]:
+        """List all SGTs in the registry."""
+        conn = self._get_connection()
+        if active_only:
+            cursor = conn.execute("""
+                SELECT * FROM sgt_registry WHERE is_active = 1 
+                ORDER BY sgt_value
+            """)
+        else:
+            cursor = conn.execute("SELECT * FROM sgt_registry ORDER BY sgt_value")
+        return [dict(row) for row in cursor.fetchall()]
+    
+    def update_sgt(self, sgt_value: int, sgt_name: Optional[str] = None,
+                   category: Optional[str] = None, description: Optional[str] = None,
+                   is_active: Optional[bool] = None) -> None:
+        """Update an SGT in the registry."""
+        updates = []
+        params = []
+        if sgt_name is not None:
+            updates.append("sgt_name = ?")
+            params.append(sgt_name)
+        if category is not None:
+            updates.append("category = ?")
+            params.append(category)
+        if description is not None:
+            updates.append("description = ?")
+            params.append(description)
+        if is_active is not None:
+            updates.append("is_active = ?")
+            params.append(1 if is_active else 0)
+        
+        if not updates:
+            return
+        
+        updates.append("updated_at = CURRENT_TIMESTAMP")
+        params.append(sgt_value)
+        
+        with self.transaction() as conn:
+            conn.execute(f"""
+                UPDATE sgt_registry SET {', '.join(updates)}
+                WHERE sgt_value = ?
+            """, params)
+    
+    # ========== MVP: SGT Membership Operations ==========
+    
+    def assign_sgt_to_endpoint(self, endpoint_id: str, sgt_value: int, 
+                               assigned_by: str = "clustering", confidence: Optional[float] = None,
+                               cluster_id: Optional[int] = None) -> None:
+        """Assign an SGT to an endpoint."""
+        # First, record previous assignment in history if exists
+        conn = self._get_connection()
+        cursor = conn.execute("""
+            SELECT sgt_value FROM sgt_membership WHERE endpoint_id = ?
+        """, (endpoint_id,))
+        old_row = cursor.fetchone()
+        
+        with self.transaction() as conn:
+            if old_row:
+                # Mark old assignment as unassigned
+                conn.execute("""
+                    UPDATE sgt_assignment_history 
+                    SET unassigned_at = CURRENT_TIMESTAMP
+                    WHERE endpoint_id = ? AND sgt_value = ? AND unassigned_at IS NULL
+                """, (endpoint_id, old_row[0]))
+            
+            # Insert/update membership
+            conn.execute("""
+                INSERT OR REPLACE INTO sgt_membership
+                (endpoint_id, sgt_value, assigned_at, assigned_by, confidence, cluster_id)
+                VALUES (?, ?, CURRENT_TIMESTAMP, ?, ?, ?)
+            """, (endpoint_id, sgt_value, assigned_by, confidence, cluster_id))
+            
+            # Insert into history
+            conn.execute("""
+                INSERT INTO sgt_assignment_history
+                (endpoint_id, sgt_value, assigned_at, assigned_by)
+                VALUES (?, ?, CURRENT_TIMESTAMP, ?)
+            """, (endpoint_id, sgt_value, assigned_by))
+    
+    def get_endpoint_sgt(self, endpoint_id: str) -> Optional[Dict]:
+        """Get the current SGT assignment for an endpoint."""
+        conn = self._get_connection()
+        cursor = conn.execute("""
+            SELECT * FROM sgt_membership WHERE endpoint_id = ?
+        """, (endpoint_id,))
+        row = cursor.fetchone()
+        return dict(row) if row else None
+    
+    def list_endpoints_by_sgt(self, sgt_value: int) -> List[Dict]:
+        """List all endpoints assigned to a specific SGT."""
+        conn = self._get_connection()
+        cursor = conn.execute("""
+            SELECT * FROM sgt_membership WHERE sgt_value = ?
+            ORDER BY assigned_at DESC
+        """, (sgt_value,))
+        return [dict(row) for row in cursor.fetchall()]
+    
+    def unassign_sgt_from_endpoint(self, endpoint_id: str) -> None:
+        """Unassign SGT from an endpoint."""
+        conn = self._get_connection()
+        cursor = conn.execute("""
+            SELECT sgt_value FROM sgt_membership WHERE endpoint_id = ?
+        """, (endpoint_id,))
+        row = cursor.fetchone()
+        
+        if row:
+            with self.transaction() as conn:
+                # Update history
+                conn.execute("""
+                    UPDATE sgt_assignment_history 
+                    SET unassigned_at = CURRENT_TIMESTAMP
+                    WHERE endpoint_id = ? AND sgt_value = ? AND unassigned_at IS NULL
+                """, (endpoint_id, row[0]))
+                
+                # Delete membership
+                conn.execute("""
+                    DELETE FROM sgt_membership WHERE endpoint_id = ?
+                """, (endpoint_id,))
+    
+    def get_sgt_assignment_history(self, endpoint_id: str) -> List[Dict]:
+        """Get assignment history for an endpoint."""
+        conn = self._get_connection()
+        cursor = conn.execute("""
+            SELECT * FROM sgt_assignment_history 
+            WHERE endpoint_id = ?
+            ORDER BY assigned_at DESC
+        """, (endpoint_id,))
+        return [dict(row) for row in cursor.fetchall()]
+    
+    # ========== MVP: Cluster Centroids Operations ==========
+    
+    def store_cluster_centroid(self, cluster_id: int, feature_vector: List[float],
+                               sgt_value: Optional[int] = None, member_count: int = 0) -> None:
+        """Store or update a cluster centroid."""
+        with self.transaction() as conn:
+            conn.execute("""
+                INSERT OR REPLACE INTO cluster_centroids
+                (cluster_id, sgt_value, feature_vector, member_count, updated_at)
+                VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)
+            """, (cluster_id, sgt_value, json.dumps(feature_vector), member_count))
+    
+    def get_cluster_centroid(self, cluster_id: int) -> Optional[Dict]:
+        """Get a cluster centroid."""
+        conn = self._get_connection()
+        cursor = conn.execute("""
+            SELECT * FROM cluster_centroids WHERE cluster_id = ?
+        """, (cluster_id,))
+        row = cursor.fetchone()
+        if row:
+            data = dict(row)
+            if data.get('feature_vector'):
+                data['feature_vector'] = json.loads(data['feature_vector'])
+            return data
+        return None
+    
+    def list_all_centroids(self) -> List[Dict]:
+        """List all cluster centroids."""
+        conn = self._get_connection()
+        cursor = conn.execute("SELECT * FROM cluster_centroids ORDER BY cluster_id")
+        results = []
+        for row in cursor.fetchall():
+            data = dict(row)
+            if data.get('feature_vector'):
+                data['feature_vector'] = json.loads(data['feature_vector'])
+            results.append(data)
+        return results
+    
+    def update_centroid_member_count(self, cluster_id: int, member_count: int) -> None:
+        """Update the member count for a centroid."""
+        with self.transaction() as conn:
+            conn.execute("""
+                UPDATE cluster_centroids 
+                SET member_count = ?, updated_at = CURRENT_TIMESTAMP
+                WHERE cluster_id = ?
+            """, (member_count, cluster_id))
+    
+    def _init_mvp_schema(self, conn: sqlite3.Connection):
+        """Initialize MVP categorization engine schema enhancements."""
+        # SGT Registry (stable SGTs)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS sgt_registry (
+                sgt_value INTEGER PRIMARY KEY,
+                sgt_name TEXT NOT NULL,
+                category TEXT,  -- 'users', 'servers', 'devices', 'special'
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                description TEXT,
+                is_active INTEGER DEFAULT 1  -- SQLite uses INTEGER for BOOLEAN
+            )
+        """)
+        
+        # SGT Membership (dynamic assignments)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS sgt_membership (
+                endpoint_id TEXT NOT NULL PRIMARY KEY,
+                sgt_value INTEGER NOT NULL,
+                assigned_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                assigned_by TEXT,  -- 'clustering', 'manual', 'ise', 'incremental'
+                confidence REAL,
+                cluster_id INTEGER,  -- Which cluster this came from
+                FOREIGN KEY (sgt_value) REFERENCES sgt_registry(sgt_value)
+            )
+        """)
+        
+        # SGT Assignment History (audit trail)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS sgt_assignment_history (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                endpoint_id TEXT NOT NULL,
+                sgt_value INTEGER NOT NULL,
+                assigned_at TIMESTAMP NOT NULL,
+                unassigned_at TIMESTAMP,
+                assigned_by TEXT,
+                FOREIGN KEY (sgt_value) REFERENCES sgt_registry(sgt_value)
+            )
+        """)
+        
+        # Cluster Centroids (for fast incremental assignment)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS cluster_centroids (
+                cluster_id INTEGER NOT NULL PRIMARY KEY,
+                sgt_value INTEGER,
+                feature_vector TEXT,  -- JSON array of centroid features
+                member_count INTEGER DEFAULT 0,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (sgt_value) REFERENCES sgt_registry(sgt_value)
+            )
+        """)
+        
+        # Migrations: Add first_seen/last_seen to sketches if not exists (already have them, but ensure TIMESTAMP)
+        # Note: sketches already has first_seen/last_seen as INTEGER (Unix timestamp) - this is fine
+        
+        # Migrations: Add confidence and assigned_by to cluster_assignments if needed
+        # (For existing databases that don't have these columns)
+        try:
+            conn.execute("ALTER TABLE cluster_assignments ADD COLUMN confidence REAL")
+        except sqlite3.OperationalError:
+            pass  # Column already exists
+        
+        try:
+            conn.execute("ALTER TABLE cluster_assignments ADD COLUMN assigned_by TEXT")
+        except sqlite3.OperationalError:
+            pass  # Column already exists
+        
+        # Note: assigned_at is now in the CREATE TABLE statement, but this migration
+        # ensures existing databases get it
+        try:
+            conn.execute("ALTER TABLE cluster_assignments ADD COLUMN assigned_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP")
+        except sqlite3.OperationalError:
+            pass  # Column already exists
+        
+        # Create indexes
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_sgt_membership_sgt ON sgt_membership(sgt_value)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_sgt_membership_cluster ON sgt_membership(cluster_id)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_sgt_history_endpoint ON sgt_assignment_history(endpoint_id)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_sgt_history_sgt ON sgt_assignment_history(sgt_value)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_sgt_history_assigned_at ON sgt_assignment_history(assigned_at)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_cluster_centroids_sgt ON cluster_centroids(sgt_value)")
+        
+        logger.info("MVP categorization engine schema initialized")
 
 
 # Global database instance

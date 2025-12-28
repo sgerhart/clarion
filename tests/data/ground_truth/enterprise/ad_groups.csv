@@ -1,0 +1,4 @@
+group_id,group_name,group_type
+G0000,Employees,department
+G0001,Engineering-Users,department
+G0002,Sales-Users,department

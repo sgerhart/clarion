@@ -202,6 +202,61 @@ async def list_devices(
 
 
 @router.get("/devices/{endpoint_id}", response_model=DeviceResponse)
+@router.get("/devices/first-seen")
+async def list_first_seen_devices(
+    since: Optional[int] = Query(None, description="Unix timestamp - only return devices first seen after this time"),
+    limit: int = Query(100, ge=1, le=10000, description="Maximum number of devices to return"),
+    switch_id: Optional[str] = Query(None, description="Filter by switch ID"),
+):
+    """
+    List devices that were first seen within a time range.
+    
+    Returns endpoints that were newly discovered (first-seen) after the specified timestamp.
+    """
+    try:
+        db = get_database()
+        devices = db.list_first_seen_endpoints(since=since, limit=limit, switch_id=switch_id)
+        
+        return {
+            "devices": devices,
+            "count": len(devices),
+            "since": since,
+        }
+    except Exception as e:
+        logger.error(f"Error listing first-seen devices: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/devices/{endpoint_id}/first-seen")
+async def get_device_first_seen(
+    endpoint_id: str,
+    switch_id: Optional[str] = Query(None, description="Optional switch ID filter"),
+):
+    """
+    Get the first-seen timestamp for a specific device.
+    
+    Returns when the endpoint was first observed in the system.
+    """
+    try:
+        db = get_database()
+        first_seen = db.get_endpoint_first_seen(endpoint_id, switch_id=switch_id)
+        
+        if first_seen is None:
+            raise HTTPException(status_code=404, detail=f"Endpoint {endpoint_id} not found")
+        
+        return {
+            "endpoint_id": endpoint_id,
+            "switch_id": switch_id,
+            "first_seen": first_seen,
+            "is_new": db.is_endpoint_first_seen(endpoint_id, switch_id=switch_id),
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting device first-seen: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 async def get_device(endpoint_id: str):
     """
     Get detailed information for a specific device.

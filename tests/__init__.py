@@ -1,3 +1,3 @@
-"""Clarion test suite."""
-
-
+"""
+Clarion Test Suite
+"""

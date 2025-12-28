@@ -1,0 +1,46 @@
+{
+  "company_type": "education",
+  "description": "Education Institution with student BYOD, faculty workstations, lab computers",
+  "expected_clusters": [
+    {
+      "cluster_id": 0,
+      "label": "Faculty Workstations",
+      "device_types": [
+        "laptop"
+      ],
+      "expected_count": 60
+    },
+    {
+      "cluster_id": 1,
+      "label": "Lab Computers",
+      "device_types": [
+        "laptop"
+      ],
+      "expected_count": 100
+    },
+    {
+      "cluster_id": 2,
+      "label": "Student BYOD",
+      "device_types": [
+        "mobile_phone"
+      ],
+      "expected_count": 200
+    },
+    {
+      "cluster_id": 3,
+      "label": "Library Devices",
+      "device_types": [
+        "laptop"
+      ],
+      "expected_count": 30
+    },
+    {
+      "cluster_id": 4,
+      "label": "Guest Access",
+      "device_types": [
+        "guest_device"
+      ],
+      "expected_count": 50
+    }
+  ]
+}

@@ -1,0 +1,68 @@
+{
+  "company_type": "healthcare",
+  "description": "Healthcare Organization with medical devices, EMR systems, and BYOD",
+  "expected_clusters": [
+    {
+      "cluster_id": 0,
+      "label": "Clinical Workstations",
+      "device_types": [
+        "laptop"
+      ],
+      "expected_count": 100
+    },
+    {
+      "cluster_id": 1,
+      "label": "Patient Monitors",
+      "device_types": [
+        "medical_device"
+      ],
+      "expected_count": 50
+    },
+    {
+      "cluster_id": 2,
+      "label": "EMR Servers",
+      "device_types": [
+        "server"
+      ],
+      "expected_count": 10
+    },
+    {
+      "cluster_id": 3,
+      "label": "BYOD Devices",
+      "device_types": [
+        "mobile_phone"
+      ],
+      "expected_count": 75
+    },
+    {
+      "cluster_id": 4,
+      "label": "Guest WiFi",
+      "device_types": [
+        "guest_device"
+      ],
+      "expected_count": 30
+    }
+  ],
+  "device_distinctions": {
+    "medical_device_vs_workstation": {
+      "medical_device": {
+        "description": "Medical devices (MRI, CT, patient monitors) - specific protocols, limited destinations",
+        "ports": [
+          "specific_medical_ports"
+        ],
+        "destinations": "emr_servers_only",
+        "internet_access": false
+      },
+      "workstation": {
+        "description": "Clinical workstations - EMR access, general computing",
+        "ports": [
+          443,
+          3389,
+          "various"
+        ],
+        "destinations": "many_servers",
+        "internet_access": true
+      }
+    }
+  }
+}

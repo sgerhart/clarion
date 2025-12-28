@@ -35,10 +35,16 @@ This document provides a comprehensive, cohesive roadmap of all Clarion capabili
 - [ ] **SGT lifecycle management** (stable SGTs, dynamic membership)
 - [ ] **Cluster stability tracking** (evolution over time)
 - [ ] **Cluster centroid storage** (for fast incremental assignment)
+- [ ] **Enhanced confidence scoring** (all decisions have confidence 0.0-1.0)
+- [ ] **Enhanced explainability** (clear "why" explanations for all decisions)
+- [ ] **Quality assurance framework** (validation, quality monitoring)
+- [ ] **Edge case handling** (ambiguous endpoints, outliers, low-confidence)
+- [ ] **Override tracking & feedback loop** (learn from user overrides)
 
 **Status:** ⚠️ Core complete, enhancements in progress  
 **Priority:** 🔴 High (Priority 1)  
-**Timeline:** 4-6 weeks
+**Timeline:** 4-6 weeks  
+**Quality Review:** See `docs/CATEGORIZATION_ENGINE_REVIEW.md` for detailed quality enhancements
 
 #### 1.2 AI/LLM Integration (Optional)
 - [ ] **AI categorization agent architecture**
@@ -48,6 +54,9 @@ This document provides a comprehensive, cohesive roadmap of all Clarion capabili
 - [ ] **Optional RAG** (database context for categorization)
 - [ ] **Fallback to rule-based labeling** (graceful degradation)
 - [ ] **AI configuration management** (enable/disable, model selection)
+- [ ] **AI explainability** (show AI reasoning to users)
+- [ ] **AI vs rule-based comparison** (show both options when they differ)
+- [ ] **AI enhancement framework** (AI augments, doesn't replace rule-based)
 
 **Status:** 📋 Planned  
 **Priority:** 🔴 High (Priority 1.2)  
@@ -414,7 +423,14 @@ Based on `PRIORITIZED_ROADMAP.md`, the recommended implementation order is:
 
 ### Phase 1: Backend & Categorization (Weeks 1-6)
 1. **Incremental clustering & SGT lifecycle** (Weeks 1-4)
+   - Enhanced confidence scoring system
+   - Enhanced explainability system
+   - Quality assurance framework
+   - Edge case handling
 2. **AI integration** (Weeks 5-6, after architecture validation)
+   - AI explainability framework
+   - AI enhancement system (augments rule-based)
+   - Override tracking and feedback loop
 
 ### Phase 2: Testing & Validation (Weeks 7-10)
 3. **Ground truth datasets** (Weeks 7-10)
@@ -488,6 +504,12 @@ Production Infrastructure
 - [ ] AI integration optional and functional
 - [ ] SGT lifecycle >95% stability
 - [ ] First-seen tracking 100% accurate
+- [ ] All decisions have confidence scores (0.0-1.0)
+- [ ] All decisions have clear explanations
+- [ ] Quality framework operational (validation, monitoring)
+- [ ] Edge cases handled gracefully
+- [ ] Override tracking and feedback loop functional
+- [ ] Clustering accuracy >90% precision, >85% recall (with ground truth)
 
 ### Data Layer
 - [ ] PostgreSQL migration complete
@@ -528,6 +550,7 @@ Production Infrastructure
   - `README.md` (phase roadmap)
   - `docs/DESIGN.md` (architecture)
   - `docs/CATEGORIZATION_ENGINE.md` (categorization features)
+  - `docs/CATEGORIZATION_ENGINE_REVIEW.md` (quality enhancements and best practices)
   - `docs/DATA_ARCHITECTURE.md` (data layer requirements)
   - `docs/TOPOLOGY_ARCHITECTURE.md` (topology features)
   - `docs/AI_INTEGRATION.md` (AI capabilities)

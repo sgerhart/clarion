@@ -1,0 +1,53 @@
+name: Clustering Validation Report
+
+on:
+  schedule:
+    # Run weekly on Monday at 9 AM UTC
+    - cron: '0 9 * * 1'
+  workflow_dispatch:  # Allow manual triggering
+
+jobs:
+  validation-report:
+    name: Generate Validation Report
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: "3.11"
+        cache: 'pip'
+    
+    - name: Install system dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y libpcap-dev
+    
+    - name: Install Python dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install pytest pytest-asyncio
+        pip install -e .
+    
+    - name: Generate ground truth datasets
+      run: |
+        python tests/data/ground_truth/generator.py enterprise
+        python tests/data/ground_truth/generator.py healthcare
+        python tests/data/ground_truth/generator.py manufacturing
+        python tests/data/ground_truth/generator.py education
+        python tests/data/ground_truth/generator.py retail
+    
+    - name: Run validation tests
+      run: |
+        pytest tests/integration/test_clustering_accuracy.py -v --tb=short > validation_report.txt 2>&1 || true
+    
+    - name: Upload validation report
+      uses: actions/upload-artifact@v3
+      with:
+        name: clustering-validation-report
+        path: validation_report.txt
+        retention-days: 30
+

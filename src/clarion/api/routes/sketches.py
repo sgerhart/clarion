@@ -54,10 +54,11 @@ async def receive_sketches(batch: SketchBatch):
     
     db = get_database()
     stored_count = 0
+    new_endpoints = []
     
-    # Store each sketch in database
+    # Store each sketch in database and track first-seen
     for sketch in batch.sketches:
-        db.store_sketch(
+        sketch_id, is_new = db.store_sketch(
             endpoint_id=sketch.endpoint_id,
             switch_id=sketch.switch_id,
             unique_peers=sketch.unique_peers,
@@ -71,6 +72,8 @@ async def receive_sketches(batch: SketchBatch):
             local_cluster_id=sketch.local_cluster_id,
         )
         stored_count += 1
+        if is_new:
+            new_endpoints.append(sketch.endpoint_id)
     
     # Get total sketches for this switch
     all_sketches = db.list_sketches(switch_id=batch.switch_id)
@@ -80,6 +83,8 @@ async def receive_sketches(batch: SketchBatch):
         "switch_id": batch.switch_id,
         "sketches_received": batch.sketch_count,
         "sketches_stored": stored_count,
+        "new_endpoints": new_endpoints,
+        "new_endpoint_count": len(new_endpoints),
         "total_sketches": len(all_sketches),
     }
 

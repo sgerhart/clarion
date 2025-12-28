@@ -1,0 +1,46 @@
+{
+  "company_type": "manufacturing",
+  "description": "Manufacturing Company with Industrial IoT, OT/IT convergence",
+  "expected_clusters": [
+    {
+      "cluster_id": 0,
+      "label": "Office Workstations",
+      "device_types": [
+        "laptop"
+      ],
+      "expected_count": 80
+    },
+    {
+      "cluster_id": 1,
+      "label": "PLCs",
+      "device_types": [
+        "iot"
+      ],
+      "expected_count": 40
+    },
+    {
+      "cluster_id": 2,
+      "label": "SCADA Systems",
+      "device_types": [
+        "server"
+      ],
+      "expected_count": 15
+    },
+    {
+      "cluster_id": 3,
+      "label": "Production Servers",
+      "device_types": [
+        "server"
+      ],
+      "expected_count": 10
+    },
+    {
+      "cluster_id": 4,
+      "label": "Warehouse Devices",
+      "device_types": [
+        "iot"
+      ],
+      "expected_count": 25
+    }
+  ]
+}
