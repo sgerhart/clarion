@@ -5,7 +5,7 @@ Endpoints for listing, viewing, and managing devices (endpoints).
 """
 
 from fastapi import APIRouter, HTTPException, Query, Body
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import List, Optional, Dict, Any
 import logging
 
@@ -47,9 +47,20 @@ class DeviceResponse(BaseModel):
 
 
 class DeviceUpdateRequest(BaseModel):
-    """Request model for updating device assignments."""
+    """
+    Request model for updating device assignments.
+    
+    Note: sgt_value is deprecated. SGTs are assigned by Cisco ISE authorization policies,
+    not directly. To change an SGT assignment, move the device to a different cluster
+    and generate an ISE policy recommendation.
+    """
     cluster_id: Optional[int] = None
-    sgt_value: Optional[int] = None
+    sgt_value: Optional[int] = Field(
+        None,
+        description="⚠️ DEPRECATED: SGTs are managed by ISE authorization policies. "
+                   "This parameter is ignored. Move device to a different cluster to "
+                   "trigger a policy recommendation for a new SGT."
+    )
 
 
 @router.get("/devices", response_model=Dict[str, Any])
@@ -93,12 +104,14 @@ async def list_devices(
                 i.ad_groups,
                 ca.cluster_id,
                 c.cluster_label,
-                c.sgt_value,
-                c.sgt_name
+                COALESCE(c.sgt_value, sm.sgt_value) as sgt_value,
+                COALESCE(c.sgt_name, sr.sgt_name) as sgt_name
             FROM sketches s
             LEFT JOIN identity i ON s.endpoint_id = i.mac_address
             LEFT JOIN cluster_assignments ca ON s.endpoint_id = ca.endpoint_id
             LEFT JOIN clusters c ON ca.cluster_id = c.cluster_id
+            LEFT JOIN sgt_membership sm ON s.endpoint_id = sm.endpoint_id
+            LEFT JOIN sgt_registry sr ON sm.sgt_value = sr.sgt_value
             WHERE 1=1
         """
         params = []
@@ -201,7 +214,6 @@ async def list_devices(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.get("/devices/{endpoint_id}", response_model=DeviceResponse)
 @router.get("/devices/first-seen")
 async def list_first_seen_devices(
     since: Optional[int] = Query(None, description="Unix timestamp - only return devices first seen after this time"),
@@ -257,6 +269,7 @@ async def get_device_first_seen(
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@router.get("/devices/{endpoint_id}", response_model=DeviceResponse)
 async def get_device(endpoint_id: str):
     """
     Get detailed information for a specific device.
@@ -286,12 +299,14 @@ async def get_device(endpoint_id: str):
                 i.ad_groups,
                 ca.cluster_id,
                 c.cluster_label,
-                c.sgt_value,
-                c.sgt_name
+                COALESCE(c.sgt_value, sm.sgt_value) as sgt_value,
+                COALESCE(c.sgt_name, sr.sgt_name) as sgt_name
             FROM sketches s
             LEFT JOIN identity i ON s.endpoint_id = i.mac_address
             LEFT JOIN cluster_assignments ca ON s.endpoint_id = ca.endpoint_id
             LEFT JOIN clusters c ON ca.cluster_id = c.cluster_id
+            LEFT JOIN sgt_membership sm ON s.endpoint_id = sm.endpoint_id
+            LEFT JOIN sgt_registry sr ON sm.sgt_value = sr.sgt_value
             WHERE s.endpoint_id = ?
             LIMIT 1
         """
@@ -410,7 +425,16 @@ async def update_device(
     endpoint_id: str,
     update: DeviceUpdateRequest,
 ):
-    """Update device cluster assignment or SGT."""
+    """
+    Update device cluster assignment.
+    
+    Note: sgt_value parameter is deprecated. SGTs are assigned by Cisco ISE 
+    authorization policies, not directly. To change an SGT assignment, move the 
+    device to a different cluster and use the policy recommendation feature to 
+    generate an ISE authorization policy.
+    
+    See: docs/CLUSTER_ASSIGNMENT_WORKFLOW.md for details.
+    """
     db = get_database()
     conn = db._get_connection()
     
@@ -419,6 +443,16 @@ async def update_device(
         device = await get_device(endpoint_id)
         if not device:
             raise HTTPException(status_code=404, detail=f"Device {endpoint_id} not found")
+        
+        # Deprecation warning for sgt_value
+        if update.sgt_value is not None:
+            logger.warning(
+                f"⚠️ DEPRECATED: sgt_value parameter in PUT /api/devices/{endpoint_id} is deprecated. "
+                f"SGTs are managed by ISE authorization policies. The sgt_value parameter is being ignored. "
+                f"To change an SGT assignment, move the device to a different cluster and generate a "
+                f"policy recommendation. See docs/CLUSTER_ASSIGNMENT_WORKFLOW.md"
+            )
+            # Do not process sgt_value - it's deprecated
         
         # Update cluster assignment if provided
         if update.cluster_id is not None:
@@ -431,24 +465,7 @@ async def update_device(
             if update.cluster_id >= 0:  # -1 means unassign
                 db.assign_endpoint_to_cluster(endpoint_id, update.cluster_id)
                 conn.commit()
-        
-        # Update SGT if provided (this would require updating the cluster's SGT)
-        # For now, we'll need to update the cluster's SGT value
-        if update.sgt_value is not None:
-            # Get current cluster
-            cursor = conn.execute("""
-                SELECT cluster_id FROM cluster_assignments WHERE endpoint_id = ?
-            """, (endpoint_id,))
-            row = cursor.fetchone()
-            
-            if row:
-                cluster_id = row[0]
-                # Update cluster's SGT value
-                conn.execute("""
-                    UPDATE clusters SET sgt_value = ?, updated_at = CURRENT_TIMESTAMP
-                    WHERE cluster_id = ?
-                """, (update.sgt_value, cluster_id))
-                conn.commit()
+                logger.info(f"Device {endpoint_id} assigned to cluster {update.cluster_id}")
         
         # Return updated device
         return await get_device(endpoint_id)

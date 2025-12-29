@@ -34,7 +34,6 @@ export default function DeviceDetailModal({ deviceId, onClose }: DeviceDetailMod
   const queryClient = useQueryClient()
   const [isEditing, setIsEditing] = useState(false)
   const [editedClusterId, setEditedClusterId] = useState<number | null>(null)
-  const [editedSgtValue, setEditedSgtValue] = useState<number | null>(null)
 
   // Get device details
   const { data: device, isLoading } = useQuery({
@@ -64,9 +63,9 @@ export default function DeviceDetailModal({ deviceId, onClose }: DeviceDetailMod
     enabled: !!device,
   })
 
-  // Update device mutation
+  // Update device mutation (cluster assignment only - SGTs are managed by ISE policies)
   const updateMutation = useMutation({
-    mutationFn: async (data: { cluster_id?: number; sgt_value?: number }) => {
+    mutationFn: async (data: { cluster_id?: number }) => {
       return apiClient.updateDevice(deviceId, data)
     },
     onSuccess: () => {
@@ -81,7 +80,6 @@ export default function DeviceDetailModal({ deviceId, onClose }: DeviceDetailMod
   useEffect(() => {
     if (device) {
       setEditedClusterId(device.cluster_id ?? null)
-      setEditedSgtValue(device.sgt_value ?? null)
     }
   }, [device])
 
@@ -101,14 +99,12 @@ export default function DeviceDetailModal({ deviceId, onClose }: DeviceDetailMod
   const handleSave = () => {
     updateMutation.mutate({
       cluster_id: editedClusterId ?? undefined,
-      sgt_value: editedSgtValue ?? undefined,
     })
   }
 
   const handleCancel = () => {
     if (device) {
       setEditedClusterId(device.cluster_id ?? null)
-      setEditedSgtValue(device.sgt_value ?? null)
     }
     setIsEditing(false)
   }
@@ -288,21 +284,12 @@ export default function DeviceDetailModal({ deviceId, onClose }: DeviceDetailMod
                           ))}
                         </select>
                       </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                          SGT Value
-                        </label>
-                        <input
-                          type="number"
-                          value={editedSgtValue ?? ''}
-                          onChange={(e) =>
-                            setEditedSgtValue(
-                              e.target.value ? parseInt(e.target.value) : null
-                            )
-                          }
-                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-clarion-blue focus:border-transparent"
-                          placeholder="Enter SGT value"
-                        />
+                      <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                        <p className="text-sm text-blue-800">
+                          <strong>Note:</strong> SGTs are assigned by Cisco ISE authorization policies 
+                          and cannot be edited directly. To change an SGT assignment, update the 
+                          corresponding ISE authorization policy.
+                        </p>
                       </div>
                       <div className="flex space-x-2 pt-2">
                         <button
@@ -337,10 +324,15 @@ export default function DeviceDetailModal({ deviceId, onClose }: DeviceDetailMod
                       <div>
                         <label className="text-sm font-medium text-gray-500">SGT</label>
                         {device.sgt_value !== null && device.sgt_value !== undefined ? (
-                          <p className="text-gray-900">
-                            SGT {device.sgt_value}
-                            {device.sgt_name && ` - ${device.sgt_name}`}
-                          </p>
+                          <div>
+                            <p className="text-gray-900">
+                              SGT {device.sgt_value}
+                              {device.sgt_name && ` - ${device.sgt_name}`}
+                            </p>
+                            <p className="text-xs text-gray-500 mt-1">
+                              Assigned by ISE authorization policy
+                            </p>
+                          </div>
                         ) : (
                           <p className="text-gray-500 italic">Not assigned</p>
                         )}

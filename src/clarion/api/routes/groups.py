@@ -5,7 +5,7 @@ Endpoints for managing device groups (clusters) including assignments, SGTs, and
 """
 
 from fastapi import APIRouter, HTTPException, Query, Body
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import List, Optional, Dict, Any
 import logging
 
@@ -31,10 +31,24 @@ class GroupResponse(BaseModel):
 
 
 class GroupUpdateRequest(BaseModel):
-    """Request model for updating a group."""
+    """
+    Request model for updating group metadata.
+    
+    Note: sgt_value and sgt_name are deprecated. SGTs are assigned by Cisco ISE 
+    authorization policies, not directly. To change SGT assignments, use the policy 
+    recommendation feature to generate ISE authorization policies.
+    """
     cluster_label: Optional[str] = None
-    sgt_value: Optional[int] = None
-    sgt_name: Optional[str] = None
+    sgt_value: Optional[int] = Field(
+        None,
+        description="⚠️ DEPRECATED: SGTs are managed by ISE authorization policies. "
+                   "This parameter is ignored. Use policy recommendations to change SGT assignments."
+    )
+    sgt_name: Optional[str] = Field(
+        None,
+        description="⚠️ DEPRECATED: SGTs are managed by ISE authorization policies. "
+                   "This parameter is ignored. Use policy recommendations to change SGT assignments."
+    )
 
 
 class GroupMember(BaseModel):
@@ -70,14 +84,32 @@ async def list_groups(
     conn = db._get_connection()
     
     try:
-        # Use a subquery to calculate actual endpoint_count from cluster_assignments
+        # Use a subquery to calculate actual endpoint_count and determine SGT from member assignments
+        # Get the most common SGT for each cluster using correlated subqueries
         query = """
             SELECT 
                 c.cluster_id,
                 c.cluster_label,
-                c.sgt_value,
-                c.sgt_name,
-                COALESCE(COUNT(ca.endpoint_id), 0) as endpoint_count,
+                COALESCE(c.sgt_value, (
+                    SELECT sm.sgt_value
+                    FROM cluster_assignments ca2
+                    JOIN sgt_membership sm ON ca2.endpoint_id = sm.endpoint_id
+                    WHERE ca2.cluster_id = c.cluster_id
+                    GROUP BY sm.sgt_value
+                    ORDER BY COUNT(*) DESC
+                    LIMIT 1
+                )) as sgt_value,
+                COALESCE(c.sgt_name, (
+                    SELECT sr.sgt_name
+                    FROM cluster_assignments ca2
+                    JOIN sgt_membership sm ON ca2.endpoint_id = sm.endpoint_id
+                    LEFT JOIN sgt_registry sr ON sm.sgt_value = sr.sgt_value
+                    WHERE ca2.cluster_id = c.cluster_id
+                    GROUP BY sm.sgt_value, sr.sgt_name
+                    ORDER BY COUNT(*) DESC
+                    LIMIT 1
+                )) as sgt_name,
+                COALESCE(COUNT(DISTINCT ca.endpoint_id), 0) as endpoint_count,
                 c.explanation,
                 c.primary_reason,
                 c.confidence,
@@ -96,10 +128,13 @@ async def list_groups(
             params.extend([search_param, search_param])
         
         if has_sgt is not None:
+            # Note: This filter checks the cluster table's sgt_value directly
+            # For a more accurate filter that checks member SGTs, we'd need a HAVING clause
+            # For now, this filters based on what's in the clusters table
             if has_sgt:
-                query += " AND c.sgt_value IS NOT NULL"
+                query += " AND (c.sgt_value IS NOT NULL OR EXISTS (SELECT 1 FROM cluster_assignments ca2 JOIN sgt_membership sm ON ca2.endpoint_id = sm.endpoint_id WHERE ca2.cluster_id = c.cluster_id))"
             else:
-                query += " AND c.sgt_value IS NULL"
+                query += " AND c.sgt_value IS NULL AND NOT EXISTS (SELECT 1 FROM cluster_assignments ca2 JOIN sgt_membership sm ON ca2.endpoint_id = sm.endpoint_id WHERE ca2.cluster_id = c.cluster_id)"
         
         # Group by cluster_id and order
         query += " GROUP BY c.cluster_id ORDER BY c.cluster_id LIMIT ? OFFSET ?"
@@ -152,14 +187,31 @@ async def get_group(cluster_id: int):
     conn = db._get_connection()
     
     try:
-        # Get group metadata with actual endpoint count
+        # Get group metadata with actual endpoint count and SGT from member assignments
         cursor = conn.execute("""
             SELECT 
                 c.cluster_id,
                 c.cluster_label,
-                c.sgt_value,
-                c.sgt_name,
-                COALESCE(COUNT(ca.endpoint_id), 0) as endpoint_count,
+                COALESCE(c.sgt_value, (
+                    SELECT sm.sgt_value
+                    FROM cluster_assignments ca2
+                    JOIN sgt_membership sm ON ca2.endpoint_id = sm.endpoint_id
+                    WHERE ca2.cluster_id = c.cluster_id
+                    GROUP BY sm.sgt_value
+                    ORDER BY COUNT(*) DESC
+                    LIMIT 1
+                )) as sgt_value,
+                COALESCE(c.sgt_name, (
+                    SELECT sr.sgt_name
+                    FROM cluster_assignments ca2
+                    JOIN sgt_membership sm ON ca2.endpoint_id = sm.endpoint_id
+                    LEFT JOIN sgt_registry sr ON sm.sgt_value = sr.sgt_value
+                    WHERE ca2.cluster_id = c.cluster_id
+                    GROUP BY sm.sgt_value, sr.sgt_name
+                    ORDER BY COUNT(*) DESC
+                    LIMIT 1
+                )) as sgt_name,
+                COALESCE(COUNT(DISTINCT ca.endpoint_id), 0) as endpoint_count,
                 c.explanation,
                 c.primary_reason,
                 c.confidence,
@@ -234,7 +286,15 @@ async def update_group(
     cluster_id: int,
     update: GroupUpdateRequest,
 ):
-    """Update group metadata (label, SGT value, SGT name)."""
+    """
+    Update group metadata (cluster label).
+    
+    Note: sgt_value and sgt_name parameters are deprecated. SGTs are assigned by 
+    Cisco ISE authorization policies, not directly. To change SGT assignments, use 
+    the policy recommendation feature to generate ISE authorization policies.
+    
+    See: docs/CLUSTER_ASSIGNMENT_WORKFLOW.md for details.
+    """
     db = get_database()
     conn = db._get_connection()
     
@@ -244,6 +304,21 @@ async def update_group(
         if not cursor.fetchone():
             raise HTTPException(status_code=404, detail=f"Group {cluster_id} not found")
         
+        # Deprecation warnings for SGT parameters
+        if update.sgt_value is not None:
+            logger.warning(
+                f"⚠️ DEPRECATED: sgt_value parameter in PUT /api/groups/{cluster_id} is deprecated. "
+                f"SGTs are managed by ISE authorization policies. The sgt_value parameter is being ignored. "
+                f"Use policy recommendations to change SGT assignments. See docs/CLUSTER_ASSIGNMENT_WORKFLOW.md"
+            )
+        
+        if update.sgt_name is not None:
+            logger.warning(
+                f"⚠️ DEPRECATED: sgt_name parameter in PUT /api/groups/{cluster_id} is deprecated. "
+                f"SGTs are managed by ISE authorization policies. The sgt_name parameter is being ignored. "
+                f"Use policy recommendations to change SGT assignments. See docs/CLUSTER_ASSIGNMENT_WORKFLOW.md"
+            )
+        
         # Build update query dynamically based on provided fields
         updates = []
         params = []
@@ -252,13 +327,7 @@ async def update_group(
             updates.append("cluster_label = ?")
             params.append(update.cluster_label)
         
-        if update.sgt_value is not None:
-            updates.append("sgt_value = ?")
-            params.append(update.sgt_value)
-        
-        if update.sgt_name is not None:
-            updates.append("sgt_name = ?")
-            params.append(update.sgt_name)
+        # Do not process sgt_value or sgt_name - they're deprecated
         
         if not updates:
             # No changes to make
@@ -270,6 +339,9 @@ async def update_group(
         query = f"UPDATE clusters SET {', '.join(updates)} WHERE cluster_id = ?"
         conn.execute(query, params)
         conn.commit()
+        
+        if update.cluster_label is not None:
+            logger.info(f"Group {cluster_id} label updated to '{update.cluster_label}'")
         
         # Return updated group
         return await get_group(cluster_id)

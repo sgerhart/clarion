@@ -38,8 +38,6 @@ export default function GroupDetailModal({ clusterId, onClose }: GroupDetailModa
   const queryClient = useQueryClient()
   const [isEditing, setIsEditing] = useState(false)
   const [editedLabel, setEditedLabel] = useState<string>('')
-  const [editedSgtValue, setEditedSgtValue] = useState<number | null>(null)
-  const [editedSgtName, setEditedSgtName] = useState<string>('')
 
   // Get group details
   const { data: groupData, isLoading } = useQuery({
@@ -53,12 +51,10 @@ export default function GroupDetailModal({ clusterId, onClose }: GroupDetailModa
   const group: Group | undefined = groupData?.group
   const members: GroupMember[] = groupData?.members || []
 
-  // Update group mutation
+  // Update group mutation (cluster label only - SGTs are managed by ISE policies)
   const updateMutation = useMutation({
     mutationFn: async (data: {
       cluster_label?: string
-      sgt_value?: number
-      sgt_name?: string
     }) => {
       return apiClient.updateGroup(clusterId, data)
     },
@@ -74,8 +70,6 @@ export default function GroupDetailModal({ clusterId, onClose }: GroupDetailModa
   useEffect(() => {
     if (group) {
       setEditedLabel(group.cluster_label || '')
-      setEditedSgtValue(group.sgt_value ?? null)
-      setEditedSgtName(group.sgt_name || '')
     }
   }, [group])
 
@@ -98,16 +92,12 @@ export default function GroupDetailModal({ clusterId, onClose }: GroupDetailModa
   const handleSave = () => {
     updateMutation.mutate({
       cluster_label: editedLabel || undefined,
-      sgt_value: editedSgtValue ?? undefined,
-      sgt_name: editedSgtName || undefined,
     })
   }
 
   const handleCancel = () => {
     if (group) {
       setEditedLabel(group.cluster_label || '')
-      setEditedSgtValue(group.sgt_value ?? null)
-      setEditedSgtName(group.sgt_name || '')
     }
     setIsEditing(false)
   }
@@ -182,33 +172,13 @@ export default function GroupDetailModal({ clusterId, onClose }: GroupDetailModa
                           placeholder="Enter cluster label"
                         />
                       </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                          SGT Value
-                        </label>
-                        <input
-                          type="number"
-                          value={editedSgtValue ?? ''}
-                          onChange={(e) =>
-                            setEditedSgtValue(
-                              e.target.value ? parseInt(e.target.value) : null
-                            )
-                          }
-                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-clarion-blue focus:border-transparent"
-                          placeholder="Enter SGT value"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                          SGT Name
-                        </label>
-                        <input
-                          type="text"
-                          value={editedSgtName}
-                          onChange={(e) => setEditedSgtName(e.target.value)}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-clarion-blue focus:border-transparent"
-                          placeholder="Enter SGT name"
-                        />
+                      <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                        <p className="text-sm text-blue-800">
+                          <strong>Note:</strong> SGTs are assigned by Cisco ISE authorization policies 
+                          and cannot be edited directly. To change SGT assignments for this group, 
+                          update the corresponding ISE authorization policy. Clarion can help generate 
+                          policy recommendations based on cluster analysis.
+                        </p>
                       </div>
                       <div className="flex space-x-2 pt-2">
                         <button
@@ -243,7 +213,12 @@ export default function GroupDetailModal({ clusterId, onClose }: GroupDetailModa
                         <>
                           <div>
                             <label className="text-sm font-medium text-gray-500">SGT Value</label>
-                            <p className="text-gray-900 font-semibold">SGT {group.sgt_value}</p>
+                            <div>
+                              <p className="text-gray-900 font-semibold">SGT {group.sgt_value}</p>
+                              <p className="text-xs text-gray-500 mt-1">
+                                Assigned by ISE authorization policy
+                              </p>
+                            </div>
                           </div>
                           {group.sgt_name && (
                             <div>

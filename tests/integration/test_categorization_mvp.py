@@ -12,8 +12,11 @@ Tests the end-to-end workflow of the MVP features:
 import pytest
 import tempfile
 import os
+import logging
 from pathlib import Path
 from datetime import datetime
+
+logger = logging.getLogger(__name__)
 
 from clarion.storage.database import ClarionDatabase
 from clarion.sketches import EndpointSketch
@@ -39,30 +42,55 @@ def test_db():
     # For now, use a unique file path per test
     import uuid
     test_id = str(uuid.uuid4())
-    # Use a simpler path approach - just in temp directory with unique name
-    path = os.path.join(tempfile.gettempdir(), f'test_clarion_{test_id}.db')
+    
+    # Use a temporary directory with proper permissions
+    # Create a temporary file with proper write permissions
+    fd, path = tempfile.mkstemp(suffix='.db', prefix=f'test_clarion_{test_id}_')
+    os.close(fd)  # Close the file descriptor, we'll let ClarionDatabase create the file
     
     # Ensure path doesn't exist
     if os.path.exists(path):
         os.unlink(path)
     
+    # Ensure parent directory exists and is writable
+    parent_dir = os.path.dirname(path)
+    if not os.path.exists(parent_dir):
+        os.makedirs(parent_dir, mode=0o755)
+    
     db = ClarionDatabase(path)
     
     yield db
     
-    # No cleanup needed - pytest will handle it, or files will be cleaned on next run
-    # Attempt cleanup but don't fail if it doesn't work
+    # Cleanup - close connections first
     try:
+        # Close any open connections
+        if hasattr(db, '_local'):
+            if hasattr(db._local, 'connection'):
+                try:
+                    db._local.connection.close()
+                except:
+                    pass
+        
+        # Brief delay to ensure file handles are released
         import time
-        time.sleep(0.05)  # Brief delay
+        time.sleep(0.1)
+        
+        # Remove database files
         if os.path.exists(path):
+            os.chmod(path, 0o644)  # Ensure writable before deletion
             os.unlink(path)
         for suffix in ['-wal', '-shm', '-journal']:
             p = path + suffix
             if os.path.exists(p):
-                os.unlink(p)
-    except:
-        pass  # Ignore cleanup errors
+                try:
+                    os.chmod(p, 0o644)
+                    os.unlink(p)
+                except:
+                    pass
+    except Exception as e:
+        # Log but don't fail on cleanup errors
+        logger.warning(f"Cleanup warning for {path}: {e}")
+        pass
 
 
 @pytest.fixture

@@ -227,6 +227,11 @@ class SketchBuilder:
     
     def _build_service_lookup(self, services: pd.DataFrame) -> None:
         """Build IP→service_name lookup from services table."""
+        # Handle case where services CSV doesn't have 'ip' column (e.g., ground truth datasets)
+        if services.empty or 'ip' not in services.columns:
+            logger.debug("Services table empty or missing 'ip' column, skipping service lookup")
+            return
+        
         for _, service in services.iterrows():
             ip = service["ip"]
             name = service["service_name"]

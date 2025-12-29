@@ -135,14 +135,37 @@ This document provides a comprehensive, cohesive roadmap of all Clarion capabili
 #### 3.2 ISE pxGrid Integration
 - [ ] **pxGrid subscriber client** (session events)
 - [ ] **Identity data ingestion** (user, device, endpoint)
-- [ ] **SGT assignment data** (from ISE)
+- [ ] **SGT assignment data** (from ISE - current ISE assignments)
 - [ ] **Policy changes** (SGACL updates from ISE)
 - [ ] **Real-time synchronization** (event-driven updates)
+- [ ] **Current ISE assignment display** (show what ISE assigned)
+- [ ] **ISE SGT import** (import existing SGT definitions from ISE)
+- [ ] **SGT assignment status check** (check if device has SGT from ISE)
 
 **Status:** 📋 Planned  
 **Priority:** 🔴 High  
 **Timeline:** 3-4 weeks  
-**Dependencies:** Streaming data processing
+**Dependencies:** Streaming data processing  
+**Architecture Note:** See `docs/ISE_INTEGRATION.md` and `docs/CLARION_ISE_WORKFLOW.md` - ISE assigns SGTs via authorization policies. Clarion works in multiple scenarios: greenfield (recommend new SGT structure), existing ISE (build upon current SGTs), and incremental (new devices).
+
+#### 3.2.1 ISE Policy Recommendation & Export
+- [ ] **Policy recommendation engine** (cluster → SGT → policy conditions)
+- [ ] **ISE authorization policy generator** (generate ISE-compatible configs)
+- [ ] **Policy condition mapping** (AD groups, device types, network attributes → policy rules)
+- [ ] **Policy impact analysis** (analyze policy change impacts)
+- [ ] **Policy export formats** (ISE ERS API, CLI config, JSON)
+- [ ] **Policy deployment workflow** (review → export → deploy)
+- [ ] **Remove direct SGT editing** (replace with policy recommendations)
+- [ ] **UI updates** (remove SGT input fields, add policy recommendations)
+- [ ] **SGT status checking** (check if device has SGT from ISE vs pending)
+- [ ] **Incremental policy updates** (generate updates vs full replacement)
+- [ ] **TrustSec matrix extension** (build upon existing ISE matrix)
+
+**Status:** 📋 Planned  
+**Priority:** 🔴 High (Critical for ISE alignment)  
+**Timeline:** 2-3 weeks (Phase 1: Remove direct editing - immediate)  
+**Dependencies:** None (can start immediately)  
+**Architecture Note:** See `docs/CLARION_ISE_WORKFLOW.md` - Clarion supports multiple scenarios: (1) Greenfield: NetFlow → clustering → SGT recommendations → ISE policies, (2) Identity-enhanced: Same with AD/IoT data, (3) Existing ISE: Build upon current SGTs, check assignment status, recommend incremental updates.
 
 #### 3.3 Active Directory Integration
 - [ ] **LDAP connector** (user/group queries)
@@ -344,13 +367,21 @@ This document provides a comprehensive, cohesive roadmap of all Clarion capabili
 #### 8.2 Policy Lifecycle
 - [ ] **Policy versioning** (track policy changes over time)
 - [ ] **Policy approval workflow** (multi-stage approval)
-- [ ] **Policy deployment** (push to ISE, monitor enforcement)
+- [ ] **ISE authorization policy recommendations** (generate policy rules from clusters)
+- [ ] **Policy condition mapping** (map clusters → AD groups/device types → policy conditions)
+- [ ] **Policy export** (ISE ERS API format, CLI config, JSON)
+- [ ] **Policy deployment** (push to ISE via ERS API, monitor enforcement)
 - [ ] **Policy validation** (test before deployment)
 - [ ] **Rollback capability** (revert to previous policy)
+- [ ] **Current ISE policy display** (show active ISE policies that assigned SGTs)
+- [ ] **Incremental policy updates** (generate updates vs full replacement)
+- [ ] **Policy comparison** (Clarion recommendations vs current ISE policies)
+- [ ] **New device policy assignment** (categorize new devices, recommend policies)
 
-**Status:** ✅ Core complete, lifecycle management planned  
-**Priority:** 🟡 Medium  
-**Timeline:** 3-4 weeks
+**Status:** ✅ Core complete (SGACL generation), lifecycle management planned  
+**Priority:** 🔴 High (policy recommendations are critical for ISE alignment)  
+**Timeline:** 3-4 weeks (policy recommendations: 2-3 weeks, deployment: 1-2 weeks)  
+**Architecture Note:** See `docs/ISE_INTEGRATION.md` and `docs/CLARION_ISE_WORKFLOW.md` - Policies must align with ISE authorization policy model. Supports multiple scenarios: greenfield, identity-enhanced, existing ISE deployments, and incremental updates.
 
 ---
 
