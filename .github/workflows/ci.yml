@@ -159,6 +159,10 @@ jobs:
       working-directory: frontend
       run: npm ci
     
+    - name: Verify TypeScript version
+      working-directory: frontend
+      run: npx tsc --version
+    
     - name: Run frontend tests
       working-directory: frontend
       run: npm test -- --coverage --watchAll=false --passWithNoTests || true
