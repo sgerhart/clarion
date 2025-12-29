@@ -1,8 +1,9 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { apiClient } from '../lib/api'
-import { X, Save, Edit2, Tag, Users, Server, User, Brain, Info, FileText, Download } from 'lucide-react'
+import { X, Save, Edit2, Tag, Users, Server, User, Brain, Info, FileText, Download, Rocket } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
+import ISEDeploymentModal from './ISEDeploymentModal'
 
 interface Group {
   cluster_id: number
@@ -38,6 +39,8 @@ export default function GroupDetailModal({ clusterId, onClose }: GroupDetailModa
   const queryClient = useQueryClient()
   const [isEditing, setIsEditing] = useState(false)
   const [editedLabel, setEditedLabel] = useState<string>('')
+  const [deploymentModalOpen, setDeploymentModalOpen] = useState(false)
+  const [selectedRecommendation, setSelectedRecommendation] = useState<any>(null)
 
   // Get group details
   const { data: groupData, isLoading } = useQuery({
@@ -66,15 +69,29 @@ export default function GroupDetailModal({ clusterId, onClose }: GroupDetailModa
     },
   })
 
-  // Get policy recommendations for this cluster
+  // Get policy recommendations for this cluster (only show the latest one)
   const { data: recommendationsData } = useQuery({
     queryKey: ['clusterRecommendations', clusterId],
     queryFn: async () => {
       const response = await apiClient.getPolicyRecommendations({ cluster_id: clusterId, status: 'pending' })
-      return response.data as any[]
+      const recommendations = response.data as any[]
+      // If multiple recommendations exist, only show the most recent one (first in the list since API returns DESC by created_at)
+      return recommendations.length > 0 ? [recommendations[0]] : []
     },
     enabled: !!group,
   })
+
+  // Get users in this cluster (via their devices)
+  const { data: clusterUsersData } = useQuery({
+    queryKey: ['clusterUsers', clusterId],
+    queryFn: async () => {
+      const response = await apiClient.getClusterUsersFromDevices(clusterId)
+      return response.data
+    },
+    enabled: !!group,
+  })
+
+  const clusterUsers = clusterUsersData?.users || []
 
   // Initialize edit values when group loads
   useEffect(() => {
@@ -254,6 +271,47 @@ export default function GroupDetailModal({ clusterId, onClose }: GroupDetailModa
                 </div>
               </div>
 
+              {/* Users in Cluster */}
+              {clusterUsers.length > 0 && (
+                <div className="mt-6">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                    <User className="h-5 w-5 mr-2" />
+                    Users in Cluster ({clusterUsers.length})
+                  </h3>
+                  <div className="bg-gray-50 rounded-lg p-4 max-h-64 overflow-y-auto">
+                    <div className="space-y-2">
+                      {clusterUsers.slice(0, 20).map((user: any) => (
+                        <div key={user.user_id} className="flex items-center justify-between py-2 border-b border-gray-200 last:border-0">
+                          <div className="flex-1">
+                            <p className="text-sm font-medium text-gray-900">
+                              {user.display_name || user.username}
+                            </p>
+                            <p className="text-xs text-gray-500">{user.email || user.username}</p>
+                            {user.department && (
+                              <p className="text-xs text-gray-400">{user.department}</p>
+                            )}
+                          </div>
+                          <div className="text-right">
+                            <p className="text-xs text-gray-500">{user.device_count} device{user.device_count !== 1 ? 's' : ''}</p>
+                            {user.ad_groups && user.ad_groups.length > 0 && (
+                              <p className="text-xs text-gray-400 mt-1">
+                                {user.ad_groups.slice(0, 2).join(', ')}
+                                {user.ad_groups.length > 2 && ` +${user.ad_groups.length - 2}`}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                      {clusterUsers.length > 20 && (
+                        <p className="text-xs text-gray-500 text-center pt-2">
+                          Showing 20 of {clusterUsers.length} users
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* Policy Recommendations */}
               {recommendationsData && recommendationsData.length > 0 && (
                 <div className="mt-6">
@@ -306,13 +364,34 @@ export default function GroupDetailModal({ clusterId, onClose }: GroupDetailModa
                         </div>
                         <div className="mt-3 pt-3 border-t border-gray-200 flex space-x-2 flex-wrap gap-2">
                           <button
-                            className="px-3 py-1.5 bg-green-600 text-white text-sm rounded hover:bg-green-700"
+                            className="px-3 py-1.5 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 flex items-center space-x-1"
                             onClick={() => {
-                              // TODO: Implement accept recommendation
-                              alert('Accept functionality coming soon')
+                              setSelectedRecommendation(rec)
+                              setDeploymentModalOpen(true)
                             }}
                           >
-                            Accept
+                            <Rocket className="h-3 w-3" />
+                            <span>Deploy to ISE</span>
+                          </button>
+                          <button
+                            className="px-3 py-1.5 bg-gray-500 text-white text-sm rounded hover:bg-gray-600 flex items-center space-x-1"
+                            onClick={async () => {
+                              try {
+                                const response = await apiClient.exportISEConfig(rec.id, 'json')
+                                const blob = new Blob([JSON.stringify(response.data, null, 2)], { type: 'application/json' })
+                                const url = URL.createObjectURL(blob)
+                                const a = document.createElement('a')
+                                a.href = url
+                                a.download = `ise_policy_${rec.id}.json`
+                                a.click()
+                                URL.revokeObjectURL(url)
+                              } catch (error) {
+                                alert('Error exporting JSON config')
+                              }
+                            }}
+                          >
+                            <Download className="h-3 w-3" />
+                            <span>Export JSON</span>
                           </button>
                           <button
                             className="px-3 py-1.5 bg-gray-300 text-gray-700 text-sm rounded hover:bg-gray-400"
@@ -328,21 +407,21 @@ export default function GroupDetailModal({ clusterId, onClose }: GroupDetailModa
                               className="px-3 py-1.5 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 flex items-center space-x-1"
                               onClick={async () => {
                                 try {
-                                  const response = await apiClient.exportISEConfig(rec.id, 'json')
-                                  const blob = new Blob([JSON.stringify(response.data, null, 2)], { type: 'application/json' })
+                                  const response = await apiClient.exportISEConfig(rec.id, 'xml')
+                                  const blob = new Blob([response.data], { type: 'application/xml' })
                                   const url = URL.createObjectURL(blob)
                                   const a = document.createElement('a')
                                   a.href = url
-                                  a.download = `ise_policy_${rec.id}.json`
+                                  a.download = `ise_policy_${rec.id}.xml`
                                   a.click()
                                   URL.revokeObjectURL(url)
                                 } catch (error) {
-                                  alert('Error exporting JSON config')
+                                  alert('Error exporting XML config')
                                 }
                               }}
                             >
                               <Download className="h-3 w-3" />
-                              <span>JSON</span>
+                              <span>XML</span>
                             </button>
                             <button
                               className="px-3 py-1.5 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 flex items-center space-x-1"
@@ -402,9 +481,13 @@ export default function GroupDetailModal({ clusterId, onClose }: GroupDetailModa
                     onClick={async () => {
                       try {
                         await apiClient.generateClusterRecommendation(clusterId)
+                        // Invalidate and refetch to show the new recommendation
                         queryClient.invalidateQueries({ queryKey: ['clusterRecommendations', clusterId] })
+                        // Force a refetch
+                        await queryClient.refetchQueries({ queryKey: ['clusterRecommendations', clusterId] })
                         alert('Policy recommendation generated!')
                       } catch (error) {
+                        console.error('Error generating recommendation:', error)
                         alert('Error generating recommendation')
                       }
                     }}
@@ -441,17 +524,31 @@ export default function GroupDetailModal({ clusterId, onClose }: GroupDetailModa
                               <div className="flex items-center space-x-3 flex-1">
                                 {getDeviceTypeIcon(member.device_type)}
                                 <div className="flex-1 min-w-0">
-                                  <div className="text-sm font-medium text-gray-900 font-mono truncate">
-                                    {member.endpoint_id}
-                                  </div>
-                                  <div className="text-xs text-gray-500 space-x-2">
-                                    {member.device_name && (
-                                      <span>{member.device_name}</span>
-                                    )}
+                                  {/* Show machine name prominently if available, otherwise show MAC */}
+                                  {member.device_name ? (
+                                    <>
+                                      <div className="text-sm font-medium text-gray-900 truncate">
+                                        {member.device_name}
+                                      </div>
+                                      <div className="text-xs font-mono text-gray-500 truncate">
+                                        {member.endpoint_id}
+                                      </div>
+                                    </>
+                                  ) : (
+                                    <div className="text-sm font-medium text-gray-900 font-mono truncate">
+                                      {member.endpoint_id}
+                                    </div>
+                                  )}
+                                  <div className="text-xs text-gray-500 space-x-2 mt-0.5">
                                     {member.ip_address && (
                                       <span className="font-mono">{member.ip_address}</span>
                                     )}
-                                    {member.user_name && <span>• {member.user_name}</span>}
+                                    {member.user_name && (
+                                      <span className="flex items-center">
+                                        <User className="h-3 w-3 mr-1" />
+                                        {member.user_name}
+                                      </span>
+                                    )}
                                   </div>
                                 </div>
                               </div>
@@ -543,6 +640,40 @@ export default function GroupDetailModal({ clusterId, onClose }: GroupDetailModa
           </div>
         </div>
       </div>
+
+      {/* ISE Deployment Modal */}
+      {deploymentModalOpen && selectedRecommendation && (
+        <ISEDeploymentModal
+          isOpen={deploymentModalOpen}
+          onClose={() => {
+            setDeploymentModalOpen(false)
+            setSelectedRecommendation(null)
+          }}
+          recommendationName={selectedRecommendation.policy_rule.name}
+          onDeploy={async (config: {
+            ise_url: string
+            ise_username: string
+            ise_password: string
+            verify_ssl: boolean
+            create_sgt_if_missing: boolean
+          }) => {
+            try {
+              const response = await apiClient.deployToISE(selectedRecommendation.id, config)
+              if (response.data.status === 'success') {
+                alert(`Successfully deployed to ISE! ${response.data.message || ''}`)
+                queryClient.invalidateQueries({ queryKey: ['clusterRecommendations', clusterId] })
+                queryClient.invalidateQueries({ queryKey: ['group', clusterId] })
+                setDeploymentModalOpen(false)
+                setSelectedRecommendation(null)
+              } else {
+                throw new Error(response.data.message || 'Deployment failed')
+              }
+            } catch (error: any) {
+              throw new Error(error.response?.data?.detail || error.message || 'Failed to deploy to ISE')
+            }
+          }}
+        />
+      )}
     </div>
   )
 }

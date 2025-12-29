@@ -23,6 +23,9 @@ from clarion.api.routes import (
     collectors,
     sgt,
     policy_recommendations,
+    users,
+    user_sgt,
+    ise_config,
 )
 from clarion.storage import init_database
 
@@ -77,6 +80,9 @@ def create_app() -> FastAPI:
     app.include_router(collectors.router, prefix="/api", tags=["Collectors"])
     app.include_router(sgt.router, prefix="/api", tags=["SGT"])
     app.include_router(policy_recommendations.router, prefix="/api", tags=["Policy Recommendations"])
+    app.include_router(users.router, prefix="/api", tags=["Users"])
+    app.include_router(user_sgt.router, prefix="/api", tags=["User SGT"])
+app.include_router(ise_config.router, prefix="/api", tags=["ISE Configuration"])
     
     @app.exception_handler(Exception)
     async def global_exception_handler(request, exc):

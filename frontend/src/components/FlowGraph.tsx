@@ -44,6 +44,7 @@ export default function FlowGraph({ limit = 500, onNodeClick }: FlowGraphProps) 
   const svgRef = useRef<SVGSVGElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const simulationRef = useRef<d3.Simulation<FlowGraphNode, FlowGraphLink> | null>(null)
+  const zoomRef = useRef<d3.ZoomBehavior<SVGSVGElement, unknown> | null>(null)
   const [selectedNode, setSelectedNode] = useState<FlowGraphNode | null>(null)
   const [hoveredNode, setHoveredNode] = useState<FlowGraphNode | null>(null)
   const [isPaused, setIsPaused] = useState(false)
@@ -67,7 +68,10 @@ export default function FlowGraph({ limit = 500, onNodeClick }: FlowGraphProps) 
     const svg = d3.select(svgRef.current)
     svg.selectAll('*').remove()
 
-    // Set up zoom behavior - require Ctrl/Cmd+wheel for zoom, allow page scrolling
+    // Create container group for zoom/pan FIRST
+    const g = svg.append('g')
+    
+    // Set up zoom behavior with improved navigation
     const zoom = d3
       .zoom<SVGSVGElement, unknown>()
       .scaleExtent([0.1, 4])
@@ -76,20 +80,35 @@ export default function FlowGraph({ limit = 500, onNodeClick }: FlowGraphProps) 
         if (event.type === 'wheel') {
           return (event as WheelEvent).ctrlKey || (event as WheelEvent).metaKey
         }
-        // Disable drag-to-pan on background to prevent conflicts with page scrolling
-        return false
+        // Allow all other events (pan will work on background rect)
+        return true
       })
       .on('zoom', (evt) => {
         g.attr('transform', evt.transform)
       })
+    
+    zoomRef.current = zoom
 
     svg
       .attr('width', width)
       .attr('height', height)
       .call(zoom as any)
-
-    // Create container group for zoom/pan
-    const g = svg.append('g')
+    
+    // Add a background rect for easier panning (draw first so it's behind everything)
+    g.insert('rect', ':first-child')
+      .attr('width', width)
+      .attr('height', height)
+      .attr('fill', 'transparent')
+      .style('cursor', 'grab')
+      .on('mousedown', function() {
+        svg.style('cursor', 'grabbing')
+      })
+      .on('mouseup', function() {
+        svg.style('cursor', 'default')
+      })
+      .on('mouseleave', function() {
+        svg.style('cursor', 'default')
+      })
 
     // Create tooltip div
     const tooltip = d3
@@ -214,12 +233,19 @@ export default function FlowGraph({ limit = 500, onNodeClick }: FlowGraphProps) 
       .attr('stroke-width', 2)
       .style('cursor', 'pointer')
       .on('mouseover', function (event, d) {
+        // Don't interfere if a node is selected (simulation is locked)
+        if (selectedNode) {
+          return
+        }
+        
         // Pause simulation when hovering to prevent movement
         if (simulationRef.current) {
           simulationRef.current.alphaTarget(0).restart()
           // Fix the hovered node position temporarily
-          d.fx = d.x
-          d.fy = d.y
+          if (d.x !== undefined && d.y !== undefined) {
+            d.fx = d.x
+            d.fy = d.y
+          }
         }
         
         setHoveredNode(d)
@@ -252,9 +278,12 @@ export default function FlowGraph({ limit = 500, onNodeClick }: FlowGraphProps) 
           .style('top', event.pageY - 10 + 'px')
       })
       .on('mouseout', function (_event, d) {
-        // Unfix node position when not hovering
-        d.fx = null
-        d.fy = null
+        // Don't unfix if a node is selected (simulation is locked)
+        if (!selectedNode) {
+          // Unfix node position when not hovering (only if nothing is selected)
+          d.fx = null
+          d.fy = null
+        }
         
         setHoveredNode(null)
         tooltip.transition().duration(200).style('opacity', 0)
@@ -267,15 +296,33 @@ export default function FlowGraph({ limit = 500, onNodeClick }: FlowGraphProps) 
       .on('click', function (event, d) {
         event.stopPropagation()
         
+        // Stop and lock the simulation when clicking a node
+        if (simulationRef.current) {
+          simulationRef.current.stop()
+          // Fix all node positions to prevent movement
+          nodes.forEach((node) => {
+            if (node.x !== undefined && node.y !== undefined) {
+              node.fx = node.x
+              node.fy = node.y
+            }
+          })
+        }
+        
         // Fix selected node position
         if (selectedNode && selectedNode.id === d.id) {
-          // Deselect
+          // Deselect - unfix all nodes and restart simulation
           setSelectedNode(null)
-          d.fx = null
-          d.fy = null
+          nodes.forEach((node) => {
+            node.fx = null
+            node.fy = null
+          })
           // Notify parent component
           if (onNodeClick) {
             onNodeClick(null)
+          }
+          // Restart simulation gently
+          if (simulationRef.current) {
+            simulationRef.current.alpha(0.3).restart()
           }
         } else {
           // Select new node
@@ -283,22 +330,18 @@ export default function FlowGraph({ limit = 500, onNodeClick }: FlowGraphProps) 
             // Unfix previous selection
             const prevNode = nodes.find((n) => n.id === selectedNode.id)
             if (prevNode) {
-              prevNode.fx = null
-              prevNode.fy = null
+              prevNode.fx = prevNode.x
+              prevNode.fy = prevNode.y
             }
           }
           setSelectedNode(d)
-          d.fx = d.x
-          d.fy = d.y
+          // Fix the clicked node at its current position
+          d.fx = d.x || 0
+          d.fy = d.y || 0
           // Notify parent component
           if (onNodeClick) {
             onNodeClick(d)
           }
-        }
-        
-        // Stop simulation movement
-        if (simulationRef.current) {
-          simulationRef.current.alphaTarget(0).restart()
         }
       })
       .call(
@@ -307,10 +350,13 @@ export default function FlowGraph({ limit = 500, onNodeClick }: FlowGraphProps) 
           .filter((event) => {
             // Only allow dragging with left mouse button (not during zoom/pan)
             // Don't interfere with page scrolling or text selection
+            // Stop event propagation to prevent triggering background pan
+            event.sourceEvent?.stopPropagation()
             return (event as MouseEvent).button === 0 && !event.ctrlKey && !event.metaKey && !event.shiftKey
           })
           .on('start', function (event, d) {
             event.sourceEvent?.preventDefault() // Prevent text selection
+            event.sourceEvent?.stopPropagation() // Prevent background pan
             if (!event.active && simulationRef.current) {
               simulationRef.current.alphaTarget(0.3).restart()
             }
@@ -319,6 +365,7 @@ export default function FlowGraph({ limit = 500, onNodeClick }: FlowGraphProps) 
           })
           .on('drag', function (event, d) {
             event.sourceEvent?.preventDefault() // Prevent text selection
+            event.sourceEvent?.stopPropagation() // Prevent background pan
             d.fx = event.x
             d.fy = event.y
             if (simulationRef.current) {
@@ -326,6 +373,7 @@ export default function FlowGraph({ limit = 500, onNodeClick }: FlowGraphProps) 
             }
           })
           .on('end', function (event, _d) {
+            event.sourceEvent?.stopPropagation() // Prevent background pan
             if (!event.active && simulationRef.current) {
               simulationRef.current.alphaTarget(0)
             }
@@ -365,18 +413,41 @@ export default function FlowGraph({ limit = 500, onNodeClick }: FlowGraphProps) 
     // Update positions on simulation tick
     simulation.on('tick', () => {
       link
-        .attr('x1', (d: any) => (d.source as FlowGraphNode).x || 0)
-        .attr('y1', (d: any) => (d.source as FlowGraphNode).y || 0)
-        .attr('x2', (d: any) => (d.target as FlowGraphNode).x || 0)
-        .attr('y2', (d: any) => (d.target as FlowGraphNode).y || 0)
+        .attr('x1', (d: any) => {
+          const src = d.source as FlowGraphNode
+          return src.fx !== undefined && src.fx !== null ? src.fx : (src.x !== undefined && src.x !== null ? src.x : 0)
+        })
+        .attr('y1', (d: any) => {
+          const src = d.source as FlowGraphNode
+          return src.fy !== undefined && src.fy !== null ? src.fy : (src.y !== undefined && src.y !== null ? src.y : 0)
+        })
+        .attr('x2', (d: any) => {
+          const tgt = d.target as FlowGraphNode
+          return tgt.fx !== undefined && tgt.fx !== null ? tgt.fx : (tgt.x !== undefined && tgt.x !== null ? tgt.x : 0)
+        })
+        .attr('y2', (d: any) => {
+          const tgt = d.target as FlowGraphNode
+          return tgt.fy !== undefined && tgt.fy !== null ? tgt.fy : (tgt.y !== undefined && tgt.y !== null ? tgt.y : 0)
+        })
 
       node
-        .attr('cx', (d) => d.x || 0)
-        .attr('cy', (d) => d.y || 0)
+        .attr('cx', (d) => {
+          // Use fixed position if available, otherwise use simulation position
+          return d.fx !== undefined && d.fx !== null ? d.fx : (d.x !== undefined && d.x !== null ? d.x : 0)
+        })
+        .attr('cy', (d) => {
+          return d.fy !== undefined && d.fy !== null ? d.fy : (d.y !== undefined && d.y !== null ? d.y : 0)
+        })
 
       label
-        .attr('x', (d) => d.x || 0)
-        .attr('y', (d) => (d.y || 0) + 28)
+        .attr('x', (d) => {
+          const x = d.fx !== undefined && d.fx !== null ? d.fx : (d.x !== undefined && d.x !== null ? d.x : 0)
+          return x
+        })
+        .attr('y', (d) => {
+          const y = d.fy !== undefined && d.fy !== null ? d.fy : (d.y !== undefined && d.y !== null ? d.y : 0)
+          return y + 28
+        })
     })
 
     // Cleanup
@@ -386,7 +457,7 @@ export default function FlowGraph({ limit = 500, onNodeClick }: FlowGraphProps) 
         simulationRef.current.stop()
       }
     }
-  }, [graphData, isLoading, selectedNode, limit])
+  }, [graphData, isLoading, limit])
 
   // Update hovered node styling when selection changes
   useEffect(() => {
@@ -417,21 +488,27 @@ export default function FlowGraph({ limit = 500, onNodeClick }: FlowGraphProps) 
   }
 
   const handleZoomIn = () => {
-    if (!svgRef.current) return
+    if (!svgRef.current || !zoomRef.current) return
     const svg = d3.select(svgRef.current)
-    svg.transition().duration(200).call((d3.zoom<SVGSVGElement, unknown>() as any).scaleBy, 1.5)
+    svg.transition()
+      .duration(200)
+      .call(zoomRef.current.scaleBy as any, 1.5)
   }
 
   const handleZoomOut = () => {
-    if (!svgRef.current) return
+    if (!svgRef.current || !zoomRef.current) return
     const svg = d3.select(svgRef.current)
-    svg.transition().duration(200).call((d3.zoom<SVGSVGElement, unknown>() as any).scaleBy, 1 / 1.5)
+    svg.transition()
+      .duration(200)
+      .call(zoomRef.current.scaleBy as any, 1 / 1.5)
   }
 
   const handleResetZoom = () => {
-    if (!svgRef.current) return
+    if (!svgRef.current || !zoomRef.current) return
     const svg = d3.select(svgRef.current)
-    svg.transition().duration(750).call((d3.zoom<SVGSVGElement, unknown>() as any).transform, d3.zoomIdentity)
+    svg.transition()
+      .duration(750)
+      .call(zoomRef.current.transform as any, d3.zoomIdentity)
   }
 
   if (isLoading) {
@@ -502,7 +579,7 @@ export default function FlowGraph({ limit = 500, onNodeClick }: FlowGraphProps) 
 
       {/* Instructions */}
       <div className="text-xs text-gray-500 bg-blue-50 border border-blue-200 rounded-md p-2">
-        💡 <strong>Controls:</strong> Ctrl/Cmd + Scroll to zoom • Drag nodes to reposition • Click node for details • Hover for info • Use zoom buttons below
+        💡 <strong>Controls:</strong> Drag background to pan • Ctrl/Cmd + Scroll to zoom • Drag nodes to reposition • Click node for details • Hover for info • Use zoom buttons to adjust view
         {isPaused && <span className="ml-2 text-green-600">• Graph stabilized</span>}
       </div>
 

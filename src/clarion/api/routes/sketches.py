@@ -141,18 +141,21 @@ async def sketch_stats():
     db = get_database()
     stats = db.get_sketch_stats()
     
-    # Get per-switch counts
-    all_sketches = db.list_sketches(limit=100000)
-    switches_detail = {}
-    for s in all_sketches:
-        switch_id = s['switch_id']
-        switches_detail[switch_id] = switches_detail.get(switch_id, 0) + 1
+    # Get per-switch counts using a direct SQL query instead of loading all sketches
+    conn = db._get_connection()
+    switch_counts = conn.execute("""
+        SELECT switch_id, COUNT(*) as count
+        FROM sketches
+        GROUP BY switch_id
+    """).fetchall()
+    switches_detail = {row[0]: row[1] for row in switch_counts}
     
     return {
         "total_sketches": stats.get('total_sketches', 0),
         "total_flows": stats.get('total_flows', 0),
-        "switches": stats.get('total_switches', 0),
+        "total_switches": stats.get('total_switches', 0),
         "unique_endpoints": stats.get('unique_endpoints', 0),
+        "latest_flow": stats.get('latest_flow', None),
         "switches_detail": switches_detail,
     }
 

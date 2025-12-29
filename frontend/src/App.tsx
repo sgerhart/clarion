@@ -6,6 +6,7 @@ import { ErrorBoundary } from './components/ErrorBoundary'
 // Pages
 import Dashboard from './pages/Dashboard'
 import Devices from './pages/Devices'
+import Users from './pages/Users'
 import Groups from './pages/Groups'
 import NetworkFlows from './pages/NetworkFlows'
 import Clusters from './pages/Clusters'
@@ -63,6 +64,7 @@ function App() {
             <Routes>
               <Route path="/" element={<Dashboard />} />
               <Route path="/devices" element={<Devices />} />
+              <Route path="/users" element={<Users />} />
               <Route path="/groups" element={<Groups />} />
               <Route path="/flows" element={<NetworkFlows />} />
               <Route path="/clusters" element={<Clusters />} />

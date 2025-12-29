@@ -18,6 +18,12 @@ from clarion.clustering.explanation import generate_cluster_explanation
 from clarion.clustering.sgt_lifecycle import SGTLifecycleManager
 from clarion.clustering.incremental import IncrementalClusterer
 from clarion.clustering.confidence import ConfidenceScorer
+from clarion.clustering.user_clusterer import UserClusterer, UserCluster, cluster_users
+from clarion.clustering.user_traffic_clusterer import (
+    UserTrafficBasedClusterer,
+    UserTrafficFeatures,
+    cluster_users_with_traffic,
+)
 
 __all__ = [
     "FeatureExtractor",
@@ -32,5 +38,11 @@ __all__ = [
     "SGTLifecycleManager",
     "IncrementalClusterer",
     "ConfidenceScorer",
+    "UserClusterer",
+    "UserCluster",
+    "cluster_users",
+    "UserTrafficBasedClusterer",
+    "UserTrafficFeatures",
+    "cluster_users_with_traffic",
 ]
 

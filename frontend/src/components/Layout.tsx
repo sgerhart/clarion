@@ -13,7 +13,8 @@ import {
   Activity,
   FileText,
   ClipboardList,
-  Server
+  Server,
+  Users
 } from 'lucide-react'
 import ClarionLogo from '/clarion.jpg'
 
@@ -31,6 +32,7 @@ interface NavItem {
 const navigation: NavItem[] = [
   { name: 'Dashboard', href: '/', icon: Home },
   { name: 'Devices', href: '/devices', icon: Server },
+  { name: 'Users', href: '/users', icon: Users },
   { name: 'Groups', href: '/groups', icon: Layers },
   { name: 'Network Flows', href: '/flows', icon: Network },
   { 

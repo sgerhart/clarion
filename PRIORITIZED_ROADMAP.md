@@ -268,15 +268,23 @@ This document outlines the prioritized development plan for Clarion, focusing on
 - Edge agent optimization
 - Production deployment guides
 
-**Weeks 15-20: Integration & Testing**
+**Weeks 15-18: Data Layer**
+- PostgreSQL migration
+- Neo4j integration
+
+**Weeks 19-22: Multi-Source Ingestion & User Database**
+- ✅ User database schema creation (completed)
+- ✅ ISE ERS API integration (brownfield support: sync existing ISE configuration)
+- ✅ ISE configuration cache (store existing SGTs, profiles, policies)
+- ✅ Policy recommendation engine with brownfield support (check existing SGTs)
+- [ ] ISE pxGrid integration (user session data, user-device associations - pending)
+- [ ] AD integration (user details, group memberships, user database enrichment)
+- [ ] User-device association resolution engine
+
+**Weeks 23-24: Integration & Testing**
 - End-to-end testing
 - Performance optimization
 - Bug fixes
-
-**Weeks 21-24: Documentation & Polish**
-- Documentation consolidation
-- User guides
-- Production readiness
 
 ---
 

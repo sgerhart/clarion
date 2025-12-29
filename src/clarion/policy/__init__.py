@@ -35,6 +35,11 @@ from clarion.policy.authorization_exporter import (
     ISEAuthorizationPolicyExporter,
     ISEAuthorizationPolicyExport,
 )
+from clarion.policy.user_sgt_recommendation import (
+    UserSGTRecommendation,
+    UserSGTRecommendationEngine,
+    generate_user_sgt_recommendation,
+)
 
 __all__ = [
     # Matrix
@@ -68,5 +73,9 @@ __all__ = [
     # Authorization Export
     "ISEAuthorizationPolicyExporter",
     "ISEAuthorizationPolicyExport",
+    # User SGT Recommendations
+    "UserSGTRecommendation",
+    "UserSGTRecommendationEngine",
+    "generate_user_sgt_recommendation",
 ]
 

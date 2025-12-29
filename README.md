@@ -320,32 +320,27 @@ clarion/
 ## 📖 Documentation
 
 ### Core Documentation
+- **[Quick Start Guide](QUICK_START.md)** — Complete system setup and getting started
 - **[Design Document](docs/DESIGN.md)** — System architecture, data model, algorithms
-- **[Project Plan](docs/PROJECT_PLAN.md)** — Milestones, tasks, progress tracking
-- **[Project Roadmap](PROJECT_ROADMAP.md)** — 6-month roadmap, priorities, task tracking
-- **[API Documentation](README_API.md)** — FastAPI endpoints and usage
+- **[Capabilities Roadmap](CAPABILITIES_ROADMAP.md)** — Complete feature inventory and roadmap
+- **[Prioritized Roadmap](PRIORITIZED_ROADMAP.md)** — Development priorities and timeline
 
-### Frontend
-- **[React Frontend Guide](REACT_FRONTEND.md)** — Frontend setup and development
-- **[Frontend Troubleshooting](FRONTEND_TROUBLESHOOTING.md)** — Common issues and solutions
-
-### Data & Topology
+### Architecture & Integration
+- **[Categorization Engine](docs/CATEGORIZATION_ENGINE.md)** — Clustering, incremental assignment, SGT lifecycle
+- **[AI Integration](docs/AI_INTEGRATION.md)** — Optional AI/LLM integration architecture
+- **[ISE Integration](docs/ISE_INTEGRATION.md)** — Cisco ISE integration, policy recommendations, workflows
 - **[Data Architecture](docs/DATA_ARCHITECTURE.md)** — Data sources, storage, correlation requirements
 - **[Topology Architecture](docs/TOPOLOGY_ARCHITECTURE.md)** — Location hierarchy, address spaces, subnet mapping
-- **[Topology Examples](docs/TOPOLOGY_EXAMPLES.md)** — Real-world topology examples
-- **[Data Layer Implementation](docs/IMPLEMENTATION_PLAN_DATA_LAYER.md)** — Migration plan for scalable data layer
+- **[Admin Guide](docs/ADMIN_GUIDE.md)** — Administrative control and user management
 
-### Clustering & Administration
-- **[Clustering & Grouping](docs/CLUSTERING_AND_GROUPING.md)** — How clusters are created, modified, and explained
-- **[Admin Control & Hierarchy](docs/ADMIN_CONTROL_AND_HIERARCHY.md)** — Full administrative override, device-agnostic support, simplified UI
+### Testing & Development
+- **[Testing Guide](docs/TESTING.md)** — Comprehensive testing guide (without AD/ISE)
+- **[CI/CD Setup](.github/workflows/SETUP.md)** — GitHub Actions, Codecov, email notifications setup
 
-### Testing & Setup
-- **[Test Results](TEST_RESULTS.md)** — System test results and metrics
-- **[Storage & Lab Environment](STORAGE_AND_LAB.md)** — Database, lab setup
-- **[Lab README](lab/README.md)** — VM setup, edge agents, fake logs
-
-### Collectors
-- **[Collector README](collector/README.md)** — NetFlow and agent collector setup and usage
+### Components
+- **[Frontend README](frontend/README.md)** — Frontend setup and development
+- **[Collector README](collector/README.md)** — NetFlow and agent collector setup, scalability, testing
+- **[Lab README](lab/README.md)** — VM setup, edge agents, lab environment
 
 ## 🚀 Quick Start
 

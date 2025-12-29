@@ -1,7 +1,8 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { apiClient } from '../lib/api'
-import { X, Save, Edit2, User, Tag, Network, Activity, FileText, AlertCircle, Download } from 'lucide-react'
+import { X, Save, Edit2, User, Tag, Network, Activity, FileText, Server, Download, Rocket } from 'lucide-react'
 import { useState, useEffect } from 'react'
+import ISEDeploymentModal from './ISEDeploymentModal'
 
 interface Device {
   endpoint_id: string
@@ -34,6 +35,8 @@ export default function DeviceDetailModal({ deviceId, onClose }: DeviceDetailMod
   const queryClient = useQueryClient()
   const [isEditing, setIsEditing] = useState(false)
   const [editedClusterId, setEditedClusterId] = useState<number | null>(null)
+  const [deploymentModalOpen, setDeploymentModalOpen] = useState(false)
+  const [selectedRecommendation, setSelectedRecommendation] = useState<any>(null)
 
   // Get device details
   const { data: device, isLoading } = useQuery({
@@ -138,9 +141,20 @@ export default function DeviceDetailModal({ deviceId, onClose }: DeviceDetailMod
         <div className="flex items-center justify-between p-6 border-b border-gray-200">
           <div className="flex items-center space-x-4">
             <div>
-              <h2 className="text-2xl font-bold text-gray-900 font-mono">{device.endpoint_id}</h2>
-              {device.device_name && (
-                <p className="text-gray-600 mt-1">{device.device_name}</p>
+              {/* Show machine name prominently if available, otherwise show MAC */}
+              {device.device_name ? (
+                <>
+                  <h2 className="text-2xl font-bold text-gray-900">{device.device_name}</h2>
+                  <p className="text-gray-500 font-mono text-sm mt-1">{device.endpoint_id}</p>
+                </>
+              ) : (
+                <h2 className="text-2xl font-bold text-gray-900 font-mono">{device.endpoint_id}</h2>
+              )}
+              {device.user_name && (
+                <p className="text-gray-600 mt-1 flex items-center">
+                  <User className="h-4 w-4 mr-1" />
+                  {device.user_name}
+                </p>
               )}
             </div>
           </div>
@@ -175,30 +189,48 @@ export default function DeviceDetailModal({ deviceId, onClose }: DeviceDetailMod
                   Identity Information
                 </h3>
                 <div className="bg-gray-50 rounded-lg p-4 space-y-3">
+                  {/* Machine Name - Show prominently for all devices */}
+                  {device.device_name && (
+                    <div>
+                      <label className="text-sm font-medium text-gray-500 flex items-center">
+                        <Server className="h-4 w-4 mr-1" />
+                        Machine Name
+                      </label>
+                      <p className="text-gray-900 font-medium">{device.device_name}</p>
+                    </div>
+                  )}
+                  {/* Username - Show for user-associated devices */}
+                  {device.user_name && (
+                    <div>
+                      <label className="text-sm font-medium text-gray-500 flex items-center">
+                        <User className="h-4 w-4 mr-1" />
+                        Username
+                      </label>
+                      <p className="text-gray-900">{device.user_name}</p>
+                    </div>
+                  )}
+                  {/* IP Address */}
                   {device.ip_address && (
                     <div>
                       <label className="text-sm font-medium text-gray-500">IP Address</label>
                       <p className="text-gray-900 font-mono">{device.ip_address}</p>
                     </div>
                   )}
-                  {device.user_name && (
+                  {/* Device Type */}
+                  {device.device_type && (
                     <div>
-                      <label className="text-sm font-medium text-gray-500">User</label>
-                      <p className="text-gray-900">{device.user_name}</p>
+                      <label className="text-sm font-medium text-gray-500">Device Type</label>
+                      <p className="text-gray-900 capitalize">{device.device_type}</p>
                     </div>
                   )}
-                  {device.device_name && (
-                    <div>
-                      <label className="text-sm font-medium text-gray-500">Device Name</label>
-                      <p className="text-gray-900">{device.device_name}</p>
-                    </div>
-                  )}
+                  {/* ISE Profile */}
                   {device.ise_profile && (
                     <div>
                       <label className="text-sm font-medium text-gray-500">ISE Profile</label>
                       <p className="text-gray-900">{device.ise_profile}</p>
                     </div>
                   )}
+                  {/* AD Groups */}
                   {device.ad_groups && device.ad_groups.length > 0 && (
                     <div>
                       <label className="text-sm font-medium text-gray-500">AD Groups</label>
@@ -392,15 +424,36 @@ export default function DeviceDetailModal({ deviceId, onClose }: DeviceDetailMod
                             </code>
                           </div>
                         </div>
-                        <div className="mt-3 pt-3 border-t border-gray-200 flex space-x-2">
+                        <div className="mt-3 pt-3 border-t border-gray-200 flex space-x-2 flex-wrap gap-2">
                           <button
-                            className="px-3 py-1.5 bg-green-600 text-white text-sm rounded hover:bg-green-700"
+                            className="px-3 py-1.5 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 flex items-center space-x-1"
                             onClick={() => {
-                              // TODO: Implement accept recommendation
-                              alert('Accept functionality coming soon')
+                              setSelectedRecommendation(rec)
+                              setDeploymentModalOpen(true)
                             }}
                           >
-                            Accept
+                            <Rocket className="h-3 w-3" />
+                            <span>Deploy to ISE</span>
+                          </button>
+                          <button
+                            className="px-3 py-1.5 bg-gray-500 text-white text-sm rounded hover:bg-gray-600 flex items-center space-x-1"
+                            onClick={async () => {
+                              try {
+                                const response = await apiClient.exportISEConfig(rec.id, 'json')
+                                const blob = new Blob([JSON.stringify(response.data, null, 2)], { type: 'application/json' })
+                                const url = URL.createObjectURL(blob)
+                                const a = document.createElement('a')
+                                a.href = url
+                                a.download = `ise_policy_${rec.id}.json`
+                                a.click()
+                                URL.revokeObjectURL(url)
+                              } catch (error) {
+                                alert('Error exporting JSON config')
+                              }
+                            }}
+                          >
+                            <Download className="h-3 w-3" />
+                            <span>Export JSON</span>
                           </button>
                           <button
                             className="px-3 py-1.5 bg-gray-300 text-gray-700 text-sm rounded hover:bg-gray-400"
@@ -478,6 +531,34 @@ export default function DeviceDetailModal({ deviceId, onClose }: DeviceDetailMod
           </div>
         </div>
       </div>
+
+      {/* ISE Deployment Modal */}
+      {deploymentModalOpen && selectedRecommendation && (
+        <ISEDeploymentModal
+          isOpen={deploymentModalOpen}
+          onClose={() => {
+            setDeploymentModalOpen(false)
+            setSelectedRecommendation(null)
+          }}
+          recommendationName={selectedRecommendation.policy_rule.name}
+          onDeploy={async (config) => {
+            try {
+              const response = await apiClient.deployToISE(selectedRecommendation.id, config)
+              if (response.data.status === 'success') {
+                alert(`Successfully deployed to ISE! ${response.data.message || ''}`)
+                queryClient.invalidateQueries({ queryKey: ['deviceRecommendations', deviceId] })
+                queryClient.invalidateQueries({ queryKey: ['device', deviceId] })
+                setDeploymentModalOpen(false)
+                setSelectedRecommendation(null)
+              } else {
+                throw new Error(response.data.message || 'Deployment failed')
+              }
+            } catch (error: any) {
+              throw new Error(error.response?.data?.detail || error.message || 'Failed to deploy to ISE')
+            }
+          }}
+        />
+      )}
     </div>
   )
 }

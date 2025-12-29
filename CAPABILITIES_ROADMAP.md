@@ -133,51 +133,63 @@ This document provides a comprehensive, cohesive roadmap of all Clarion capabili
 **Timeline:** 1-2 weeks for remaining features
 
 #### 3.2 ISE pxGrid Integration
+- [x] **User database schema** (users, user_device_associations, ad_group_memberships tables)
 - [ ] **pxGrid subscriber client** (session events)
+- [ ] **User data ingestion from ISE** (username, mac_address, ip_address from pxGrid sessions)
+- [ ] **User-device association tracking** (link users to devices from ISE sessions)
 - [ ] **Identity data ingestion** (user, device, endpoint)
 - [ ] **SGT assignment data** (from ISE - current ISE assignments)
 - [ ] **Policy changes** (SGACL updates from ISE)
 - [ ] **Real-time synchronization** (event-driven updates)
 - [ ] **Current ISE assignment display** (show what ISE assigned)
-- [ ] **ISE SGT import** (import existing SGT definitions from ISE)
+- [x] **ISE SGT import** (import existing SGT definitions from ISE via ERS API)
+- [x] **ISE configuration sync** (sync existing SGTs, authorization profiles, and policies)
+- [x] **ISE configuration cache** (store synced ISE configuration for brownfield support)
 - [ ] **SGT assignment status check** (check if device has SGT from ISE)
 
-**Status:** 📋 Planned  
-**Priority:** 🔴 High  
-**Timeline:** 3-4 weeks  
+**Status:** ⚠️ User database complete, brownfield sync implemented, pxGrid integration pending  
+**Priority:** 🔴 High (Critical for ISE alignment and User SGT recommendations)  
+**Timeline:** 6-8 weeks (includes pxGrid subscriber and real-time sync)  
 **Dependencies:** Streaming data processing  
-**Architecture Note:** See `docs/ISE_INTEGRATION.md` and `docs/CLARION_ISE_WORKFLOW.md` - ISE assigns SGTs via authorization policies. Clarion works in multiple scenarios: greenfield (recommend new SGT structure), existing ISE (build upon current SGTs), and incremental (new devices).
+**Architecture Note:** See `docs/ISE_INTEGRATION.md` - ISE assigns SGTs via authorization policies. Clarion works in multiple scenarios: greenfield (recommend new SGT structure), brownfield (sync existing ISE configuration, recommend existing SGTs), and incremental (new devices). User database is complete, brownfield ISE configuration sync is implemented via ERS API. pxGrid integration for real-time sync is pending.
 
 #### 3.2.1 ISE Policy Recommendation & Export
-- [ ] **Policy recommendation engine** (cluster → SGT → policy conditions)
-- [ ] **ISE authorization policy generator** (generate ISE-compatible configs)
-- [ ] **Policy condition mapping** (AD groups, device types, network attributes → policy rules)
-- [ ] **Policy impact analysis** (analyze policy change impacts)
-- [ ] **Policy export formats** (ISE ERS API, CLI config, JSON)
-- [ ] **Policy deployment workflow** (review → export → deploy)
+- [x] **Policy recommendation engine** (cluster → SGT → policy conditions)
+- [x] **ISE authorization policy generator** (generate ISE-compatible configs)
+- [x] **Policy condition mapping** (AD groups, device types, network attributes → policy rules)
+- [x] **Policy impact analysis** (analyze policy change impacts)
+- [x] **Policy export formats** (ISE ERS API, CLI config, JSON)
+- [x] **Policy deployment workflow** (review → export → deploy)
+- [x] **Automated ISE deployment** (push policies to ISE via ERS API)
 - [ ] **Remove direct SGT editing** (replace with policy recommendations)
 - [ ] **UI updates** (remove SGT input fields, add policy recommendations)
-- [ ] **SGT status checking** (check if device has SGT from ISE vs pending)
+- [x] **Brownfield ISE support** (sync existing ISE configuration)
+- [x] **ISE configuration cache** (store existing SGTs, profiles, policies)
+- [x] **Recommend existing SGTs** (check ISE cache before creating new SGTs)
+- [x] **ISE configuration sync API** (extract existing configuration from ISE)
 - [ ] **Incremental policy updates** (generate updates vs full replacement)
 - [ ] **TrustSec matrix extension** (build upon existing ISE matrix)
 
-**Status:** 📋 Planned  
+**Status:** ✅ Core complete, brownfield support implemented  
 **Priority:** 🔴 High (Critical for ISE alignment)  
-**Timeline:** 2-3 weeks (Phase 1: Remove direct editing - immediate)  
-**Dependencies:** None (can start immediately)  
-**Architecture Note:** See `docs/CLARION_ISE_WORKFLOW.md` - Clarion supports multiple scenarios: (1) Greenfield: NetFlow → clustering → SGT recommendations → ISE policies, (2) Identity-enhanced: Same with AD/IoT data, (3) Existing ISE: Build upon current SGTs, check assignment status, recommend incremental updates.
+**Timeline:** ✅ Completed (Policy recommendations and brownfield support)  
+**Dependencies:** None  
+**Architecture Note:** See `docs/ISE_INTEGRATION.md` - Clarion supports multiple scenarios: (1) Greenfield: NetFlow → clustering → SGT recommendations → ISE policies, (2) Identity-enhanced: Same with AD/IoT data, (3) Brownfield: Sync existing ISE configuration, recommend existing SGTs when appropriate, avoid creating duplicates. Brownfield support includes ISE configuration sync, cache, and recommendation engine updates to check existing SGTs.
 
 #### 3.3 Active Directory Integration
 - [ ] **LDAP connector** (user/group queries)
-- [ ] **AD group membership** (for identity enrichment)
-- [ ] **User-to-device mapping** (via AD)
+- [ ] **User database enrichment** (update user records with AD data: email, department, title, display_name)
+- [ ] **AD group membership queries** (user groups, nested groups)
+- [ ] **AD group memberships storage** (store group memberships in ad_group_memberships table)
+- [ ] **User-to-device mapping** (via AD computer objects, if computer_name matches device hostname)
 - [ ] **Device attributes** (from AD)
-- [ ] **Scheduled synchronization** (periodic AD queries)
+- [ ] **Scheduled synchronization** (periodic AD queries to update user database)
+- [ ] **User-device association confidence** (enhance associations from AD computer objects)
 
 **Status:** 📋 Planned  
-**Priority:** 🔴 High  
-**Timeline:** 2-3 weeks  
-**Dependencies:** Identity-aware clustering
+**Priority:** 🔴 High (Critical for User SGT recommendations)  
+**Timeline:** 3-4 weeks (includes user database integration)  
+**Dependencies:** Identity-aware clustering, User database schema
 
 #### 3.4 DNS Resolution
 - [ ] **Hostname resolution** (IP → hostname via DNS)
@@ -367,21 +379,22 @@ This document provides a comprehensive, cohesive roadmap of all Clarion capabili
 #### 8.2 Policy Lifecycle
 - [ ] **Policy versioning** (track policy changes over time)
 - [ ] **Policy approval workflow** (multi-stage approval)
-- [ ] **ISE authorization policy recommendations** (generate policy rules from clusters)
-- [ ] **Policy condition mapping** (map clusters → AD groups/device types → policy conditions)
-- [ ] **Policy export** (ISE ERS API format, CLI config, JSON)
-- [ ] **Policy deployment** (push to ISE via ERS API, monitor enforcement)
+- [x] **ISE authorization policy recommendations** (generate policy rules from clusters)
+- [x] **Policy condition mapping** (map clusters → AD groups/device types → policy conditions)
+- [x] **Policy export** (ISE ERS API format, CLI config, JSON)
+- [x] **Policy deployment** (push to ISE via ERS API, monitor enforcement)
 - [ ] **Policy validation** (test before deployment)
 - [ ] **Rollback capability** (revert to previous policy)
-- [ ] **Current ISE policy display** (show active ISE policies that assigned SGTs)
+- [x] **Current ISE policy display** (sync and cache existing ISE policies)
+- [x] **Brownfield ISE support** (sync existing ISE configuration, recommend existing SGTs)
 - [ ] **Incremental policy updates** (generate updates vs full replacement)
-- [ ] **Policy comparison** (Clarion recommendations vs current ISE policies)
-- [ ] **New device policy assignment** (categorize new devices, recommend policies)
+- [x] **Policy comparison** (Clarion recommendations check existing ISE SGTs)
+- [x] **New device policy assignment** (categorize new devices, recommend policies)
 
-**Status:** ✅ Core complete (SGACL generation), lifecycle management planned  
+**Status:** ✅ Core complete, policy recommendations and brownfield support implemented  
 **Priority:** 🔴 High (policy recommendations are critical for ISE alignment)  
-**Timeline:** 3-4 weeks (policy recommendations: 2-3 weeks, deployment: 1-2 weeks)  
-**Architecture Note:** See `docs/ISE_INTEGRATION.md` and `docs/CLARION_ISE_WORKFLOW.md` - Policies must align with ISE authorization policy model. Supports multiple scenarios: greenfield, identity-enhanced, existing ISE deployments, and incremental updates.
+**Timeline:** ✅ Completed (policy recommendations and deployment, brownfield support)  
+**Architecture Note:** See `docs/ISE_INTEGRATION.md` - Policies must align with ISE authorization policy model. Supports multiple scenarios: greenfield (new deployments), brownfield (existing ISE deployments with configuration sync), identity-enhanced, and incremental updates. Brownfield support includes ISE configuration sync, cache, and recommendation engine updates.
 
 ---
 
@@ -479,10 +492,19 @@ Based on `PRIORITIZED_ROADMAP.md`, the recommended implementation order is:
 9. **Neo4j integration** (Weeks 17-18)
 
 ### Phase 6: Multi-Source Ingestion (Weeks 19-24)
-10. **ISE pxGrid** (Weeks 19-20)
-11. **AD integration** (Week 21)
-12. **DNS resolution** (Week 22)
-13. **Correlation engine** (Weeks 23-24)
+10. **ISE pxGrid & User Database** (Weeks 19-21)
+    - User database schema (users, user_device_associations, ad_group_memberships tables)
+    - ISE pxGrid subscriber for session events
+    - User-device association tracking from ISE sessions
+    - Real-time user data ingestion
+    - Current ISE SGT assignment tracking
+11. **AD integration** (Week 22)
+    - LDAP connector for user details
+    - AD group membership queries
+    - User database enrichment with AD data
+    - AD group memberships storage
+12. **DNS resolution** (Week 23)
+13. **Correlation engine** (Week 24)
 
 ### Phase 7: Production Readiness (Weeks 25-28)
 14. **Production deployment** (Week 25)
@@ -505,10 +527,12 @@ Data Layer
   └─> Data Persistence (Redis/Kafka)
 
 Multi-Source Ingestion
-  ├─> ISE pxGrid (requires streaming)
-  ├─> AD Integration (requires identity-aware clustering)
+  ├─> User Database Schema (foundation for user-device associations)
+  ├─> ISE pxGrid (requires streaming, populates user database)
+  ├─> AD Integration (requires identity-aware clustering, enriches user database)
+  ├─> User-Device Association Engine (requires ISE + AD data)
   ├─> DNS Resolution (independent)
-  └─> Correlation Engine (requires multi-source data)
+  └─> Correlation Engine (requires multi-source data including user database)
 
 Network Topology
   ├─> Location Hierarchy (foundation)

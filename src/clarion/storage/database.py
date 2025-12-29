@@ -252,6 +252,60 @@ class ClarionDatabase:
         
         conn.commit()
         logger.info(f"Database schema initialized: {self.db_path}")
+        self._run_migrations(conn)
+    
+    def _run_migrations(self, conn: sqlite3.Connection):
+        """Run database migrations."""
+        # Check if user tables migration has been run
+        cursor = conn.execute("""
+            SELECT name FROM sqlite_master 
+            WHERE type='table' AND name='users'
+        """)
+        
+        if not cursor.fetchone():
+            # Run user tables migration
+            try:
+                from clarion.storage.migrations.add_user_tables import migrate as migrate_user_tables
+                migrate_user_tables(conn)
+                logger.info("User database tables migration completed")
+            except ImportError as e:
+                logger.warning(f"Could not import user tables migration: {e}")
+            except Exception as e:
+                logger.error(f"Error running user tables migration: {e}")
+        
+        # Check if user SGT assignment tables migration has been run
+        cursor = conn.execute("""
+            SELECT name FROM sqlite_master 
+            WHERE type='table' AND name='user_sgt_membership'
+        """)
+        
+        if not cursor.fetchone():
+            # Run user SGT assignment tables migration
+            try:
+                from clarion.storage.migrations.add_user_sgt_assignments import migrate as migrate_user_sgt
+                migrate_user_sgt(conn)
+                logger.info("User SGT assignment tables migration completed")
+            except ImportError as e:
+                logger.warning(f"Could not import user SGT assignment migration: {e}")
+            except Exception as e:
+                logger.error(f"Error running user SGT assignment migration: {e}")
+        
+        # Check if ISE configuration cache tables migration has been run
+        cursor = conn.execute("""
+            SELECT name FROM sqlite_master 
+            WHERE type='table' AND name='ise_sgts'
+        """)
+        
+        if not cursor.fetchone():
+            # Run ISE configuration cache tables migration
+            try:
+                from clarion.storage.migrations.add_ise_configuration_cache import migrate as migrate_ise_config
+                migrate_ise_config(conn)
+                logger.info("ISE configuration cache tables migration completed")
+            except ImportError as e:
+                logger.warning(f"Could not import ISE configuration cache migration: {e}")
+            except Exception as e:
+                logger.error(f"Error running ISE configuration cache migration: {e}")
     
     def _init_collectors_schema(self, conn: sqlite3.Connection):
         """Initialize collectors table."""
@@ -1331,6 +1385,591 @@ class ClarionDatabase:
             conn.execute("""
                 DELETE FROM policy_recommendations WHERE id = ?
             """, (recommendation_id,))
+    
+    # User database methods
+    
+    def create_user(
+        self,
+        user_id: str,
+        username: str,
+        email: Optional[str] = None,
+        display_name: Optional[str] = None,
+        department: Optional[str] = None,
+        title: Optional[str] = None,
+        source: str = "manual"
+    ) -> None:
+        """Create or update a user record."""
+        conn = self._get_connection()
+        # Check if user exists
+        cursor = conn.execute("SELECT user_id FROM users WHERE user_id = ?", (user_id,))
+        exists = cursor.fetchone()
+        
+        if exists:
+            # Update existing user
+            conn.execute("""
+                UPDATE users 
+                SET username = ?, email = ?, display_name = ?, department = ?, 
+                    title = ?, source = ?, updated_at = CURRENT_TIMESTAMP
+                WHERE user_id = ?
+            """, (username, email, display_name, department, title, source, user_id))
+        else:
+            # Create new user
+            conn.execute("""
+                INSERT INTO users 
+                (user_id, username, email, display_name, department, title, source)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+            """, (user_id, username, email, display_name, department, title, source))
+        conn.commit()
+    
+    def get_user(self, user_id: str) -> Optional[Dict]:
+        """Get a user by user_id."""
+        conn = self._get_connection()
+        cursor = conn.execute("SELECT * FROM users WHERE user_id = ?", (user_id,))
+        row = cursor.fetchone()
+        return dict(row) if row else None
+    
+    def list_users(self, limit: int = 100, offset: int = 0) -> List[Dict]:
+        """List all users."""
+        conn = self._get_connection()
+        cursor = conn.execute("""
+            SELECT * FROM users 
+            ORDER BY username 
+            LIMIT ? OFFSET ?
+        """, (limit, offset))
+        return [dict(row) for row in cursor.fetchall()]
+    
+    def create_user_device_association(
+        self,
+        user_id: str,
+        endpoint_id: str,
+        ip_address: Optional[str] = None,
+        association_type: str = "manual",
+        session_id: Optional[str] = None
+    ) -> None:
+        """Create or update a user-device association."""
+        conn = self._get_connection()
+        # Note: SQLite doesn't support ON CONFLICT with multiple columns the same way,
+        # so we'll use INSERT OR REPLACE or check first
+        cursor = conn.execute("""
+            SELECT association_id FROM user_device_associations
+            WHERE user_id = ? AND endpoint_id = ? AND association_type = ?
+        """, (user_id, endpoint_id, association_type))
+        
+        existing = cursor.fetchone()
+        if existing:
+            conn.execute("""
+                UPDATE user_device_associations
+                SET ip_address = ?, session_id = ?, last_associated = CURRENT_TIMESTAMP, is_active = 1
+                WHERE user_id = ? AND endpoint_id = ? AND association_type = ?
+            """, (ip_address, session_id, user_id, endpoint_id, association_type))
+        else:
+            conn.execute("""
+                INSERT INTO user_device_associations
+                (user_id, endpoint_id, ip_address, association_type, session_id, last_associated, is_active)
+                VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP, 1)
+            """, (user_id, endpoint_id, ip_address, association_type, session_id))
+        conn.commit()
+    
+    def get_users_for_device(self, endpoint_id: str) -> List[Dict]:
+        """Get all users associated with a device."""
+        conn = self._get_connection()
+        cursor = conn.execute("""
+            SELECT u.*, uda.association_type, uda.last_associated, uda.is_active, uda.session_id
+            FROM users u
+            JOIN user_device_associations uda ON u.user_id = uda.user_id
+            WHERE uda.endpoint_id = ? AND uda.is_active = 1
+            ORDER BY uda.last_associated DESC
+        """, (endpoint_id,))
+        return [dict(row) for row in cursor.fetchall()]
+    
+    def get_devices_for_user(self, user_id: str) -> List[Dict]:
+        """Get all devices associated with a user."""
+        conn = self._get_connection()
+        cursor = conn.execute("""
+            SELECT 
+                uda.association_id,
+                uda.user_id,
+                uda.endpoint_id,
+                uda.ip_address as uda_ip_address,
+                uda.association_type,
+                uda.session_id,
+                uda.first_associated,
+                uda.last_associated,
+                uda.is_active,
+                s.endpoint_id as sketch_endpoint_id,
+                s.switch_id, 
+                s.flow_count, 
+                s.unique_peers,
+                i.device_name,
+                i.ip_address as identity_ip_address,
+                i.user_name,
+                i.ise_profile
+            FROM user_device_associations uda
+            LEFT JOIN sketches s ON uda.endpoint_id = s.endpoint_id
+            LEFT JOIN identity i ON (uda.endpoint_id = i.mac_address) OR (uda.ip_address = i.ip_address AND uda.ip_address IS NOT NULL)
+            WHERE uda.user_id = ? AND uda.is_active = 1
+            ORDER BY uda.last_associated DESC
+        """, (user_id,))
+        rows = cursor.fetchall()
+        # Convert to dict and handle potential duplicate column names
+        results = []
+        for row in rows:
+            device_dict = dict(row)
+            # Use identity_ip_address if available, otherwise use uda_ip_address
+            if device_dict.get('identity_ip_address'):
+                device_dict['ip_address'] = device_dict['identity_ip_address']
+            elif device_dict.get('uda_ip_address'):
+                device_dict['ip_address'] = device_dict['uda_ip_address']
+            # Clean up duplicate keys
+            if 'uda_ip_address' in device_dict:
+                del device_dict['uda_ip_address']
+            if 'identity_ip_address' in device_dict:
+                del device_dict['identity_ip_address']
+            if 'sketch_endpoint_id' in device_dict:
+                del device_dict['sketch_endpoint_id']
+            # Set device_type to None since identity table doesn't have this column yet
+            device_dict['device_type'] = None
+            results.append(device_dict)
+        return results
+    
+    def create_ad_group_membership(
+        self,
+        user_id: str,
+        group_id: str,
+        group_name: Optional[str] = None
+    ) -> None:
+        """Create or update an AD group membership."""
+        conn = self._get_connection()
+        cursor = conn.execute("""
+            SELECT membership_id FROM ad_group_memberships
+            WHERE user_id = ? AND group_id = ?
+        """, (user_id, group_id))
+        
+        existing = cursor.fetchone()
+        if existing:
+            conn.execute("""
+                UPDATE ad_group_memberships
+                SET group_name = ?, last_verified = CURRENT_TIMESTAMP
+                WHERE user_id = ? AND group_id = ?
+            """, (group_name, user_id, group_id))
+        else:
+            conn.execute("""
+                INSERT INTO ad_group_memberships (user_id, group_id, group_name, last_verified)
+                VALUES (?, ?, ?, CURRENT_TIMESTAMP)
+            """, (user_id, group_id, group_name))
+        conn.commit()
+    
+    def get_user_groups(self, user_id: str) -> List[Dict]:
+        """Get AD groups for a user."""
+        conn = self._get_connection()
+        cursor = conn.execute("""
+            SELECT group_id, group_name, last_verified
+            FROM ad_group_memberships
+            WHERE user_id = ?
+            ORDER BY group_name
+        """, (user_id,))
+        return [dict(row) for row in cursor.fetchall()]
+    
+    def update_user_last_seen(self, user_id: str) -> None:
+        """Update user's last_seen timestamp."""
+        conn = self._get_connection()
+        conn.execute("""
+            UPDATE users SET last_seen = CURRENT_TIMESTAMP WHERE user_id = ?
+        """, (user_id,))
+        conn.commit()
+    
+    # ========== User SGT Assignment Operations ==========
+    
+    def assign_sgt_to_user(
+        self,
+        user_id: str,
+        sgt_value: int,
+        assigned_by: str = "traffic_analysis",
+        confidence: Optional[float] = None,
+        user_cluster_id: Optional[int] = None,
+    ) -> None:
+        """Assign an SGT to a user."""
+        # First, record previous assignment in history if exists
+        conn = self._get_connection()
+        cursor = conn.execute("""
+            SELECT sgt_value FROM user_sgt_membership WHERE user_id = ?
+        """, (user_id,))
+        old_row = cursor.fetchone()
+        
+        with self.transaction() as conn:
+            if old_row:
+                # Mark old assignment as unassigned
+                conn.execute("""
+                    UPDATE user_sgt_assignment_history 
+                    SET unassigned_at = CURRENT_TIMESTAMP
+                    WHERE user_id = ? AND sgt_value = ? AND unassigned_at IS NULL
+                """, (user_id, old_row[0]))
+            
+            # Insert/update membership
+            conn.execute("""
+                INSERT OR REPLACE INTO user_sgt_membership
+                (user_id, sgt_value, assigned_at, assigned_by, confidence, user_cluster_id)
+                VALUES (?, ?, CURRENT_TIMESTAMP, ?, ?, ?)
+            """, (user_id, sgt_value, assigned_by, confidence, user_cluster_id))
+            
+            # Insert into history
+            conn.execute("""
+                INSERT INTO user_sgt_assignment_history
+                (user_id, sgt_value, assigned_at, assigned_by)
+                VALUES (?, ?, CURRENT_TIMESTAMP, ?)
+            """, (user_id, sgt_value, assigned_by))
+    
+    def get_user_sgt(self, user_id: str) -> Optional[Dict]:
+        """Get the current SGT assignment for a user."""
+        conn = self._get_connection()
+        cursor = conn.execute("""
+            SELECT usm.*, sr.sgt_name, sr.category
+            FROM user_sgt_membership usm
+            LEFT JOIN sgt_registry sr ON usm.sgt_value = sr.sgt_value
+            WHERE usm.user_id = ?
+        """, (user_id,))
+        row = cursor.fetchone()
+        return dict(row) if row else None
+    
+    def list_users_by_sgt(self, sgt_value: int) -> List[Dict]:
+        """List all users assigned to a specific SGT."""
+        conn = self._get_connection()
+        cursor = conn.execute("""
+            SELECT usm.*, sr.sgt_name, u.username, u.email, u.display_name
+            FROM user_sgt_membership usm
+            LEFT JOIN sgt_registry sr ON usm.sgt_value = sr.sgt_value
+            LEFT JOIN users u ON usm.user_id = u.user_id
+            WHERE usm.sgt_value = ?
+            ORDER BY usm.assigned_at DESC
+        """, (sgt_value,))
+        return [dict(row) for row in cursor.fetchall()]
+    
+    def unassign_sgt_from_user(self, user_id: str) -> None:
+        """Unassign SGT from a user."""
+        conn = self._get_connection()
+        cursor = conn.execute("""
+            SELECT sgt_value FROM user_sgt_membership WHERE user_id = ?
+        """, (user_id,))
+        row = cursor.fetchone()
+        
+        if row:
+            with self.transaction() as conn:
+                # Update history
+                conn.execute("""
+                    UPDATE user_sgt_assignment_history 
+                    SET unassigned_at = CURRENT_TIMESTAMP
+                    WHERE user_id = ? AND sgt_value = ? AND unassigned_at IS NULL
+                """, (user_id, row[0]))
+                
+                # Delete membership
+                conn.execute("""
+                    DELETE FROM user_sgt_membership WHERE user_id = ?
+                """, (user_id,))
+    
+    def get_user_sgt_assignment_history(self, user_id: str) -> List[Dict]:
+        """Get assignment history for a user."""
+        conn = self._get_connection()
+        cursor = conn.execute("""
+            SELECT usah.*, sr.sgt_name
+            FROM user_sgt_assignment_history usah
+            LEFT JOIN sgt_registry sr ON usah.sgt_value = sr.sgt_value
+            WHERE usah.user_id = ?
+            ORDER BY usah.assigned_at DESC
+        """, (user_id,))
+        return [dict(row) for row in cursor.fetchall()]
+    
+    # ========== ISE Configuration Cache Operations ==========
+    
+    def store_ise_sgts(self, ise_server: str, sgts: List[Dict[str, Any]]) -> int:
+        """
+        Store ISE SGTs in cache.
+        
+        Args:
+            ise_server: ISE server identifier (e.g., "https://192.168.10.31:9060")
+            sgts: List of SGT dictionaries from ISE API
+            
+        Returns:
+            Number of SGTs stored
+        """
+        conn = self._get_connection()
+        cursor = conn.cursor()
+        
+        # Delete existing SGTs for this ISE server
+        cursor.execute("DELETE FROM ise_sgts WHERE ise_server = ?", (ise_server,))
+        
+        # Insert new SGTs
+        count = 0
+        for sgt in sgts:
+            cursor.execute("""
+                INSERT OR REPLACE INTO ise_sgts (id, name, value, description, generation_id, ise_server, synced_at)
+                VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+            """, (
+                sgt.get('id'),
+                sgt.get('name'),
+                int(sgt.get('value', 0)),
+                sgt.get('description'),
+                sgt.get('generationId'),
+                ise_server,
+            ))
+            count += 1
+        
+        conn.commit()
+        logger.info(f"Stored {count} SGTs from ISE server {ise_server}")
+        return count
+    
+    def get_ise_sgts(self, ise_server: Optional[str] = None) -> List[Dict[str, Any]]:
+        """
+        Get cached ISE SGTs.
+        
+        Args:
+            ise_server: Optional ISE server identifier to filter by
+            
+        Returns:
+            List of SGT dictionaries
+        """
+        conn = self._get_connection()
+        
+        if ise_server:
+            cursor = conn.execute("""
+                SELECT * FROM ise_sgts WHERE ise_server = ? ORDER BY value
+            """, (ise_server,))
+        else:
+            cursor = conn.execute("SELECT * FROM ise_sgts ORDER BY ise_server, value")
+        
+        return [dict(row) for row in cursor.fetchall()]
+    
+    def get_ise_sgt_by_value(self, sgt_value: int, ise_server: Optional[str] = None) -> Optional[Dict[str, Any]]:
+        """Get an ISE SGT by value."""
+        conn = self._get_connection()
+        
+        if ise_server:
+            cursor = conn.execute("""
+                SELECT * FROM ise_sgts WHERE value = ? AND ise_server = ?
+            """, (sgt_value, ise_server))
+        else:
+            cursor = conn.execute("SELECT * FROM ise_sgts WHERE value = ? LIMIT 1", (sgt_value,))
+        
+        row = cursor.fetchone()
+        return dict(row) if row else None
+    
+    def store_ise_auth_profiles(self, ise_server: str, profiles: List[Dict[str, Any]]) -> int:
+        """
+        Store ISE authorization profiles in cache.
+        
+        Args:
+            ise_server: ISE server identifier
+            profiles: List of authorization profile dictionaries from ISE API
+            
+        Returns:
+            Number of profiles stored
+        """
+        conn = self._get_connection()
+        cursor = conn.cursor()
+        
+        # Delete existing profiles for this ISE server
+        cursor.execute("DELETE FROM ise_auth_profiles WHERE ise_server = ?", (ise_server,))
+        
+        count = 0
+        for profile in profiles:
+            # Extract SGT value if present
+            sgt_value = None
+            if 'sgt' in profile and profile['sgt']:
+                try:
+                    sgt_value = int(profile['sgt'])
+                except (ValueError, TypeError):
+                    pass
+            
+            # Also check advancedAttributes for cisco-av-pair
+            if sgt_value is None and 'advancedAttributes' in profile:
+                for attr in profile.get('advancedAttributes', []):
+                    right_hand = attr.get('rightHandSideAttribueValue', {})
+                    value = right_hand.get('value', '') if isinstance(right_hand, dict) else str(right_hand)
+                    if isinstance(value, str) and 'security-group-tag=' in value:
+                        try:
+                            sgt_str = value.split('security-group-tag=')[1].split()[0]
+                            sgt_value = int(sgt_str)
+                            break
+                        except (ValueError, IndexError):
+                            pass
+            
+            cursor.execute("""
+                INSERT OR REPLACE INTO ise_auth_profiles 
+                (id, name, description, sgt_value, access_type, authz_profile_type, ise_server, synced_at, raw_data)
+                VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, ?)
+            """, (
+                profile.get('id'),
+                profile.get('name'),
+                profile.get('description'),
+                sgt_value,
+                profile.get('accessType'),
+                profile.get('authzProfileType'),
+                ise_server,
+                json.dumps(profile),  # Store full profile as JSON for reference
+            ))
+            count += 1
+        
+        conn.commit()
+        logger.info(f"Stored {count} authorization profiles from ISE server {ise_server}")
+        return count
+    
+    def get_ise_auth_profiles(self, ise_server: Optional[str] = None, sgt_value: Optional[int] = None) -> List[Dict[str, Any]]:
+        """
+        Get cached ISE authorization profiles.
+        
+        Args:
+            ise_server: Optional ISE server identifier to filter by
+            sgt_value: Optional SGT value to filter by
+            
+        Returns:
+            List of authorization profile dictionaries
+        """
+        conn = self._get_connection()
+        
+        query = "SELECT * FROM ise_auth_profiles WHERE 1=1"
+        params = []
+        
+        if ise_server:
+            query += " AND ise_server = ?"
+            params.append(ise_server)
+        
+        if sgt_value is not None:
+            query += " AND sgt_value = ?"
+            params.append(sgt_value)
+        
+        query += " ORDER BY name"
+        
+        cursor = conn.execute(query, params)
+        return [dict(row) for row in cursor.fetchall()]
+    
+    def store_ise_auth_policies(self, ise_server: str, policies: List[Dict[str, Any]]) -> int:
+        """
+        Store ISE authorization policies in cache.
+        
+        Args:
+            ise_server: ISE server identifier
+            policies: List of authorization policy dictionaries from ISE API
+            
+        Returns:
+            Number of policies stored
+        """
+        conn = self._get_connection()
+        cursor = conn.cursor()
+        
+        # Delete existing policies for this ISE server
+        cursor.execute("DELETE FROM ise_auth_policies WHERE ise_server = ?", (ise_server,))
+        
+        count = 0
+        for policy in policies:
+            # Extract profile ID and name
+            profile_id = None
+            profile_name = None
+            
+            # Profile can be a string (name) or dict with id/name
+            profile_ref = policy.get('profile')
+            if isinstance(profile_ref, str):
+                profile_name = profile_ref
+            elif isinstance(profile_ref, dict):
+                profile_id = profile_ref.get('id')
+                profile_name = profile_ref.get('name')
+            
+            # Generate condition summary (simplified)
+            condition_summary = "Unknown condition"
+            condition_data = policy.get('condition', {})
+            if condition_data:
+                # Try to extract a human-readable summary
+                if 'children' in condition_data:
+                    condition_summary = f"Policy with {len(condition_data['children'])} conditions"
+            
+            cursor.execute("""
+                INSERT OR REPLACE INTO ise_auth_policies
+                (id, name, description, profile_id, profile_name, rank, state, condition_summary, condition_data, ise_server, synced_at, raw_data)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, ?)
+            """, (
+                policy.get('id'),
+                policy.get('name'),
+                policy.get('description'),
+                profile_id,
+                profile_name,
+                policy.get('rank', 0),
+                policy.get('state', 'enabled'),
+                condition_summary,
+                json.dumps(condition_data),
+                ise_server,
+                json.dumps(policy),  # Store full policy as JSON for reference
+            ))
+            count += 1
+        
+        conn.commit()
+        logger.info(f"Stored {count} authorization policies from ISE server {ise_server}")
+        return count
+    
+    def get_ise_auth_policies(self, ise_server: Optional[str] = None, profile_name: Optional[str] = None) -> List[Dict[str, Any]]:
+        """
+        Get cached ISE authorization policies.
+        
+        Args:
+            ise_server: Optional ISE server identifier to filter by
+            profile_name: Optional profile name to filter by
+            
+        Returns:
+            List of authorization policy dictionaries
+        """
+        conn = self._get_connection()
+        
+        query = "SELECT * FROM ise_auth_policies WHERE 1=1"
+        params = []
+        
+        if ise_server:
+            query += " AND ise_server = ?"
+            params.append(ise_server)
+        
+        if profile_name:
+            query += " AND profile_name = ?"
+            params.append(profile_name)
+        
+        query += " ORDER BY rank, name"
+        
+        cursor = conn.execute(query, params)
+        return [dict(row) for row in cursor.fetchall()]
+    
+    def get_ise_sync_status(self, ise_server: str) -> Optional[Dict[str, Any]]:
+        """Get last sync time for an ISE server."""
+        conn = self._get_connection()
+        
+        # Get latest sync time from each table
+        sgt_cursor = conn.execute("""
+            SELECT MAX(synced_at) as last_sync, COUNT(*) as count
+            FROM ise_sgts WHERE ise_server = ?
+        """, (ise_server,))
+        sgt_row = sgt_cursor.fetchone()
+        
+        profile_cursor = conn.execute("""
+            SELECT MAX(synced_at) as last_sync, COUNT(*) as count
+            FROM ise_auth_profiles WHERE ise_server = ?
+        """, (ise_server,))
+        profile_row = profile_cursor.fetchone()
+        
+        policy_cursor = conn.execute("""
+            SELECT MAX(synced_at) as last_sync, COUNT(*) as count
+            FROM ise_auth_policies WHERE ise_server = ?
+        """, (ise_server,))
+        policy_row = policy_cursor.fetchone()
+        
+        return {
+            "ise_server": ise_server,
+            "sgts": {
+                "last_sync": sgt_row['last_sync'] if sgt_row and sgt_row['last_sync'] else None,
+                "count": sgt_row['count'] if sgt_row else 0,
+            },
+            "auth_profiles": {
+                "last_sync": profile_row['last_sync'] if profile_row and profile_row['last_sync'] else None,
+                "count": profile_row['count'] if profile_row else 0,
+            },
+            "auth_policies": {
+                "last_sync": policy_row['last_sync'] if policy_row and policy_row['last_sync'] else None,
+                "count": policy_row['count'] if policy_row else 0,
+            },
+        }
 
 
 # Global database instance

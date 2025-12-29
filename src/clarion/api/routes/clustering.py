@@ -149,6 +149,59 @@ async def get_cluster_members(cluster_id: int):
     }
 
 
+@router.get("/clusters/{cluster_id}/users")
+async def get_cluster_users(cluster_id: int):
+    """
+    Get all users associated with devices in a cluster.
+    
+    Returns users who have devices in this cluster, along with:
+    - User details (username, email, department, etc.)
+    - Number of devices they have in this cluster
+    - AD groups for each user
+    """
+    db = get_database()
+    conn = db._get_connection()
+    
+    # Get users who have devices in this cluster
+    users = conn.execute("""
+        SELECT DISTINCT
+            u.user_id,
+            u.username,
+            u.email,
+            u.display_name,
+            u.department,
+            u.title,
+            u.is_active,
+            u.last_seen,
+            COUNT(DISTINCT ca.endpoint_id) as device_count,
+            GROUP_CONCAT(DISTINCT agm.group_name) as ad_groups
+        FROM cluster_assignments ca
+        JOIN user_device_associations uda ON ca.endpoint_id = uda.endpoint_id
+        JOIN users u ON uda.user_id = u.user_id
+        LEFT JOIN ad_group_memberships agm ON u.user_id = agm.user_id
+        WHERE ca.cluster_id = ? AND uda.is_active = 1
+        GROUP BY u.user_id, u.username, u.email, u.display_name, u.department, u.title, u.is_active, u.last_seen
+        ORDER BY device_count DESC, u.username
+    """, (cluster_id,)).fetchall()
+    
+    # Format results
+    result = []
+    for row in users:
+        user_dict = dict(row)
+        # Parse AD groups from comma-separated string
+        if user_dict.get('ad_groups'):
+            user_dict['ad_groups'] = [g.strip() for g in user_dict['ad_groups'].split(',') if g.strip()]
+        else:
+            user_dict['ad_groups'] = []
+        result.append(user_dict)
+    
+    return {
+        "cluster_id": cluster_id,
+        "users": result,
+        "count": len(result),
+    }
+
+
 # Store matrix in session/cache (in production, use Redis or database)
 _matrix_cache: Optional[Dict[str, Any]] = None
 

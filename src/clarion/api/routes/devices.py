@@ -434,7 +434,7 @@ async def update_device(
     device to a different cluster and use the policy recommendation feature to 
     generate an ISE authorization policy.
     
-    See: docs/CLUSTER_ASSIGNMENT_WORKFLOW.md for details.
+    See: docs/ISE_INTEGRATION.md for details on cluster assignment workflow.
     """
     db = get_database()
     conn = db._get_connection()
@@ -451,7 +451,7 @@ async def update_device(
                 f"⚠️ DEPRECATED: sgt_value parameter in PUT /api/devices/{endpoint_id} is deprecated. "
                 f"SGTs are managed by ISE authorization policies. The sgt_value parameter is being ignored. "
                 f"To change an SGT assignment, move the device to a different cluster and generate a "
-                f"policy recommendation. See docs/CLUSTER_ASSIGNMENT_WORKFLOW.md"
+                f"policy recommendation. See docs/ISE_INTEGRATION.md"
             )
             # Do not process sgt_value - it's deprecated
         

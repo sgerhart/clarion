@@ -17,6 +17,7 @@ import json
 
 from clarion.policy.recommendation import PolicyRecommendationEngine, PolicyRecommendation
 from clarion.policy.authorization_exporter import ISEAuthorizationPolicyExporter
+from clarion.integration.ise_deployment import ISEDeploymentService, ISEDeploymentError
 from clarion.storage import get_database
 from fastapi.responses import Response, JSONResponse
 
@@ -69,21 +70,90 @@ class PolicyRecommendationStatusUpdate(BaseModel):
     status: str = Field(..., description="Status: pending, accepted, rejected, deployed")
 
 
+class ISEDeploymentRequest(BaseModel):
+    """Request to deploy policy recommendation to ISE."""
+    ise_url: str = Field(..., description="ISE server URL (e.g., https://192.168.10.31)")
+    ise_username: str = Field(..., description="ISE admin username")
+    ise_password: str = Field(..., description="ISE admin password")
+    verify_ssl: bool = Field(False, description="Verify SSL certificates")
+    create_sgt_if_missing: bool = Field(True, description="Create SGT in ISE if it doesn't exist")
+
+
 # ========== Policy Recommendation Endpoints ==========
 
 @router.post("/policy/recommendations/cluster/{cluster_id}", response_model=PolicyRecommendationResponse)
 async def generate_cluster_recommendation(
     cluster_id: int,
     min_percentage: float = Query(0.5, ge=0.0, le=1.0, description="Minimum percentage threshold for attributes"),
+    replace_existing: bool = Query(False, description="Replace existing pending recommendation if one exists"),
 ):
     """
     Generate policy recommendation for a cluster.
     
     Analyzes cluster members to identify common attributes (AD groups, device types, etc.)
     and generates an ISE authorization policy rule recommendation.
+    
+    If a pending recommendation already exists for this cluster, it will be kept unless
+    replace_existing=True is specified.
     """
     try:
         db = get_database()
+        
+        # Check if a pending recommendation already exists
+        existing_recs = db.list_policy_recommendations(
+            cluster_id=cluster_id,
+            status='pending',
+            limit=1
+        )
+        
+        if existing_recs and not replace_existing:
+            # Return the existing recommendation instead of creating a new one
+            rec_data = existing_recs[0]
+            # Convert to response model
+            policy_rule = PolicyRuleResponse(
+                name=rec_data['policy_rule_name'],
+                conditions=[
+                    PolicyConditionResponse(**cond) for cond in rec_data['policy_rule_conditions']
+                ],
+                action=rec_data['policy_rule_action'],
+                sgt_value=rec_data['recommended_sgt'],
+                justification=rec_data.get('policy_rule_justification', ''),
+                ise_condition_string=' OR '.join([
+                    cond.get('ise_expression', '') for cond in rec_data['policy_rule_conditions']
+                ]),
+            )
+            
+            # Handle None values
+            ad_groups = rec_data.get('ad_groups_affected') or []
+            device_profiles = rec_data.get('device_profiles_affected') or []
+            device_types = rec_data.get('device_types_affected') or []
+            
+            if isinstance(ad_groups, str):
+                ad_groups = json.loads(ad_groups) if ad_groups else []
+            if isinstance(device_profiles, str):
+                device_profiles = json.loads(device_profiles) if device_profiles else []
+            if isinstance(device_types, str):
+                device_types = json.loads(device_types) if device_types else []
+            
+            existing_recommendation = PolicyRecommendationResponse(
+                id=rec_data['id'],
+                cluster_id=rec_data['cluster_id'],
+                recommended_sgt=rec_data['recommended_sgt'],
+                recommended_sgt_name=rec_data.get('recommended_sgt_name'),
+                policy_rule=policy_rule,
+                devices_affected=rec_data.get('devices_affected', 0) or 0,
+                ad_groups_affected=ad_groups if isinstance(ad_groups, list) else [],
+                device_profiles_affected=device_profiles if isinstance(device_profiles, list) else [],
+                device_types_affected=device_types if isinstance(device_types, list) else [],
+                status=rec_data['status'],
+                created_at=rec_data.get('created_at'),
+                updated_at=rec_data.get('updated_at'),
+                endpoint_id=rec_data.get('endpoint_id'),
+                old_cluster_id=rec_data.get('old_cluster_id'),
+                old_sgt=rec_data.get('old_sgt'),
+            )
+            return existing_recommendation
+        
         engine = PolicyRecommendationEngine(db)
         
         recommendation = engine.generate_cluster_recommendation(cluster_id, min_percentage)
@@ -213,16 +283,29 @@ async def list_policy_recommendations(
                 ]),
             )
             
+            # Handle None values - convert to empty lists for list fields
+            ad_groups = rec_data.get('ad_groups_affected') or []
+            device_profiles = rec_data.get('device_profiles_affected') or []
+            device_types = rec_data.get('device_types_affected') or []
+            
+            # If stored as JSON string, parse it
+            if isinstance(ad_groups, str):
+                ad_groups = json.loads(ad_groups) if ad_groups else []
+            if isinstance(device_profiles, str):
+                device_profiles = json.loads(device_profiles) if device_profiles else []
+            if isinstance(device_types, str):
+                device_types = json.loads(device_types) if device_types else []
+            
             recommendation = PolicyRecommendationResponse(
                 id=rec_data['id'],
                 cluster_id=rec_data['cluster_id'],
                 recommended_sgt=rec_data['recommended_sgt'],
                 recommended_sgt_name=rec_data.get('recommended_sgt_name'),
                 policy_rule=policy_rule,
-                devices_affected=rec_data.get('devices_affected', 0),
-                ad_groups_affected=rec_data.get('ad_groups_affected', []),
-                device_profiles_affected=rec_data.get('device_profiles_affected', []),
-                device_types_affected=rec_data.get('device_types_affected', []),
+                devices_affected=rec_data.get('devices_affected', 0) or 0,
+                ad_groups_affected=ad_groups if isinstance(ad_groups, list) else [],
+                device_profiles_affected=device_profiles if isinstance(device_profiles, list) else [],
+                device_types_affected=device_types if isinstance(device_types, list) else [],
                 status=rec_data['status'],
                 created_at=rec_data.get('created_at'),
                 updated_at=rec_data.get('updated_at'),
@@ -543,5 +626,77 @@ async def get_deployment_guide(recommendation_id: int):
         raise
     except Exception as e:
         logger.error(f"Error generating deployment guide: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/policy/recommendations/{recommendation_id}/deploy")
+async def deploy_to_ise(
+    recommendation_id: int,
+    deployment_request: ISEDeploymentRequest,
+):
+    """
+    Deploy a policy recommendation to ISE via ERS API.
+    
+    This endpoint will:
+    1. Create SGT in ISE (if it doesn't exist)
+    2. Create authorization profile that assigns the SGT
+    3. Create authorization policy with the recommended conditions
+    4. Track deployment status
+    
+    Args:
+        recommendation_id: Policy recommendation ID to deploy
+        deployment_request: ISE connection details and deployment options
+    """
+    try:
+        db = get_database()
+        
+        # Get recommendation
+        rec_data = db.get_policy_recommendation(recommendation_id)
+        if not rec_data:
+            raise HTTPException(status_code=404, detail=f"Recommendation {recommendation_id} not found")
+        
+        # Convert database record to PolicyRecommendation object
+        recommendation = _convert_db_rec_to_policy_recommendation(rec_data)
+        
+        # Create deployment service
+        deployment_service = ISEDeploymentService(
+            ise_url=deployment_request.ise_url,
+            ise_username=deployment_request.ise_username,
+            ise_password=deployment_request.ise_password,
+            verify_ssl=deployment_request.verify_ssl,
+        )
+        
+        # Test connection first
+        connection_test = deployment_service.test_connection()
+        if not connection_test.get("connected"):
+            raise HTTPException(
+                status_code=400,
+                detail=f"Failed to connect to ISE: {connection_test.get('error', 'Unknown error')}"
+            )
+        
+        # Deploy the recommendation
+        try:
+            deployment_result = deployment_service.deploy_recommendation(
+                recommendation=recommendation,
+                create_sgt_if_missing=deployment_request.create_sgt_if_missing,
+            )
+            
+            return {
+                "success": True,
+                "message": f"Successfully deployed recommendation {recommendation_id} to ISE",
+                "deployment_result": deployment_result,
+            }
+            
+        except ISEDeploymentError as e:
+            logger.error(f"ISE deployment failed: {e}", exc_info=True)
+            raise HTTPException(
+                status_code=500,
+                detail=f"Failed to deploy to ISE: {str(e)}"
+            )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error deploying to ISE: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 

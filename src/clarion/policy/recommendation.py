@@ -228,7 +228,7 @@ class PolicyRecommendationEngine:
         
         for row in identity_rows:
             # Count AD groups
-            ad_groups_json = row.get('ad_groups')
+            ad_groups_json = row['ad_groups'] if 'ad_groups' in row.keys() else None
             if ad_groups_json:
                 try:
                     import json
@@ -240,12 +240,12 @@ class PolicyRecommendationEngine:
                     pass
             
             # Count ISE profiles
-            ise_profile = row.get('ise_profile')
+            ise_profile = row['ise_profile'] if 'ise_profile' in row.keys() else None
             if ise_profile:
                 device_profile_counter[ise_profile] += 1
             
             # Infer device type from device_name
-            device_name = row.get('device_name', '').lower() if row.get('device_name') else ''
+            device_name = (row['device_name'].lower() if row['device_name'] else '') if 'device_name' in row.keys() else ''
             if device_name:
                 if 'server' in device_name or 'svr' in device_name:
                     device_type_counter['server'] += 1
@@ -317,13 +317,20 @@ class PolicyRecommendationEngine:
         self,
         cluster_id: int,
         min_percentage: float = 0.5,
+        ise_server: Optional[str] = None,
     ) -> Optional[PolicyRecommendation]:
         """
         Generate policy recommendation for a cluster.
         
+        For brownfield deployments, checks existing ISE SGTs and policies to:
+        - Recommend existing SGTs when cluster attributes match existing policies
+        - Avoid creating duplicate SGTs
+        - Identify if devices are already covered by existing policies
+        
         Args:
             cluster_id: Cluster ID
             min_percentage: Minimum percentage threshold for attributes
+            ise_server: Optional ISE server URL to check for existing SGTs/policies
             
         Returns:
             PolicyRecommendation object, or None if cluster has no recommended SGT
@@ -364,15 +371,29 @@ class PolicyRecommendationEngine:
         if not cluster_row:
             return None
         
-        recommended_sgt = cluster_row.get('recommended_sgt')
+        recommended_sgt = cluster_row['recommended_sgt']
         if not recommended_sgt:
             # No SGT assigned to this cluster yet
             logger.warning(f"Cluster {cluster_id} has no recommended SGT, cannot generate policy recommendation")
             return None
         
-        cluster_label = cluster_row.get('cluster_label', f"Cluster {cluster_id}")
-        recommended_sgt_name = cluster_row.get('recommended_sgt_name') or f"SGT-{recommended_sgt}"
-        endpoint_count = cluster_row.get('endpoint_count', 0)
+        cluster_label = cluster_row['cluster_label'] or f"Cluster {cluster_id}"
+        recommended_sgt_name = cluster_row['recommended_sgt_name'] or f"SGT-{recommended_sgt}"
+        endpoint_count = cluster_row['endpoint_count'] or 0
+        
+        # Check if this SGT already exists in ISE (brownfield support)
+        sgt_exists_in_ise = False
+        ise_sgt_name = None
+        if ise_server:
+            ise_sgt = self.db.get_ise_sgt_by_value(recommended_sgt, ise_server)
+            if ise_sgt:
+                sgt_exists_in_ise = True
+                ise_sgt_name = ise_sgt.get('name')
+                logger.info(f"SGT {recommended_sgt} already exists in ISE as '{ise_sgt_name}' (brownfield)")
+        
+        # Use ISE SGT name if available, otherwise use registry name
+        if ise_sgt_name:
+            recommended_sgt_name = ise_sgt_name
         
         # Analyze cluster attributes
         attributes = self.analyze_cluster_attributes(cluster_id, min_percentage)
@@ -423,6 +444,8 @@ class PolicyRecommendationEngine:
             ad_groups_affected=ad_groups_affected,
             device_profiles_affected=device_profiles_affected,
             device_types_affected=device_types_affected,
+            sgt_exists_in_ise=sgt_exists_in_ise,
+            ise_server=ise_server,
             status="pending",
             created_at=datetime.utcnow(),
         )
@@ -459,7 +482,7 @@ class PolicyRecommendationEngine:
             """, (old_cluster_id,))
             old_sgt_row = old_sgt_cursor.fetchone()
             if old_sgt_row:
-                old_sgt = old_sgt_row.get('sgt_value')
+                old_sgt = old_sgt_row['sgt_value']
         
         # Generate cluster-based recommendation
         recommendation = self.generate_cluster_recommendation(new_cluster_id)

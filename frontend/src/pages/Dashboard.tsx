@@ -6,17 +6,31 @@ export default function Dashboard() {
   const { data: stats, isLoading: statsLoading, error: statsError } = useQuery({
     queryKey: ['sketchStats'],
     queryFn: async () => {
-      const response = await apiClient.getSketchStats()
-      return response.data
+      try {
+        const response = await apiClient.getSketchStats()
+        return response.data
+      } catch (error: any) {
+        console.error('Error fetching sketch stats:', error)
+        throw error
+      }
     },
+    retry: false,
+    refetchOnWindowFocus: false,
   })
 
   const { data: clusters, isLoading: clustersLoading, error: clustersError } = useQuery({
     queryKey: ['clusters'],
     queryFn: async () => {
-      const response = await apiClient.getClusters()
-      return response.data || []
+      try {
+        const response = await apiClient.getClusters()
+        return response.data || []
+      } catch (error: any) {
+        console.error('Error fetching clusters:', error)
+        throw error
+      }
     },
+    retry: false,
+    refetchOnWindowFocus: false,
   })
 
   const statsData = stats || {}

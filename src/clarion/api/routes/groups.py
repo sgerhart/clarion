@@ -293,7 +293,7 @@ async def update_group(
     Cisco ISE authorization policies, not directly. To change SGT assignments, use 
     the policy recommendation feature to generate ISE authorization policies.
     
-    See: docs/CLUSTER_ASSIGNMENT_WORKFLOW.md for details.
+    See: docs/ISE_INTEGRATION.md for details on cluster assignment workflow.
     """
     db = get_database()
     conn = db._get_connection()
@@ -309,14 +309,14 @@ async def update_group(
             logger.warning(
                 f"⚠️ DEPRECATED: sgt_value parameter in PUT /api/groups/{cluster_id} is deprecated. "
                 f"SGTs are managed by ISE authorization policies. The sgt_value parameter is being ignored. "
-                f"Use policy recommendations to change SGT assignments. See docs/CLUSTER_ASSIGNMENT_WORKFLOW.md"
+                f"Use policy recommendations to change SGT assignments. See docs/ISE_INTEGRATION.md"
             )
         
         if update.sgt_name is not None:
             logger.warning(
                 f"⚠️ DEPRECATED: sgt_name parameter in PUT /api/groups/{cluster_id} is deprecated. "
                 f"SGTs are managed by ISE authorization policies. The sgt_name parameter is being ignored. "
-                f"Use policy recommendations to change SGT assignments. See docs/CLUSTER_ASSIGNMENT_WORKFLOW.md"
+                f"Use policy recommendations to change SGT assignments. See docs/ISE_INTEGRATION.md"
             )
         
         # Build update query dynamically based on provided fields

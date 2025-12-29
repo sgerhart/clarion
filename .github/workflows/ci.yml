@@ -1,10 +1,12 @@
 name: CI
 
 on:
-  push:
-    branches: [ main, develop, netflow-collector, lab ]
+  # Disabled automatic push triggers - run only on PRs or manual dispatch
+  # push:
+  #   branches: [ main, develop, netflow-collector, lab ]
   pull_request:
     branches: [ main, develop ]
+  workflow_dispatch:  # Allow manual triggering
 
 jobs:
   test:

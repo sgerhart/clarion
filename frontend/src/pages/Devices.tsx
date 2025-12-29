@@ -215,12 +215,18 @@ export default function Devices() {
                         <div className="flex items-center">
                           {getDeviceTypeIcon(device.device_type)}
                           <div className="ml-3">
-                            <div className="text-sm font-medium text-gray-900 font-mono">
+                            {/* Machine Name - Show prominently if available, otherwise show MAC */}
+                            {device.device_name ? (
+                              <div className="text-sm font-medium text-gray-900">{device.device_name}</div>
+                            ) : (
+                              <div className="text-sm font-medium text-gray-900 font-mono">
+                                {device.endpoint_id}
+                              </div>
+                            )}
+                            {/* MAC Address - Always show, but smaller if machine name exists */}
+                            <div className={`font-mono ${device.device_name ? 'text-xs text-gray-500' : 'text-sm text-gray-600'}`}>
                               {device.endpoint_id}
                             </div>
-                            {device.device_name && (
-                              <div className="text-sm text-gray-500">{device.device_name}</div>
-                            )}
                             {device.switch_id && (
                               <div className="text-xs text-gray-400">Switch: {device.switch_id}</div>
                             )}
@@ -231,15 +237,26 @@ export default function Devices() {
                       {/* Identity */}
                       <td className="px-6 py-4">
                         <div className="text-sm text-gray-900">
-                          {device.ip_address && (
-                            <div className="font-mono">{device.ip_address}</div>
+                          {/* Machine Name - Show prominently for all devices */}
+                          {device.device_name && (
+                            <div className="font-medium text-gray-900">{device.device_name}</div>
                           )}
+                          {/* Username - Show for user-associated devices */}
                           {device.user_name && (
-                            <div className="text-gray-600">{device.user_name}</div>
+                            <div className="text-gray-600 mt-0.5">
+                              <User className="h-3 w-3 inline mr-1" />
+                              {device.user_name}
+                            </div>
                           )}
+                          {/* IP Address */}
+                          {device.ip_address && (
+                            <div className="text-xs font-mono text-gray-500 mt-1">{device.ip_address}</div>
+                          )}
+                          {/* ISE Profile */}
                           {device.ise_profile && (
-                            <div className="text-xs text-blue-600">ISE: {device.ise_profile}</div>
+                            <div className="text-xs text-blue-600 mt-1">ISE: {device.ise_profile}</div>
                           )}
+                          {/* AD Groups */}
                           {device.ad_groups && device.ad_groups.length > 0 && (
                             <div className="text-xs text-gray-500 mt-1">
                               {device.ad_groups.slice(0, 2).join(', ')}

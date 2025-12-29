@@ -18,6 +18,9 @@ from clarion.api.routes import (
     collectors,
     sgt,
     policy_recommendations,
+    users,
+    user_sgt,
+    ise_config,
 )
 
 __all__ = [
@@ -34,5 +37,8 @@ __all__ = [
     "collectors",
     "sgt",
     "policy_recommendations",
+    "users",
+    "user_sgt",
+    "ise_config",
 ]
 

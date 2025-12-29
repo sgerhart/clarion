@@ -285,17 +285,39 @@ class SemanticLabeler:
         Returns:
             Tuple of (name, reason, confidence)
         """
-        # Strategy 1: Check ISE profile
+        # Strategy 1: Check AD groups FIRST (most reliable for user-based clusters)
+        # AD groups are more meaningful than ISE profiles for user devices
+        if ad_groups:
+            # Filter out generic groups like "All-Employees"
+            specific_groups = [
+                (g, r) for g, r in ad_groups
+                if g.lower() not in ("all-employees", "domain-users")
+            ]
+            if specific_groups and specific_groups[0][1] >= self.group_threshold:
+                group, ratio = specific_groups[0]
+                name = self._ad_group_to_name(group)
+                return (
+                    name,
+                    f"{ratio*100:.0f}% are in '{group}' AD group",
+                    ratio,
+                )
+        
+        # Strategy 2: Check ISE profile (but only if no significant AD groups)
         if ise_profiles and ise_profiles[0][1] >= self.group_threshold:
             profile, ratio = ise_profiles[0]
-            name = self._profile_to_name(profile)
-            return (
-                name,
-                f"{ratio*100:.0f}% have ISE profile '{profile}'",
-                ratio,
-            )
+            # Skip generic or misleading profiles if we have device type info
+            if device_types and device_types[0][1] > ratio:
+                # Device type is more reliable, skip to Strategy 3
+                pass
+            else:
+                name = self._profile_to_name(profile)
+                return (
+                    name,
+                    f"{ratio*100:.0f}% have ISE profile '{profile}'",
+                    ratio,
+                )
         
-        # Strategy 2: Check device type, but use traffic patterns to refine
+        # Strategy 3: Check device type, but use traffic patterns to refine
         if device_types and device_types[0][1] >= self.group_threshold:
             dtype, ratio = device_types[0]
             
@@ -330,22 +352,6 @@ class SemanticLabeler:
                 f"{ratio*100:.0f}% are {dtype} devices",
                 ratio,
             )
-        
-        # Strategy 3: Check AD groups (only if available)
-        if ad_groups:
-            # Filter out generic groups like "All-Employees"
-            specific_groups = [
-                (g, r) for g, r in ad_groups
-                if g.lower() not in ("all-employees", "domain-users")
-            ]
-            if specific_groups and specific_groups[0][1] >= self.group_threshold:
-                group, ratio = specific_groups[0]
-                name = self._ad_group_to_name(group)
-                return (
-                    name,
-                    f"{ratio*100:.0f}% are in '{group}' AD group",
-                    ratio,
-                )
         
         # Strategy 4: Behavioral pattern (works for all device types)
         if is_server_cluster:

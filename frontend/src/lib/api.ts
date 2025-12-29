@@ -194,6 +194,47 @@ export const apiClient = {
     api.get(`/policy/recommendations/${recommendationId}/ise-config/deployment-guide`, {
       responseType: 'blob',
     }),
+  
+  // ISE Deployment
+  deployToISE: (recommendationId: number, iseConfig: {
+    ise_url: string
+    ise_username: string
+    ise_password: string
+    verify_ssl?: boolean
+    create_sgt_if_missing?: boolean
+  }) => api.post(`/policy/recommendations/${recommendationId}/deploy`, {
+    ise_server: iseConfig.ise_url,
+    username: iseConfig.ise_username,
+    password: iseConfig.ise_password,
+    verify_ssl: iseConfig.verify_ssl ?? false,
+  }),
+
+  // Users
+  getUsers: (params?: {
+    search?: string
+    limit?: number
+    offset?: number
+  }) => api.get('/users', { params }),
+  getUser: (userId: string) => api.get(`/users/${userId}`),
+  
+  // User Clusters
+  getUserClusters: () => api.get('/users/clusters'),
+  getClusterUsers: (clusterId: number) => api.get(`/users/clusters/${clusterId}/users`),
+  generateUserClusters: () => api.post('/users/clusters/generate'),
+  
+  // Device Cluster Users
+  getClusterUsersFromDevices: (clusterId: number) => api.get(`/clustering/clusters/${clusterId}/users`),
+  
+  // User SGT Management
+  getUserSGT: (userId: string) => api.get(`/users/${userId}/sgt`),
+  assignUserSGT: (userId: string, sgtValue: number, assignedBy?: string, confidence?: number, userClusterId?: number) =>
+    api.put(`/users/${userId}/sgt`, null, { params: { sgt_value: sgtValue, assigned_by: assignedBy, confidence, user_cluster_id: userClusterId } }),
+  unassignUserSGT: (userId: string) => api.delete(`/users/${userId}/sgt`),
+  getUserTrafficPattern: (userId: string) => api.get(`/users/${userId}/traffic`),
+  getUserSGTRecommendation: (userId: string) => api.get(`/users/${userId}/recommendation`),
+  getClusterSGTRecommendation: (clusterId: number) => api.get(`/users/clusters/${clusterId}/recommendation`),
+  getUsersBySGT: (sgtValue: number) => api.get(`/sgts/${sgtValue}/users`),
+  getUserSGTHistory: (userId: string) => api.get(`/users/${userId}/sgt/history`),
 }
 
 export default api
