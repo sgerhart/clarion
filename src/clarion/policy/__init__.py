@@ -25,6 +25,16 @@ from clarion.policy.customization import (
     create_review_session,
     generate_review_report,
 )
+from clarion.policy.recommendation import (
+    PolicyCondition,
+    PolicyRule,
+    PolicyRecommendation,
+    PolicyRecommendationEngine,
+)
+from clarion.policy.authorization_exporter import (
+    ISEAuthorizationPolicyExporter,
+    ISEAuthorizationPolicyExport,
+)
 
 __all__ = [
     # Matrix
@@ -50,5 +60,13 @@ __all__ = [
     "PolicyCustomizer",
     "create_review_session",
     "generate_review_report",
+    # Recommendations
+    "PolicyCondition",
+    "PolicyRule",
+    "PolicyRecommendation",
+    "PolicyRecommendationEngine",
+    # Authorization Export
+    "ISEAuthorizationPolicyExporter",
+    "ISEAuthorizationPolicyExport",
 ]
 

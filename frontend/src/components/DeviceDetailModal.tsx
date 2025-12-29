@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { apiClient } from '../lib/api'
-import { X, Save, Edit2, User, Tag, Network, Activity } from 'lucide-react'
+import { X, Save, Edit2, User, Tag, Network, Activity, FileText, AlertCircle, Download } from 'lucide-react'
 import { useState, useEffect } from 'react'
 
 interface Device {
@@ -59,6 +59,16 @@ export default function DeviceDetailModal({ deviceId, onClose }: DeviceDetailMod
     queryFn: async () => {
       const response = await apiClient.getDeviceFlows(deviceId, { limit: 50 })
       return response.data
+    },
+    enabled: !!device,
+  })
+
+  // Get policy recommendations for this device
+  const { data: recommendationsData } = useQuery({
+    queryKey: ['deviceRecommendations', deviceId],
+    queryFn: async () => {
+      const response = await apiClient.getPolicyRecommendations({ endpoint_id: deviceId, status: 'pending' })
+      return response.data as any[]
     },
     enabled: !!device,
   })
@@ -341,6 +351,72 @@ export default function DeviceDetailModal({ deviceId, onClose }: DeviceDetailMod
                   )}
                 </div>
               </div>
+
+              {/* Policy Recommendations */}
+              {recommendationsData && recommendationsData.length > 0 && (
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                    <FileText className="h-5 w-5 mr-2" />
+                    Policy Recommendations
+                  </h3>
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 space-y-3">
+                    {recommendationsData.map((rec: any) => (
+                      <div key={rec.id} className="bg-white rounded-lg p-4 border border-blue-300">
+                        <div className="flex items-start justify-between mb-2">
+                          <div>
+                            <h4 className="font-semibold text-gray-900">{rec.policy_rule.name}</h4>
+                            <p className="text-sm text-gray-600 mt-1">{rec.policy_rule.justification}</p>
+                          </div>
+                          <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded capitalize">
+                            {rec.status}
+                          </span>
+                        </div>
+                        <div className="mt-3 space-y-2">
+                          <div>
+                            <span className="text-sm font-medium text-gray-700">Recommended SGT: </span>
+                            <span className="text-sm text-gray-900">
+                              SGT {rec.recommended_sgt}
+                              {rec.recommended_sgt_name && ` - ${rec.recommended_sgt_name}`}
+                            </span>
+                          </div>
+                          {rec.old_sgt && (
+                            <div>
+                              <span className="text-sm font-medium text-gray-700">Previous SGT: </span>
+                              <span className="text-sm text-gray-900">SGT {rec.old_sgt}</span>
+                            </div>
+                          )}
+                          <div>
+                            <span className="text-sm font-medium text-gray-700">Policy Condition: </span>
+                            <code className="text-xs bg-gray-100 px-2 py-1 rounded text-gray-800 block mt-1">
+                              {rec.policy_rule.ise_condition_string}
+                            </code>
+                          </div>
+                        </div>
+                        <div className="mt-3 pt-3 border-t border-gray-200 flex space-x-2">
+                          <button
+                            className="px-3 py-1.5 bg-green-600 text-white text-sm rounded hover:bg-green-700"
+                            onClick={() => {
+                              // TODO: Implement accept recommendation
+                              alert('Accept functionality coming soon')
+                            }}
+                          >
+                            Accept
+                          </button>
+                          <button
+                            className="px-3 py-1.5 bg-gray-300 text-gray-700 text-sm rounded hover:bg-gray-400"
+                            onClick={() => {
+                              // TODO: Implement reject recommendation
+                              alert('Reject functionality coming soon')
+                            }}
+                          >
+                            Reject
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               {/* Recent Flows */}
               <div>

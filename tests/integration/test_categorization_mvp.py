@@ -36,27 +36,20 @@ DATA_DIR = Path(__file__).parent.parent.parent / "data" / "raw" / "trustsec_copi
 
 @pytest.fixture(scope="function")
 def test_db():
-    """Create a temporary test database using in-memory SQLite."""
-    # Use in-memory database to avoid file locking issues
-    # Note: This requires modifying ClarionDatabase to support :memory:
-    # For now, use a unique file path per test
+    """Create a temporary test database using a temporary file."""
     import uuid
     test_id = str(uuid.uuid4())
     
-    # Use a temporary directory with proper permissions
-    # Create a temporary file with proper write permissions
-    fd, path = tempfile.mkstemp(suffix='.db', prefix=f'test_clarion_{test_id}_')
-    os.close(fd)  # Close the file descriptor, we'll let ClarionDatabase create the file
+    # Use tempfile to get a writable temporary directory
+    tmpdir = tempfile.gettempdir()
+    # Create a unique filename in the temp directory
+    path = os.path.join(tmpdir, f'test_clarion_{test_id}.db')
     
     # Ensure path doesn't exist
     if os.path.exists(path):
         os.unlink(path)
     
-    # Ensure parent directory exists and is writable
-    parent_dir = os.path.dirname(path)
-    if not os.path.exists(parent_dir):
-        os.makedirs(parent_dir, mode=0o755)
-    
+    # Create database at the path (SQLite will create the file)
     db = ClarionDatabase(path)
     
     yield db
@@ -68,29 +61,27 @@ def test_db():
             if hasattr(db._local, 'connection'):
                 try:
                     db._local.connection.close()
+                    db._local.connection = None
                 except:
                     pass
-        
-        # Brief delay to ensure file handles are released
-        import time
-        time.sleep(0.1)
-        
-        # Remove database files
+    except Exception as e:
+        # Log but don't fail on cleanup errors
+        logger.warning(f"Cleanup warning: {e}")
+        pass
+    
+    # Remove database files
+    try:
         if os.path.exists(path):
-            os.chmod(path, 0o644)  # Ensure writable before deletion
             os.unlink(path)
         for suffix in ['-wal', '-shm', '-journal']:
             p = path + suffix
             if os.path.exists(p):
                 try:
-                    os.chmod(p, 0o644)
                     os.unlink(p)
                 except:
                     pass
     except Exception as e:
-        # Log but don't fail on cleanup errors
-        logger.warning(f"Cleanup warning for {path}: {e}")
-        pass
+        logger.warning(f"File cleanup warning: {e}")
 
 
 @pytest.fixture

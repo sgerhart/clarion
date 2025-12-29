@@ -22,6 +22,7 @@ from clarion.api.routes import (
     topology,
     collectors,
     sgt,
+    policy_recommendations,
 )
 from clarion.storage import init_database
 
@@ -75,6 +76,7 @@ def create_app() -> FastAPI:
     app.include_router(topology.router, prefix="/api", tags=["Topology"])
     app.include_router(collectors.router, prefix="/api", tags=["Collectors"])
     app.include_router(sgt.router, prefix="/api", tags=["SGT"])
+    app.include_router(policy_recommendations.router, prefix="/api", tags=["Policy Recommendations"])
     
     @app.exception_handler(Exception)
     async def global_exception_handler(request, exc):

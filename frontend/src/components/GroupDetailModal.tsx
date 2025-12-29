@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { apiClient } from '../lib/api'
-import { X, Save, Edit2, Tag, Users, Server, User, Brain, Info } from 'lucide-react'
+import { X, Save, Edit2, Tag, Users, Server, User, Brain, Info, FileText, Download } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 
@@ -64,6 +64,16 @@ export default function GroupDetailModal({ clusterId, onClose }: GroupDetailModa
       queryClient.invalidateQueries({ queryKey: ['devices'] })
       setIsEditing(false)
     },
+  })
+
+  // Get policy recommendations for this cluster
+  const { data: recommendationsData } = useQuery({
+    queryKey: ['clusterRecommendations', clusterId],
+    queryFn: async () => {
+      const response = await apiClient.getPolicyRecommendations({ cluster_id: clusterId, status: 'pending' })
+      return response.data as any[]
+    },
+    enabled: !!group,
   })
 
   // Initialize edit values when group loads
@@ -243,10 +253,169 @@ export default function GroupDetailModal({ clusterId, onClose }: GroupDetailModa
                   )}
                 </div>
               </div>
+
+              {/* Policy Recommendations */}
+              {recommendationsData && recommendationsData.length > 0 && (
+                <div className="mt-6">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                    <FileText className="h-5 w-5 mr-2" />
+                    Policy Recommendations
+                  </h3>
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 space-y-3">
+                    {recommendationsData.map((rec: any) => (
+                      <div key={rec.id} className="bg-white rounded-lg p-4 border border-blue-300">
+                        <div className="flex items-start justify-between mb-2">
+                          <div>
+                            <h4 className="font-semibold text-gray-900">{rec.policy_rule.name}</h4>
+                            <p className="text-sm text-gray-600 mt-1">{rec.policy_rule.justification}</p>
+                          </div>
+                          <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded capitalize">
+                            {rec.status}
+                          </span>
+                        </div>
+                        <div className="mt-3 space-y-2">
+                          <div>
+                            <span className="text-sm font-medium text-gray-700">Recommended SGT: </span>
+                            <span className="text-sm text-gray-900">
+                              SGT {rec.recommended_sgt}
+                              {rec.recommended_sgt_name && ` - ${rec.recommended_sgt_name}`}
+                            </span>
+                          </div>
+                          <div>
+                            <span className="text-sm font-medium text-gray-700">Devices Affected: </span>
+                            <span className="text-sm text-gray-900">{rec.devices_affected}</span>
+                          </div>
+                          {rec.ad_groups_affected && rec.ad_groups_affected.length > 0 && (
+                            <div>
+                              <span className="text-sm font-medium text-gray-700">AD Groups: </span>
+                              <div className="flex flex-wrap gap-1 mt-1">
+                                {rec.ad_groups_affected.map((group: string, idx: number) => (
+                                  <span key={idx} className="px-2 py-0.5 bg-blue-100 text-blue-800 text-xs rounded">
+                                    {group}
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                          <div>
+                            <span className="text-sm font-medium text-gray-700">Policy Condition: </span>
+                            <code className="text-xs bg-gray-100 px-2 py-1 rounded text-gray-800 block mt-1">
+                              {rec.policy_rule.ise_condition_string}
+                            </code>
+                          </div>
+                        </div>
+                        <div className="mt-3 pt-3 border-t border-gray-200 flex space-x-2 flex-wrap gap-2">
+                          <button
+                            className="px-3 py-1.5 bg-green-600 text-white text-sm rounded hover:bg-green-700"
+                            onClick={() => {
+                              // TODO: Implement accept recommendation
+                              alert('Accept functionality coming soon')
+                            }}
+                          >
+                            Accept
+                          </button>
+                          <button
+                            className="px-3 py-1.5 bg-gray-300 text-gray-700 text-sm rounded hover:bg-gray-400"
+                            onClick={() => {
+                              // TODO: Implement reject recommendation
+                              alert('Reject functionality coming soon')
+                            }}
+                          >
+                            Reject
+                          </button>
+                          <div className="flex space-x-1 ml-auto">
+                            <button
+                              className="px-3 py-1.5 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 flex items-center space-x-1"
+                              onClick={async () => {
+                                try {
+                                  const response = await apiClient.exportISEConfig(rec.id, 'json')
+                                  const blob = new Blob([JSON.stringify(response.data, null, 2)], { type: 'application/json' })
+                                  const url = URL.createObjectURL(blob)
+                                  const a = document.createElement('a')
+                                  a.href = url
+                                  a.download = `ise_policy_${rec.id}.json`
+                                  a.click()
+                                  URL.revokeObjectURL(url)
+                                } catch (error) {
+                                  alert('Error exporting JSON config')
+                                }
+                              }}
+                            >
+                              <Download className="h-3 w-3" />
+                              <span>JSON</span>
+                            </button>
+                            <button
+                              className="px-3 py-1.5 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 flex items-center space-x-1"
+                              onClick={async () => {
+                                try {
+                                  const response = await apiClient.exportISEConfig(rec.id, 'xml')
+                                  const blob = new Blob([response.data], { type: 'application/xml' })
+                                  const url = URL.createObjectURL(blob)
+                                  const a = document.createElement('a')
+                                  a.href = url
+                                  a.download = `ise_policy_${rec.id}.xml`
+                                  a.click()
+                                  URL.revokeObjectURL(url)
+                                } catch (error) {
+                                  alert('Error exporting XML config')
+                                }
+                              }}
+                            >
+                              <Download className="h-3 w-3" />
+                              <span>XML</span>
+                            </button>
+                            <button
+                              className="px-3 py-1.5 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 flex items-center space-x-1"
+                              onClick={async () => {
+                                try {
+                                  const response = await apiClient.getDeploymentGuide(rec.id)
+                                  const blob = new Blob([response.data], { type: 'text/markdown' })
+                                  const url = URL.createObjectURL(blob)
+                                  const a = document.createElement('a')
+                                  a.href = url
+                                  a.download = `deployment_guide_${rec.id}.md`
+                                  a.click()
+                                  URL.revokeObjectURL(url)
+                                } catch (error) {
+                                  alert('Error exporting deployment guide')
+                                }
+                              }}
+                            >
+                              <Download className="h-3 w-3" />
+                              <span>Guide</span>
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Right Column: Members List and Explanation */}
             <div className="lg:col-span-2 space-y-6">
+              {/* Generate Policy Recommendation Button */}
+              {(!recommendationsData || recommendationsData.length === 0) && group && (
+                <div>
+                  <button
+                    onClick={async () => {
+                      try {
+                        await apiClient.generateClusterRecommendation(clusterId)
+                        queryClient.invalidateQueries({ queryKey: ['clusterRecommendations', clusterId] })
+                        alert('Policy recommendation generated!')
+                      } catch (error) {
+                        alert('Error generating recommendation')
+                      }
+                    }}
+                    className="w-full px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center justify-center space-x-2"
+                  >
+                    <FileText className="h-5 w-5" />
+                    <span>Generate Policy Recommendation</span>
+                  </button>
+                </div>
+              )}
+
               {/* Members List */}
               <div>
                 <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">

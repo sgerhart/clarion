@@ -17,6 +17,7 @@ from clarion.api.routes import (
     topology,
     collectors,
     sgt,
+    policy_recommendations,
 )
 
 __all__ = [
@@ -32,5 +33,6 @@ __all__ = [
     "topology",
     "collectors",
     "sgt",
+    "policy_recommendations",
 ]
 

@@ -164,6 +164,36 @@ export const apiClient = {
     api.get(`/collectors/${collectorId}/metrics`),
   getCollectorHealth: (collectorId: string) =>
     api.get(`/collectors/${collectorId}/health`),
+
+  // Policy Recommendations
+  generateClusterRecommendation: (clusterId: number, minPercentage?: number) =>
+    api.post(`/policy/recommendations/cluster/${clusterId}`, null, { params: { min_percentage: minPercentage } }),
+  generateDeviceRecommendation: (endpointId: string, newClusterId: number, oldClusterId?: number) =>
+    api.post(`/policy/recommendations/device/${endpointId}`, null, { params: { new_cluster_id: newClusterId, old_cluster_id: oldClusterId } }),
+  getPolicyRecommendations: (params?: {
+    status?: string
+    cluster_id?: number
+    endpoint_id?: string
+    limit?: number
+    offset?: number
+  }) => api.get('/policy/recommendations', { params }),
+  getPolicyRecommendation: (recommendationId: number) =>
+    api.get(`/policy/recommendations/${recommendationId}`),
+  updatePolicyRecommendationStatus: (recommendationId: number, status: string) =>
+    api.put(`/policy/recommendations/${recommendationId}/status`, { status }),
+  deletePolicyRecommendation: (recommendationId: number) =>
+    api.delete(`/policy/recommendations/${recommendationId}`),
+
+  // ISE Policy Export
+  exportISEConfig: (recommendationId: number, format: 'json' | 'xml' | 'cli' | 'all' = 'json') =>
+    api.get(`/policy/recommendations/${recommendationId}/ise-config`, {
+      params: { format },
+      responseType: format === 'json' || format === 'all' ? 'json' : 'blob',
+    }),
+  getDeploymentGuide: (recommendationId: number) =>
+    api.get(`/policy/recommendations/${recommendationId}/ise-config/deployment-guide`, {
+      responseType: 'blob',
+    }),
 }
 
 export default api

@@ -10,6 +10,7 @@ from typing import List, Optional, Dict, Any
 import logging
 
 from clarion.storage import get_database
+from clarion.policy.recommendation import PolicyRecommendationEngine
 
 logger = logging.getLogger(__name__)
 
@@ -455,7 +456,16 @@ async def update_device(
             # Do not process sgt_value - it's deprecated
         
         # Update cluster assignment if provided
+        old_cluster_id = None
         if update.cluster_id is not None:
+            # Get old cluster assignment before removing it
+            old_cluster_cursor = conn.execute("""
+                SELECT cluster_id FROM cluster_assignments WHERE endpoint_id = ?
+            """, (endpoint_id,))
+            old_cluster_row = old_cluster_cursor.fetchone()
+            if old_cluster_row:
+                old_cluster_id = old_cluster_row['cluster_id']
+            
             # Remove existing assignment
             conn.execute("""
                 DELETE FROM cluster_assignments WHERE endpoint_id = ?
@@ -466,6 +476,45 @@ async def update_device(
                 db.assign_endpoint_to_cluster(endpoint_id, update.cluster_id)
                 conn.commit()
                 logger.info(f"Device {endpoint_id} assigned to cluster {update.cluster_id}")
+                
+                # Generate policy recommendation if cluster changed
+                if old_cluster_id != update.cluster_id:
+                    try:
+                        engine = PolicyRecommendationEngine(db)
+                        recommendation = engine.generate_device_recommendation(
+                            endpoint_id=endpoint_id,
+                            new_cluster_id=update.cluster_id,
+                            old_cluster_id=old_cluster_id,
+                        )
+                        if recommendation:
+                            # Store the recommendation
+                            recommendation.id = db.store_policy_recommendation(
+                                cluster_id=recommendation.cluster_id,
+                                recommended_sgt=recommendation.recommended_sgt,
+                                recommended_sgt_name=recommendation.recommended_sgt_name,
+                                policy_rule_name=recommendation.policy_rule.name,
+                                policy_rule_conditions=[cond.to_dict() for cond in recommendation.policy_rule.conditions],
+                                policy_rule_action=recommendation.policy_rule.action,
+                                policy_rule_justification=recommendation.policy_rule.justification,
+                                devices_affected=recommendation.devices_affected,
+                                ad_groups_affected=recommendation.ad_groups_affected,
+                                device_profiles_affected=recommendation.device_profiles_affected,
+                                device_types_affected=recommendation.device_types_affected,
+                                endpoint_id=recommendation.endpoint_id,
+                                old_cluster_id=recommendation.old_cluster_id,
+                                old_sgt=recommendation.old_sgt,
+                                status=recommendation.status,
+                            )
+                            logger.info(
+                                f"Policy recommendation generated for device {endpoint_id} "
+                                f"(old cluster: {old_cluster_id}, new cluster: {update.cluster_id})"
+                            )
+                    except Exception as e:
+                        # Log error but don't fail the device update
+                        logger.error(
+                            f"Error generating policy recommendation for device {endpoint_id}: {e}",
+                            exc_info=True
+                        )
         
         # Return updated device
         return await get_device(endpoint_id)

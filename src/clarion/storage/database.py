@@ -1135,6 +1135,31 @@ class ClarionDatabase:
             )
         """)
         
+        # Policy Recommendations
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS policy_recommendations (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                cluster_id INTEGER NOT NULL,
+                recommended_sgt INTEGER NOT NULL,
+                recommended_sgt_name TEXT,
+                endpoint_id TEXT,  -- For device-specific recommendations
+                old_cluster_id INTEGER,
+                old_sgt INTEGER,
+                policy_rule_name TEXT NOT NULL,
+                policy_rule_conditions TEXT NOT NULL,  -- JSON array of conditions
+                policy_rule_action TEXT NOT NULL,
+                policy_rule_justification TEXT,
+                devices_affected INTEGER DEFAULT 0,
+                ad_groups_affected TEXT,  -- JSON array
+                device_profiles_affected TEXT,  -- JSON array
+                device_types_affected TEXT,  -- JSON array
+                status TEXT DEFAULT 'pending',  -- 'pending', 'accepted', 'rejected', 'deployed'
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (recommended_sgt) REFERENCES sgt_registry(sgt_value)
+            )
+        """)
+        
         # Migrations: Add first_seen/last_seen to sketches if not exists (already have them, but ensure TIMESTAMP)
         # Note: sketches already has first_seen/last_seen as INTEGER (Unix timestamp) - this is fine
         
@@ -1164,8 +1189,148 @@ class ClarionDatabase:
         conn.execute("CREATE INDEX IF NOT EXISTS idx_sgt_history_sgt ON sgt_assignment_history(sgt_value)")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_sgt_history_assigned_at ON sgt_assignment_history(assigned_at)")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_cluster_centroids_sgt ON cluster_centroids(sgt_value)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_policy_recommendations_cluster ON policy_recommendations(cluster_id)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_policy_recommendations_status ON policy_recommendations(status)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_policy_recommendations_endpoint ON policy_recommendations(endpoint_id)")
         
         logger.info("MVP categorization engine schema initialized")
+    
+    # ========== Policy Recommendation Operations ==========
+    
+    def store_policy_recommendation(
+        self,
+        cluster_id: int,
+        recommended_sgt: int,
+        recommended_sgt_name: Optional[str],
+        policy_rule_name: str,
+        policy_rule_conditions: List[Dict],
+        policy_rule_action: str,
+        policy_rule_justification: Optional[str],
+        devices_affected: int = 0,
+        ad_groups_affected: Optional[List[str]] = None,
+        device_profiles_affected: Optional[List[str]] = None,
+        device_types_affected: Optional[List[str]] = None,
+        endpoint_id: Optional[str] = None,
+        old_cluster_id: Optional[int] = None,
+        old_sgt: Optional[int] = None,
+        status: str = "pending",
+    ) -> int:
+        """
+        Store a policy recommendation.
+        
+        Returns:
+            Recommendation ID
+        """
+        with self.transaction() as conn:
+            cursor = conn.execute("""
+                INSERT INTO policy_recommendations (
+                    cluster_id, recommended_sgt, recommended_sgt_name,
+                    endpoint_id, old_cluster_id, old_sgt,
+                    policy_rule_name, policy_rule_conditions, policy_rule_action,
+                    policy_rule_justification,
+                    devices_affected, ad_groups_affected, device_profiles_affected,
+                    device_types_affected, status
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (
+                cluster_id, recommended_sgt, recommended_sgt_name,
+                endpoint_id, old_cluster_id, old_sgt,
+                policy_rule_name, json.dumps(policy_rule_conditions), policy_rule_action,
+                policy_rule_justification,
+                devices_affected,
+                json.dumps(ad_groups_affected) if ad_groups_affected else None,
+                json.dumps(device_profiles_affected) if device_profiles_affected else None,
+                json.dumps(device_types_affected) if device_types_affected else None,
+                status,
+            ))
+            return cursor.lastrowid
+    
+    def get_policy_recommendation(self, recommendation_id: int) -> Optional[Dict]:
+        """Get a policy recommendation by ID."""
+        conn = self._get_connection()
+        cursor = conn.execute("""
+            SELECT * FROM policy_recommendations WHERE id = ?
+        """, (recommendation_id,))
+        row = cursor.fetchone()
+        if not row:
+            return None
+        
+        data = dict(row)
+        # Parse JSON fields
+        if data.get('policy_rule_conditions'):
+            data['policy_rule_conditions'] = json.loads(data['policy_rule_conditions'])
+        if data.get('ad_groups_affected'):
+            data['ad_groups_affected'] = json.loads(data['ad_groups_affected'])
+        if data.get('device_profiles_affected'):
+            data['device_profiles_affected'] = json.loads(data['device_profiles_affected'])
+        if data.get('device_types_affected'):
+            data['device_types_affected'] = json.loads(data['device_types_affected'])
+        return data
+    
+    def list_policy_recommendations(
+        self,
+        status: Optional[str] = None,
+        cluster_id: Optional[int] = None,
+        endpoint_id: Optional[str] = None,
+        limit: int = 100,
+        offset: int = 0,
+    ) -> List[Dict]:
+        """List policy recommendations with optional filters."""
+        conn = self._get_connection()
+        
+        query = "SELECT * FROM policy_recommendations WHERE 1=1"
+        params = []
+        
+        if status:
+            query += " AND status = ?"
+            params.append(status)
+        if cluster_id is not None:
+            query += " AND cluster_id = ?"
+            params.append(cluster_id)
+        if endpoint_id:
+            query += " AND endpoint_id = ?"
+            params.append(endpoint_id)
+        
+        query += " ORDER BY created_at DESC LIMIT ? OFFSET ?"
+        params.extend([limit, offset])
+        
+        cursor = conn.execute(query, params)
+        rows = cursor.fetchall()
+        
+        results = []
+        for row in rows:
+            data = dict(row)
+            # Parse JSON fields
+            if data.get('policy_rule_conditions'):
+                data['policy_rule_conditions'] = json.loads(data['policy_rule_conditions'])
+            if data.get('ad_groups_affected'):
+                data['ad_groups_affected'] = json.loads(data['ad_groups_affected'])
+            if data.get('device_profiles_affected'):
+                data['device_profiles_affected'] = json.loads(data['device_profiles_affected'])
+            if data.get('device_types_affected'):
+                data['device_types_affected'] = json.loads(data['device_types_affected'])
+            results.append(data)
+        
+        return results
+    
+    def update_policy_recommendation_status(
+        self,
+        recommendation_id: int,
+        status: str,
+    ) -> None:
+        """Update the status of a policy recommendation."""
+        with self.transaction() as conn:
+            conn.execute("""
+                UPDATE policy_recommendations
+                SET status = ?, updated_at = CURRENT_TIMESTAMP
+                WHERE id = ?
+            """, (status, recommendation_id))
+    
+    def delete_policy_recommendation(self, recommendation_id: int) -> None:
+        """Delete a policy recommendation."""
+        with self.transaction() as conn:
+            conn.execute("""
+                DELETE FROM policy_recommendations WHERE id = ?
+            """, (recommendation_id,))
 
 
 # Global database instance
