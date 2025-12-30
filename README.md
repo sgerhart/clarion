@@ -22,14 +22,6 @@
 > - **Incremental clustering for fast new endpoint assignment**
 > - **Confidence scoring and explanations for all decisions**
 > 
-> **Key Metrics:**
-> - Memory per endpoint: ~32 KB (backend), ~18 KB (edge)
-> - Clustering accuracy: 99.8% endpoint coverage
-> - Identity resolution: 88.4% success rate
-> - 26 unit tests + 20 integration tests for sketches
-> - 17 unit tests + 8 integration tests for clustering
-> - 35 unit tests + 15 integration tests for policy generation
-> 
 > **Ready for testing and evaluation with synthetic data.**
 
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
@@ -45,8 +37,8 @@ Clarion helps organizations adopt **Cisco TrustSec** by automatically discoverin
 ### MVP Categorization Engine (Latest)
 - **First-Seen Tracking**: Automatically detects when new endpoints appear on the network
 - **SGT Lifecycle Management**: Stable SGT registry with dynamic endpoint membership and assignment history
-- **Incremental Clustering**: Fast assignment (<100ms) of new endpoints to existing clusters using stored centroids
-- **Confidence Scoring**: Consistent confidence scores (0.0-1.0) for all cluster and SGT assignments
+- **Incremental Clustering**: Fast assignment of new endpoints to existing clusters using stored centroids
+- **Confidence Scoring**: Consistent confidence scores for all cluster and SGT assignments
 - **Basic Explanations**: Human-readable explanations for clustering decisions
 
 ### Key Capabilities
@@ -74,7 +66,7 @@ Clarion uses a **distributed, scale-first architecture**:
 │                         Catalyst 9K App Hosting Container                     │
 │                                                                               │
 │   Flows ──▶ Aggregate ──▶ Build Sketches ──▶ Local Cluster ──▶ Sync         │
-│                              (5MB max)         (K-means k=8)     to Backend  │
+│                                                                              │
 └─────────────────────────────────────────────────────────────────────────────┘
                                         │
                           Behavioral Sketches (KB, not GB)
@@ -97,17 +89,13 @@ Clarion uses a **distributed, scale-first architecture**:
 | Central processing bottleneck | Horizontally distributed |
 | Batch clustering overnight | Incremental real-time updates |
 
-**Scale Example:**
-- 1000 switches × 100K flows/hour = **10GB/hour** to process centrally
-- With sketches: 1000 switches × 5KB updates = **5MB/hour** to aggregate
-
 ---
 
 ## 🧠 How It Works
 
 ### 1. Behavioral Sketches (Edge)
 
-Each endpoint gets a lightweight ~10KB behavioral fingerprint:
+Each endpoint gets a lightweight behavioral fingerprint:
 
 ```python
 @dataclass
@@ -126,7 +114,7 @@ class EndpointSketch:
     bytes_in: int
     bytes_out: int
     in_out_ratio: float           # Client vs server
-    active_hours: int             # 24-bit bitmap
+    active_hours: int             # Activity pattern bitmap
 ```
 
 ### 2. Unsupervised Clustering (Backend)
@@ -166,16 +154,7 @@ deny ip log
 
 ## 📊 Sample Dataset
 
-Clarion includes a synthetic enterprise campus dataset for development:
-
-| Data | Records | Description |
-|------|---------|-------------|
-| Switches | 100 | Campus switches across 10 sites |
-| Users | 10,000 | Employees with AD groups |
-| Endpoints | 13,650 | Laptops, servers, IoT, printers |
-| Flows | 106,814 | Network traffic metadata |
-| Services | 42 | AD, DNS, ERP, FileShare, etc. |
-| ISE Sessions | 13,300 | Authentication context |
+Clarion includes a synthetic enterprise campus dataset for development with switches, users, endpoints, flows, services, and ISE sessions.
 
 ---
 
@@ -216,7 +195,7 @@ clarion/
 │   ├── Dockerfile             # Container image
 │   ├── docker-compose.yml     # Docker Compose config
 │   └── README.md              # Collector documentation
-├── tests/                     # Test suite (137 tests)
+├── tests/                     # Test suite
 │   ├── unit/                  # Unit tests
 │   └── integration/           # Integration tests
 ├── frontend/                  # React frontend (production UI)
@@ -261,7 +240,7 @@ clarion/
 - [x] Docker/IOx packaging
 
 ### Phase 5: API & Visualization ✅ Complete
-- [x] FastAPI backend with 23 endpoints
+- [x] FastAPI backend with REST endpoints
 - [x] Cluster visualization (PCA/t-SNE)
 - [x] Policy matrix heatmap
 - [x] **React frontend (production-ready UI)**
