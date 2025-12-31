@@ -148,6 +148,7 @@ This document provides a comprehensive, cohesive roadmap of all Clarion capabili
 - [x] **Database schema for pxGrid data** (ise_current_sgt_assignments table)
 - [x] **Connector management infrastructure** (database tables, API endpoints, certificate storage)
 - [ ] **Connector configuration UI** (unified UI for all connectors with enable/disable)
+- [ ] **Connector information tabs** (Summary/Overview tabs explaining connector purpose, capabilities, and usage - for ISE, AD, and other connectors)
 - [ ] **Certificate upload UI** (upload certificates via UI for pxGrid authentication)
 - [ ] **Dynamic container deployment** (automatically deploy containers when connectors enabled)
 - [ ] **pxGrid WebSocket/STOMP subscription** (full real-time event reception)
@@ -195,7 +196,7 @@ This document provides a comprehensive, cohesive roadmap of all Clarion capabili
 **Architecture Note:** See `docs/ISE_INTEGRATION.md` - Clarion supports multiple scenarios: (1) Greenfield: NetFlow → clustering → SGT recommendations → ISE policies, (2) Identity-enhanced: Same with AD/IoT data, (3) Brownfield: Sync existing ISE configuration, recommend existing SGTs when appropriate, avoid creating duplicates. Brownfield support includes ISE configuration sync, cache, and recommendation engine updates to check existing SGTs.
 
 #### 3.3 Active Directory Integration
-- [ ] **LDAP connector** (user/group queries)
+- [ ] **AD connector implementation** (LDAP connector for user/group queries)
 - [ ] **User database enrichment** (update user records with AD data: email, department, title, display_name)
 - [ ] **AD group membership queries** (user groups, nested groups)
 - [ ] **AD group memberships storage** (store group memberships in ad_group_memberships table)
@@ -203,11 +204,23 @@ This document provides a comprehensive, cohesive roadmap of all Clarion capabili
 - [ ] **Device attributes** (from AD)
 - [ ] **Scheduled synchronization** (periodic AD queries to update user database)
 - [ ] **User-device association confidence** (enhance associations from AD computer objects)
+- [ ] **AD connector UI** (configuration, test connection, enable/disable, status display)
+- [ ] **AD connector information tab** (Summary/Overview explaining AD connector purpose, capabilities, and usage)
+- [ ] **🔍 Advanced AD Integration Architecture Investigation** (evaluate LDAP/LDAPS + DirSync for near-real-time AD mirror, WEF→WEC for Security log streaming, event correlation using stable identifiers (SID, username, computer account))
+  - [ ] **LDAP/LDAPS + DirSync** (near-real-time mirror of users/groups/membership from AD)
+  - [ ] **Windows Event Forwarding (WEF) → Windows Event Collector (WEC)** (stream DC and endpoint Security logs to collector)
+  - [ ] **Event correlation engine** (correlate events using stable identifiers: SID, username, computer account)
+  - [ ] **Target outcomes to support:**
+    - [ ] User login/logout timeline
+    - [ ] Map user→device→IP for NetFlow correlation
+    - [ ] Detect risky auth + group changes
+  - [ ] **Architecture design** (minimal event set, avoid unnecessary noise and DC overhead)
 
-**Status:** 📋 Planned  
+**Status:** 📋 Planned (Basic LDAP connector) + 🔍 Investigation (Advanced architecture)  
 **Priority:** 🔴 High (Critical for User SGT recommendations)  
-**Timeline:** 3-4 weeks (includes user database integration)  
-**Dependencies:** Identity-aware clustering, User database schema
+**Timeline:** 3-4 weeks (basic LDAP), +2-3 weeks (advanced architecture investigation and implementation)  
+**Dependencies:** Identity-aware clustering, User database schema, Connector management infrastructure  
+**Note:** Advanced architecture (DirSync + WEF/WEC) provides near-real-time AD synchronization and Security event streaming, enabling better correlation than periodic LDAP queries. Investigation needed to determine optimal event set and architecture for target outcomes.
 
 #### 3.4 DNS Resolution
 - [ ] **Hostname resolution** (IP → hostname via DNS)
@@ -429,6 +442,7 @@ This document provides a comprehensive, cohesive roadmap of all Clarion capabili
 - [x] ISE deployment UI (ISE deployment modal, policy deployment workflow)
 - [x] FlowGraph navigation fixes (zoom, pan, node click locking)
 - [x] Machine name display (prominent display of device names)
+- [ ] **Connector information tabs** (Summary/Overview tabs for ISE, AD, and other connectors explaining purpose, capabilities, and usage)
 
 #### 7.2 UI Enhancements
 - [ ] **Improved cluster visualization** (better charts, PCA/t-SNE plots)
@@ -518,13 +532,15 @@ This document provides a comprehensive, cohesive roadmap of all Clarion capabili
 #### 10.2 Monitoring & Observability
 - [x] Health check endpoints (basic)
 - [x] Metrics endpoints (basic)
+- [ ] **Container health updates** (real-time health status from all containers, health check aggregation API)
+- [ ] **Diagnostic logging** (structured logging, log levels, diagnostic endpoints, log aggregation)
 - [ ] **Prometheus metrics export** (standard format)
 - [ ] **Grafana dashboards** (pre-built dashboards)
 - [ ] **Logging infrastructure** (centralized logging)
 - [ ] **Alerting** (critical issues notification)
 
 **Status:** ⚠️ Basic monitoring exists  
-**Priority:** 🟡 Medium  
+**Priority:** 🔴 High (container health, diagnostic logging)  
 **Timeline:** 2-3 weeks
 
 #### 10.3 Performance & Scalability

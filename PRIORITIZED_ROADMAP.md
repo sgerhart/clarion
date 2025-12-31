@@ -181,6 +181,7 @@ This document outlines the prioritized development plan for Clarion, focusing on
 - [ ] Enhanced policy matrix UI
 - [ ] AI categorization feedback/controls
 - [ ] Better error handling and user feedback
+- [ ] **Connector information tabs** (Summary/Overview tabs for ISE, AD, and other connectors explaining purpose, capabilities, and usage)
 - [ ] Performance optimization
 - [ ] Mobile responsiveness (if needed)
 
@@ -219,6 +220,8 @@ This document outlines the prioritized development plan for Clarion, focusing on
 - [ ] Security Hardening (rate limiting, input validation, secrets management, SSL/TLS)
 - [ ] PostgreSQL Migration (production database, migration scripts)
 - [ ] Monitoring & Observability (Prometheus metrics, centralized logging, alerting, Grafana)
+- [ ] **Container Health Updates** (real-time health status from all containers, health check aggregation)
+- [ ] **Diagnostic Logging** (structured logging, log levels, log aggregation, diagnostic endpoints)
 - [ ] High Availability (multi-instance deployment, load balancing, failover)
 - [ ] CI/CD Pipeline (automated builds, deployment automation)
 - [ ] Database Backup/Recovery (backup procedures, disaster recovery)
@@ -308,7 +311,9 @@ This document outlines the prioritized development plan for Clarion, focusing on
 - [ ] ISE pxGrid WebSocket/STOMP integration (full real-time event reception - architecture in place)
 - [x] pxGrid certificate-based authentication (infrastructure implemented)
 - [ ] pxGrid certificate-based authentication testing (end-to-end validation needed)
-- [ ] AD integration (user details, group memberships, user database enrichment)
+- [ ] **AD connector implementation** (LDAP connector, user/group queries, user database enrichment, AD group memberships storage, scheduled synchronization)
+- [ ] **🔍 Advanced AD Integration Architecture Investigation** (LDAP/LDAPS + DirSync for near-real-time AD mirror, WEF→WEC for Security log streaming, event correlation using stable identifiers)
+- [ ] **Connector information tabs** (Summary/Overview tabs for ISE, AD, and other connectors explaining purpose, capabilities, and usage)
 - [ ] User-device association resolution engine
 
 **Weeks 23-24: Integration & Testing**
