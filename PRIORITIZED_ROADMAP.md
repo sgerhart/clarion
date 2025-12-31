@@ -306,7 +306,8 @@ This document outlines the prioritized development plan for Clarion, focusing on
 - ✅ Policy recommendation engine with brownfield support (check existing SGTs)
 - ✅ Containerization (Docker, docker-compose for API, pxGrid, frontend services)
 - [ ] ISE pxGrid WebSocket/STOMP integration (full real-time event reception - architecture in place)
-- [ ] pxGrid certificate-based authentication
+- [x] pxGrid certificate-based authentication (infrastructure implemented)
+- [ ] pxGrid certificate-based authentication testing (end-to-end validation needed)
 - [ ] AD integration (user details, group memberships, user database enrichment)
 - [ ] User-device association resolution engine
 

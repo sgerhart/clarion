@@ -151,7 +151,8 @@ This document provides a comprehensive, cohesive roadmap of all Clarion capabili
 - [ ] **Certificate upload UI** (upload certificates via UI for pxGrid authentication)
 - [ ] **Dynamic container deployment** (automatically deploy containers when connectors enabled)
 - [ ] **pxGrid WebSocket/STOMP subscription** (full real-time event reception)
-- [ ] **Certificate-based authentication** (pxGrid requires client certificates - infrastructure ready)
+- [x] **Certificate-based authentication infrastructure** (pxGrid client supports mutual TLS - implemented)
+- [ ] **Certificate-based authentication testing** (test certificate auth flow end-to-end - needs validation)
 - [ ] **User data ingestion from ISE** (username, mac_address, ip_address from pxGrid sessions)
 - [ ] **User-device association tracking** (link users to devices from ISE sessions)
 - [ ] **Identity data ingestion** (user, device, endpoint)
@@ -164,11 +165,11 @@ This document provides a comprehensive, cohesive roadmap of all Clarion capabili
 - [x] **ISE configuration cache** (store synced ISE configuration for brownfield support)
 - [ ] **SGT assignment status check** (check if device has SGT from ISE)
 
-**Status:** ⚠️ User database complete, brownfield sync implemented, pxGrid architecture in place, connector management infrastructure complete (WebSocket/STOMP and UI pending)  
+**Status:** ⚠️ User database complete, brownfield sync implemented, pxGrid architecture in place, connector management infrastructure complete, certificate authentication infrastructure implemented (WebSocket/STOMP, certificate testing, and UI pending)  
 **Priority:** 🔴 High (Critical for ISE alignment and User SGT recommendations)  
-**Timeline:** 4-6 weeks remaining (UI implementation, WebSocket/STOMP implementation, certificate auth, real-time sync)  
-**Dependencies:** Certificate management (infrastructure complete, UI pending), WebSocket/STOMP library integration  
-**Architecture Note:** See `docs/ISE_INTEGRATION.md` and `docs/CONNECTOR_MANAGEMENT.md` - Connector management infrastructure is complete (database, API endpoints, certificate storage). UI for connector configuration and certificate upload is pending. pxGrid client and subscriber architecture is implemented; WebSocket/STOMP subscription and certificate authentication are pending. See `docs/DEPLOYMENT_ARCHITECTURE.md` for containerized deployment architecture.
+**Timeline:** 4-6 weeks remaining (UI implementation, WebSocket/STOMP implementation, certificate auth testing, real-time sync)  
+**Dependencies:** Certificate management (infrastructure complete, UI pending), WebSocket/STOMP library integration, certificate authentication testing  
+**Architecture Note:** See `docs/ISE_INTEGRATION.md` and `docs/CONNECTOR_MANAGEMENT.md` - Connector management infrastructure is complete (database, API endpoints, certificate storage). Certificate-based authentication infrastructure is implemented in pxGrid client (mutual TLS support). UI for connector configuration and certificate upload is pending. pxGrid client and subscriber architecture is implemented; WebSocket/STOMP subscription and certificate authentication testing are pending. See `docs/DEPLOYMENT_ARCHITECTURE.md` for containerized deployment architecture.
 
 #### 3.2.1 ISE Policy Recommendation & Export
 - [x] **Policy recommendation engine** (cluster → SGT → policy conditions)

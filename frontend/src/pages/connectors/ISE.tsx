@@ -48,6 +48,7 @@ export default function ISEConnector() {
     port: 8910,
     use_ssl: true,
     verify_ssl: false,
+    auth_method: 'username_password' as 'username_password' | 'certificate',
   })
 
   // Initialize forms from connector configs
@@ -64,6 +65,13 @@ export default function ISEConnector() {
 
   useEffect(() => {
     if (pxgridConnector?.config) {
+      // Determine auth method: prioritize saved auth_method from config, then check certificates
+      const hasClientCert = pxgridConnector.certificates?.has_client_cert || false
+      // Use saved auth_method if present, otherwise default based on certificates
+      // Only default to certificate if certificates are assigned AND no auth_method is saved
+      const savedAuthMethod = pxgridConnector.config.auth_method
+      const authMethod = savedAuthMethod || (hasClientCert ? 'certificate' : 'username_password')
+      
       setPxgridFormData({
         ise_hostname: pxgridConnector.config.ise_hostname || '',
         username: pxgridConnector.config.username || '',
@@ -72,7 +80,14 @@ export default function ISEConnector() {
         port: pxgridConnector.config.port || 8910,
         use_ssl: pxgridConnector.config.use_ssl !== false,
         verify_ssl: pxgridConnector.config.verify_ssl === true,
+        auth_method: authMethod as 'username_password' | 'certificate',
       })
+    } else {
+      // If no config exists, default to username_password
+      setPxgridFormData(prev => ({
+        ...prev,
+        auth_method: 'username_password',
+      }))
     }
   }, [pxgridConnector])
 
@@ -143,31 +158,36 @@ export default function ISEConnector() {
 
   // ========== pxGrid Mutations ==========
 
-  const configurePxgridMutation = useMutation({
-    mutationFn: async () => {
-      return apiClient.configureConnector('ise_pxgrid', pxgridFormData, false)
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['connector', 'ise_pxgrid'] })
-      queryClient.invalidateQueries({ queryKey: ['connectors'] })
-      alert('pxGrid configuration saved successfully')
-    },
-    onError: (error: any) => {
-      alert(`Error saving configuration: ${error.response?.data?.detail || error.message}`)
-    },
-  })
+  // Removed configurePxgridMutation - now using enablePxgridMutation which saves and enables
 
   const enablePxgridMutation = useMutation({
     mutationFn: async () => {
+      // First save the configuration, then enable
+      await apiClient.configureConnector('ise_pxgrid', pxgridFormData, true)
       return apiClient.enableConnector('ise_pxgrid')
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['connector', 'ise_pxgrid'] })
       queryClient.invalidateQueries({ queryKey: ['connectors'] })
-      alert('pxGrid connector enabled. Container is starting...')
+      // Check if status is pending_approval
+      if (data.data.status === 'pending_approval') {
+        alert(`ℹ️ pxGrid client account was created but is PENDING approval in ISE.\n\nPlease approve it in ISE:\n1. Go to: Administration > pxGrid Services > Client Management > Clients\n2. Find the client named "${pxgridFormData.client_name || 'clarion'}"\n3. Click "Approve" to enable the client\n4. Return here and click "Test Connection" to verify\n\nAfter approval, the connector status will update automatically.`)
+      } else {
+        alert('pxGrid configuration saved and connector enabled successfully.')
+      }
     },
     onError: (error: any) => {
-      alert(`Error enabling connector: ${error.response?.data?.detail || error.message}`)
+      const errorMessage = error.response?.data?.detail || error.message || ''
+      const errorMessageUpper = errorMessage.toUpperCase()
+      // Check if this is a pending approval error - check multiple variations
+      if (errorMessageUpper.includes('PENDING') || 
+          errorMessageUpper.includes('PENDING APPROVAL') || 
+          errorMessageUpper.includes('PENDING_APPROVAL') ||
+          errorMessage.includes('was created successfully but is PENDING')) {
+        alert(`ℹ️ pxGrid client account was created but is PENDING approval in ISE.\n\nPlease approve it in ISE:\n1. Go to: Administration > pxGrid Services > Client Management > Clients\n2. Find the client named "${pxgridFormData.client_name || 'clarion'}"\n3. Click "Approve" to enable the client\n4. Return here and click "Test Connection" to verify\n\nAfter approval, the connector status will update automatically.`)
+      } else {
+        alert(`Error saving/enabling connector: ${errorMessage}`)
+      }
     },
   })
 
@@ -178,7 +198,7 @@ export default function ISEConnector() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['connector', 'ise_pxgrid'] })
       queryClient.invalidateQueries({ queryKey: ['connectors'] })
-      alert('pxGrid connector disabled. Container stopped.')
+      alert('pxGrid connector disabled successfully.')
     },
     onError: (error: any) => {
       alert(`Error disabling connector: ${error.response?.data?.detail || error.message}`)
@@ -192,12 +212,26 @@ export default function ISEConnector() {
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['connector', 'ise_pxgrid'] })
       queryClient.invalidateQueries({ queryKey: ['connectors'] })
-      alert(data.data.connected 
-        ? `✅ ${data.data.message}` 
-        : `❌ ${data.data.message || 'Connection test failed'}`)
+      if (data.data.connected) {
+        alert(`✅ ${data.data.message}`)
+      } else {
+        // Check if it's a pending approval status
+        if (data.data.status === 'pending_approval' || data.data.message?.includes('PENDING')) {
+          alert(`ℹ️ pxGrid client account is PENDING approval in ISE.\n\nPlease approve it in ISE:\n1. Go to: Administration > pxGrid Services > Client Management > Clients\n2. Find the client named "${pxgridConnector?.config?.client_name || 'clarion'}"\n3. Click "Approve" to enable the client\n4. Return here and click "Test Connection" again to verify\n\nAfter approval, the connector will connect successfully.`)
+        } else {
+          alert(`❌ ${data.data.message || 'Connection test failed'}`)
+        }
+      }
     },
     onError: (error: any) => {
-      alert(`❌ Connection test failed: ${error.response?.data?.detail || error.message}`)
+      const errorMessage = error.response?.data?.detail || error.message || ''
+      const errorMessageUpper = errorMessage.toUpperCase()
+      // Check if this is a pending approval error
+      if (errorMessageUpper.includes('PENDING') || errorMessageUpper.includes('PENDING APPROVAL') || errorMessageUpper.includes('PENDING_APPROVAL')) {
+        alert(`ℹ️ pxGrid client account is PENDING approval in ISE.\n\nPlease approve it in ISE:\n1. Go to: Administration > pxGrid Services > Client Management > Clients\n2. Find the client named "${pxgridConnector?.config?.client_name || 'clarion'}"\n3. Click "Approve" to enable the client\n4. Return here and click "Test Connection" again to verify\n\nAfter approval, the connector will connect successfully.`)
+      } else {
+        alert(`❌ Connection test failed: ${errorMessage}`)
+      }
     },
   })
   
@@ -329,6 +363,8 @@ export default function ISEConnector() {
       case 'error':
         return 'bg-red-500'
       case 'connecting':
+        return 'bg-yellow-500'
+      case 'pending_approval':
         return 'bg-yellow-500'
       default:
         return 'bg-gray-300'
@@ -562,32 +598,76 @@ export default function ISEConnector() {
       {/* pxGrid Tab Content */}
       {activeTab === 'pxgrid' && pxgridConnector && (
         <div className="space-y-6">
-          {/* Status and Enable/Disable */}
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-2">
-              <div className={`h-3 w-3 rounded-full ${getStatusColor(pxgridConnector.status)}`} />
-              <span className="text-sm font-medium capitalize">{pxgridConnector.status || 'disabled'}</span>
-            </div>
-            
-            {pxgridConnector.enabled ? (
-              <button
-                onClick={() => disablePxgridMutation.mutate()}
-                disabled={disablePxgridMutation.isPending}
-                className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 disabled:opacity-50 flex items-center space-x-2"
-              >
-                <XCircle className="h-4 w-4" />
-                <span>Disable</span>
-              </button>
-            ) : (
-              <button
-                onClick={() => enablePxgridMutation.mutate()}
-                disabled={enablePxgridMutation.isPending}
-                className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50 flex items-center space-x-2"
-              >
-                <Power className="h-4 w-4" />
-                <span>Enable</span>
-              </button>
+          {/* Status */}
+          <div className="flex items-center space-x-2">
+            <div className={`h-3 w-3 rounded-full ${getStatusColor(pxgridConnector.status)}`} />
+            <span className="text-sm font-medium">
+              {pxgridConnector.status === 'pending_approval' 
+                ? 'Pending Approval' 
+                : (pxgridConnector.status || 'disabled').charAt(0).toUpperCase() + (pxgridConnector.status || 'disabled').slice(1)}
+            </span>
+            {pxgridConnector.enabled && (
+              <span className="text-xs text-gray-500">(Configuration is locked while enabled)</span>
             )}
+          </div>
+          
+          {/* Pending Approval Message */}
+          {pxgridConnector.status === 'pending_approval' && (
+            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+              <div className="flex items-start space-x-2">
+                <AlertCircle className="h-5 w-5 text-yellow-600 mt-0.5" />
+                <div className="flex-1">
+                  <h4 className="text-sm font-medium text-yellow-800 mb-1">Account Pending Approval</h4>
+                  <p className="text-sm text-yellow-700">
+                    The pxGrid client account was created but is PENDING approval in ISE. Please approve it:
+                  </p>
+                  <ol className="list-decimal list-inside text-sm text-yellow-700 mt-2 space-y-1">
+                    <li>Go to ISE: <strong>Administration &gt; pxGrid Services &gt; Client Management &gt; Clients</strong></li>
+                    <li>Find the client named <strong>{pxgridConnector.config?.client_name || 'clarion-pxgrid-client'}</strong></li>
+                    <li>Click <strong>Approve</strong> to enable the client</li>
+                    <li>Return here and click <strong>Test Connection</strong> to verify</li>
+                  </ol>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Authentication Method Toggle */}
+          <div className="border-b pb-4 mb-4">
+            <label className="block text-sm font-medium text-gray-700 mb-3">
+              Authentication Method
+            </label>
+            <div className="flex space-x-4">
+              <label className={`flex items-center ${pxgridConnector.enabled ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}`}>
+                <input
+                  type="radio"
+                  name="pxgrid-auth-method"
+                  value="username_password"
+                  checked={pxgridFormData.auth_method === 'username_password'}
+                  onChange={() => setPxgridFormData({ ...pxgridFormData, auth_method: 'username_password' })}
+                  disabled={pxgridConnector.enabled}
+                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
+                />
+                <span className="ml-2 text-sm text-gray-700">Username / Password</span>
+              </label>
+              <label className={`flex items-center ${pxgridConnector.enabled ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}`}>
+                <input
+                  type="radio"
+                  name="pxgrid-auth-method"
+                  value="certificate"
+                  checked={pxgridFormData.auth_method === 'certificate'}
+                  onChange={() => setPxgridFormData({ ...pxgridFormData, auth_method: 'certificate' })}
+                  disabled={pxgridConnector.enabled}
+                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
+                />
+                <span className="ml-2 text-sm text-gray-700">Certificate (Mutual TLS)</span>
+              </label>
+            </div>
+            <p className="text-xs text-gray-500 mt-2">
+              {pxgridFormData.auth_method === 'username_password' 
+                ? 'Use ISE admin credentials (for new clients) or client credentials (for existing clients)'
+                : 'Use client certificate for mutual TLS authentication'}
+            </p>
           </div>
 
           {/* Configuration Form */}
@@ -600,36 +680,53 @@ export default function ISEConnector() {
                 type="text"
                 value={pxgridFormData.ise_hostname}
                 onChange={(e) => setPxgridFormData({ ...pxgridFormData, ise_hostname: e.target.value })}
+                disabled={pxgridConnector.enabled}
                 placeholder="ise.example.com or 192.168.1.10"
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:bg-gray-100 disabled:cursor-not-allowed"
               />
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Username *
-              </label>
-              <input
-                type="text"
-                value={pxgridFormData.username}
-                onChange={(e) => setPxgridFormData({ ...pxgridFormData, username: e.target.value })}
-                placeholder="admin"
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
+            {pxgridFormData.auth_method === 'username_password' && (
+              <>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Username *
+                  </label>
+                  <input
+                    type="text"
+                    value={pxgridFormData.username}
+                    onChange={(e) => setPxgridFormData({ ...pxgridFormData, username: e.target.value })}
+                    disabled={pxgridConnector.enabled}
+                    placeholder="admin"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:bg-gray-100 disabled:cursor-not-allowed"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    {pxgridConnector.enabled && pxgridConnector.config?.username 
+                      ? `Stored in database: ${pxgridConnector.config.username}`
+                      : 'Enter your ISE admin username. This will be used to create the pxGrid client in ISE.'}
+                  </p>
+                </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Password *
-              </label>
-              <input
-                type="password"
-                value={pxgridFormData.password}
-                onChange={(e) => setPxgridFormData({ ...pxgridFormData, password: e.target.value })}
-                placeholder="••••••••"
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Password *
+                  </label>
+                  <input
+                    type="password"
+                    value={pxgridFormData.password}
+                    onChange={(e) => setPxgridFormData({ ...pxgridFormData, password: e.target.value })}
+                    disabled={pxgridConnector.enabled}
+                    placeholder={pxgridConnector.enabled && pxgridConnector.config?.password ? "•••••••• (stored)" : "••••••••"}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:bg-gray-100 disabled:cursor-not-allowed"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    {pxgridConnector.enabled && pxgridConnector.config?.password
+                      ? 'Enter your ISE admin password. This will be used to create the pxGrid client in ISE.'
+                      : 'Enter your ISE admin password. This will be used to create the pxGrid client in ISE.'}
+                  </p>
+                </div>
+              </>
+            )}
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -639,8 +736,9 @@ export default function ISEConnector() {
                 type="text"
                 value={pxgridFormData.client_name}
                 onChange={(e) => setPxgridFormData({ ...pxgridFormData, client_name: e.target.value })}
+                disabled={pxgridConnector.enabled}
                 placeholder="clarion-pxgrid-client"
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:bg-gray-100 disabled:cursor-not-allowed"
               />
             </div>
 
@@ -652,7 +750,8 @@ export default function ISEConnector() {
                 type="number"
                 value={pxgridFormData.port}
                 onChange={(e) => setPxgridFormData({ ...pxgridFormData, port: parseInt(e.target.value) || 8910 })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                disabled={pxgridConnector.enabled}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:bg-gray-100 disabled:cursor-not-allowed"
               />
             </div>
 
@@ -662,7 +761,8 @@ export default function ISEConnector() {
                 id="pxgrid-use-ssl"
                 checked={pxgridFormData.use_ssl}
                 onChange={(e) => setPxgridFormData({ ...pxgridFormData, use_ssl: e.target.checked })}
-                className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                disabled={pxgridConnector.enabled}
+                className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded disabled:opacity-50 disabled:cursor-not-allowed"
               />
               <label htmlFor="pxgrid-use-ssl" className="ml-2 block text-sm text-gray-700">
                 Use SSL/TLS
@@ -675,7 +775,8 @@ export default function ISEConnector() {
                 id="pxgrid-verify-ssl"
                 checked={pxgridFormData.verify_ssl}
                 onChange={(e) => setPxgridFormData({ ...pxgridFormData, verify_ssl: e.target.checked })}
-                className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                disabled={pxgridConnector.enabled}
+                className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded disabled:opacity-50 disabled:cursor-not-allowed"
               />
               <label htmlFor="pxgrid-verify-ssl" className="ml-2 block text-sm text-gray-700">
                 Verify SSL certificate
@@ -683,15 +784,16 @@ export default function ISEConnector() {
             </div>
           </div>
 
-          {/* Certificate Selection */}
-          <div className="border-t pt-6">
-            <h3 className="text-lg font-medium mb-2">Certificates</h3>
-            <p className="text-sm text-gray-600 mb-4">
-              Select client certificate for pxGrid authentication (client certificate for mutual TLS). 
-              <a href="/settings/certificates" className="text-blue-600 hover:text-blue-700 ml-1">
-                Manage certificates
-              </a>
-            </p>
+          {/* Certificate Selection - Only show when certificate auth is selected */}
+          {pxgridFormData.auth_method === 'certificate' && (
+            <div className="border-t pt-6">
+              <h3 className="text-lg font-medium mb-2">Certificates</h3>
+              <p className="text-sm text-gray-600 mb-4">
+                Select client certificate for pxGrid mutual TLS authentication. 
+                <a href="/settings/certificates" className="text-blue-600 hover:text-blue-700 ml-1">
+                  Manage certificates
+                </a>
+              </p>
             <div className="space-y-4">
               {['client_cert'].map((certType) => {
                 const certLabels: { [key: string]: { label: string; icon: any; filterType: string; description?: string } } = {
@@ -730,8 +832,8 @@ export default function ISEConnector() {
                           const certId = e.target.value ? parseInt(e.target.value) : null
                           handleCertSelection(certType, certId)
                         }}
-                        disabled={assignCertMutation.isPending || unassignCertMutation.isPending}
-                        className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
+                        disabled={pxgridConnector.enabled || assignCertMutation.isPending || unassignCertMutation.isPending}
+                        className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:bg-gray-100 disabled:cursor-not-allowed"
                       >
                         <option value="">-- Select Certificate --</option>
                         {availableCerts.map((cert) => (
@@ -765,22 +867,39 @@ export default function ISEConnector() {
               })}
             </div>
           </div>
+          )}
 
           {/* Action Buttons */}
           <div className="flex space-x-3">
-            <button
-              onClick={() => configurePxgridMutation.mutate()}
-              disabled={configurePxgridMutation.isPending}
-              className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 flex items-center space-x-2"
-            >
-              <Save className="h-4 w-4" />
-              <span>Save Configuration</span>
-            </button>
+            {!pxgridConnector.enabled ? (
+              <button
+                onClick={() => enablePxgridMutation.mutate()}
+                disabled={enablePxgridMutation.isPending}
+                className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50 flex items-center space-x-2"
+              >
+                {enablePxgridMutation.isPending ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Power className="h-4 w-4" />
+                )}
+                <span>Save & Enable</span>
+              </button>
+            ) : (
+              <button
+                onClick={() => disablePxgridMutation.mutate()}
+                disabled={disablePxgridMutation.isPending}
+                className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 disabled:opacity-50 flex items-center space-x-2"
+              >
+                <XCircle className="h-4 w-4" />
+                <span>Disable</span>
+              </button>
+            )}
             
             <button
               onClick={() => testPxgridConnectionMutation.mutate()}
               disabled={testPxgridConnectionMutation.isPending || !pxgridConnector?.config}
-              className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50 flex items-center space-x-2"
+              className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 flex items-center space-x-2"
+              title={!pxgridConnector?.config ? "Please save configuration first" : pxgridConnector.enabled ? "Test connection using stored client credentials from database" : "Test pxGrid connection to ISE and check account status"}
             >
               {testPxgridConnectionMutation.isPending ? (
                 <Loader2 className="h-4 w-4 animate-spin" />

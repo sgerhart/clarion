@@ -1,0 +1,316 @@
+{\rtf1\ansi\ansicpg1252\cocoartf2867
+\cocoatextscaling0\cocoaplatform0{\fonttbl\f0\fswiss\fcharset0 Helvetica;}
+{\colortbl;\red255\green255\blue255;}
+{\*\expandedcolortbl;;}
+\margl1440\margr1440\vieww11520\viewh8400\viewkind0
+\pard\tx720\tx1440\tx2160\tx2880\tx3600\tx4320\tx5040\tx5760\tx6480\tx7200\tx7920\tx8640\pardirnatural\partightenfactor0
+
+\f0\fs24 \cf0 import base64\
+import json\
+import ssl\
+import time\
+import uuid\
+from dataclasses import dataclass\
+from typing import Any, Dict, Optional, Tuple\
+\
+import requests\
+import websocket  # websocket-client\
+\
+\
+# ----------------------------\
+# Config\
+# ----------------------------\
+\
+@dataclass\
+class PxGridConfig:\
+    ise_host: str                 # FQDN strongly recommended for pxGrid nodes\
+    port: int = 8910              # default pxGrid port (often 8910)\
+    verify_tls: bool = True       # can be a bool OR a path to CA bundle (see below)\
+    ca_bundle_path: Optional[str] = None  # e.g. "/etc/ssl/certs/ca-bundle.crt" or "corp_root_ca.pem"\
+    timeout_s: int = 20\
+\
+\
+# ----------------------------\
+# Helpers\
+# ----------------------------\
+\
+def _basic_auth_header(username: str, password: str) -> str:\
+    token = base64.b64encode(f"\{username\}:\{password\}".encode("utf-8")).decode("ascii")\
+    return f"Basic \{token\}"\
+\
+def _pick_first_service(resp: Dict[str, Any]) -> Dict[str, Any]:\
+    services = resp.get("services") or []\
+    if not services:\
+        raise RuntimeError("ServiceLookup returned no services. Is pxGrid enabled and node approved?")\
+    return services[0]\
+\
+def _safe_get_topic(service_props: Dict[str, Any]) -> Optional[str]:\
+    # Common keys seen in pxGrid services are like "sessionTopic", "topic", etc.\
+    for k, v in service_props.items():\
+        if isinstance(v, str) and (k.lower().endswith("topic") or "topic" in k.lower()) and v.startswith("/topic/"):\
+            return v\
+    return None\
+\
+\
+# ----------------------------\
+# pxGrid Control client (REST)\
+# ----------------------------\
+\
+class PxGridControl:\
+    def __init__(self, cfg: PxGridConfig):\
+        self.cfg = cfg\
+        self.base_url = f"https://\{cfg.ise_host\}:\{cfg.port\}/pxgrid"\
+        self.session = requests.Session()\
+\
+    def _verify_arg(self):\
+        # requests.verify can be bool or path-to-ca-bundle\
+        if self.cfg.ca_bundle_path:\
+            return self.cfg.ca_bundle_path\
+        return self.cfg.verify_tls\
+\
+    def _post(\
+        self,\
+        path: str,\
+        body: Optional[Dict[str, Any]] = None,\
+        auth: Optional[Tuple[str, str]] = None,\
+        extra_headers: Optional[Dict[str, str]] = None,\
+    ) -> Dict[str, Any]:\
+        url = f"\{self.base_url\}\{path\}"\
+        headers = \{"Accept": "application/json", "Content-Type": "application/json"\}\
+        if extra_headers:\
+            headers.update(extra_headers)\
+\
+        r = self.session.post(\
+            url,\
+            data=json.dumps(body or \{\}),\
+            headers=headers,\
+            auth=auth,\
+            timeout=self.cfg.timeout_s,\
+            verify=self._verify_arg(),\
+        )\
+        r.raise_for_status()\
+        if not r.text.strip():\
+            return \{\}\
+        return r.json()\
+\
+    # ---- Flow steps ----\
+\
+    def account_create(self, node_name: str) -> str:\
+        # POST /control/AccountCreate \{ "nodeName": "<nodeName>" \}\
+        resp = self._post("/control/AccountCreate", \{"nodeName": node_name\})\
+        password = resp.get("password")\
+        if not password:\
+            raise RuntimeError(f"AccountCreate response missing 'password': \{resp\}")\
+        return password\
+\
+    def account_activate(self, node_name: str, password: str, description: str = "pxGrid Python client") -> Dict[str, Any]:\
+        # POST /control/AccountActivate \{ "description": "..." \} with BasicAuth nodeName:password\
+        return self._post("/control/AccountActivate", \{"description": description\}, auth=(node_name, password))\
+\
+    def wait_until_enabled(\
+        self,\
+        node_name: str,\
+        password: str,\
+        description: str = "pxGrid Python client",\
+        max_wait_s: int = 20 * 60,\
+    ) -> Dict[str, Any]:\
+        """\
+        AccountActivate returns accountState: PENDING / DISABLED / ENABLED.\
+        You must approve the client in ISE when it's PENDING.\
+        Recommended waits: ~60s for PENDING retries; longer for DISABLED.\
+        """\
+        start = time.time()\
+        wait_pending = 60\
+        wait_disabled = 5 * 60\
+\
+        while True:\
+            resp = self.account_activate(node_name, password, description=description)\
+            state = (resp.get("accountState") or "").upper()\
+\
+            if state == "ENABLED":\
+                return resp\
+\
+            elapsed = int(time.time() - start)\
+            if elapsed > max_wait_s:\
+                raise TimeoutError(f"Timed out waiting for ENABLED. Last state=\{state\}, resp=\{resp\}")\
+\
+            if state == "PENDING":\
+                print(f"[pxGrid] accountState=PENDING (approve in ISE UI). Retrying in \{wait_pending\}s...")\
+                time.sleep(wait_pending)\
+            elif state == "DISABLED":\
+                print(f"[pxGrid] accountState=DISABLED. Retrying in \{wait_disabled\}s...")\
+                time.sleep(wait_disabled)\
+            else:\
+                print(f"[pxGrid] accountState=\{state or 'UNKNOWN'\}. Retrying in 30s... resp=\{resp\}")\
+                time.sleep(30)\
+\
+    def service_lookup(self, node_name: str, password: str, service_name: str) -> Dict[str, Any]:\
+        # POST /control/ServiceLookup \{ "name": "<serviceName>" \} with BasicAuth nodeName:password\
+        return self._post("/control/ServiceLookup", \{"name": service_name\}, auth=(node_name, password))\
+\
+    def access_secret(self, node_name: str, password: str, peer_node_name: str) -> str:\
+        # POST /control/AccessSecret \{ "peerNodeName": "<peerNodeName>" \} with BasicAuth nodeName:password\
+        resp = self._post("/control/AccessSecret", \{"peerNodeName": peer_node_name\}, auth=(node_name, password))\
+        secret = resp.get("secret")\
+        if not secret:\
+            raise RuntimeError(f"AccessSecret response missing 'secret': \{resp\}")\
+        return secret\
+\
+\
+# ----------------------------\
+# STOMP over WebSocket (PubSub)\
+# ----------------------------\
+\
+class StompOverWebSocket:\
+    """\
+    Minimal STOMP 1.2 over WebSocket implementation sufficient for pxGrid subscriptions.\
+    """\
+\
+    def __init__(self, ws_url: str, auth_header_value: str, ca_bundle_path: Optional[str]):\
+        self.ws_url = ws_url\
+        self.auth_header_value = auth_header_value\
+        self.ca_bundle_path = ca_bundle_path\
+        self._buffer = ""\
+\
+    @staticmethod\
+    def _make_frame(command: str, headers: Dict[str, str], body: str = "") -> str:\
+        lines = [command]\
+        for k, v in headers.items():\
+            lines.append(f"\{k\}:\{v\}")\
+        lines.append("")  # blank line separates headers/body\
+        frame = "\\n".join(lines) + body + "\\x00"\
+        return frame\
+\
+    @staticmethod\
+    def _parse_frame(raw: str) -> Tuple[str, Dict[str, str], str]:\
+        # command\\nh:v\\nh:v\\n\\nBODY\\x00\
+        parts = raw.split("\\n\\n", 1)\
+        header_block = parts[0]\
+        body = parts[1] if len(parts) == 2 else ""\
+        header_lines = header_block.split("\\n")\
+        command = header_lines[0].strip()\
+        headers: Dict[str, str] = \{\}\
+        for line in header_lines[1:]:\
+            if ":" in line:\
+                k, v = line.split(":", 1)\
+                headers[k.strip()] = v.strip()\
+        return command, headers, body\
+\
+    def subscribe_and_print(self, stomp_host_header: str, topic: str):\
+        sub_id = str(uuid.uuid4())\
+\
+        def on_open(ws):\
+            # STOMP CONNECT (Cisco pxGrid examples typically include accept-version + host)\
+            connect_frame = self._make_frame(\
+                "CONNECT",\
+                \{\
+                    "accept-version": "1.2",\
+                    "host": stomp_host_header,\
+                \},\
+            )\
+            ws.send(connect_frame)\
+\
+        def on_message(ws, message):\
+            # message can contain one or more frames; split on NULL\
+            self._buffer += message\
+            while "\\x00" in self._buffer:\
+                frame_raw, self._buffer = self._buffer.split("\\x00", 1)\
+                if not frame_raw.strip():\
+                    continue\
+\
+                cmd, headers, body = self._parse_frame(frame_raw)\
+                if cmd == "CONNECTED":\
+                    subscribe_frame = self._make_frame(\
+                        "SUBSCRIBE",\
+                        \{\
+                            "destination": topic,\
+                            "id": sub_id,\
+                        \},\
+                    )\
+                    ws.send(subscribe_frame)\
+                    print(f"[pxGrid] SUBSCRIBED to \{topic\} (id=\{sub_id\})")\
+                elif cmd == "MESSAGE":\
+                    print(f"\\n--- pxGrid MESSAGE (\{headers.get('destination')\}) ---")\
+                    print(body)\
+                elif cmd == "ERROR":\
+                    raise RuntimeError(f"STOMP ERROR frame: headers=\{headers\}, body=\{body\}")\
+                else:\
+                    # You may see RECEIPT, etc.\
+                    pass\
+\
+        def on_error(ws, error):\
+            raise RuntimeError(f"WebSocket error: \{error\}")\
+\
+        def on_close(ws, close_status_code, close_msg):\
+            print(f"[pxGrid] WebSocket closed: \{close_status_code\} \{close_msg\}")\
+\
+        sslopt = \{"cert_reqs": ssl.CERT_REQUIRED\}\
+        if self.ca_bundle_path:\
+            sslopt["ca_certs"] = self.ca_bundle_path\
+\
+        ws = websocket.WebSocketApp(\
+            self.ws_url,\
+            header=[f"Authorization: \{self.auth_header_value\}"],\
+            on_open=on_open,\
+            on_message=on_message,\
+            on_error=on_error,\
+            on_close=on_close,\
+        )\
+        ws.run_forever(sslopt=sslopt)\
+\
+\
+# ----------------------------\
+# Example main\
+# ----------------------------\
+\
+def main():\
+    # ---- EDIT THESE ----\
+    cfg = PxGridConfig(\
+        ise_host="ise.example.com",          # use ISE FQDN\
+        ca_bundle_path="corp_root_ca.pem",   # CA that signed ISE pxGrid cert (or set verify_tls=False for lab)\
+    )\
+\
+    node_name = "my-pxgrid-client-01"        # pxGrid nodeName\
+    description = "My Python pxGrid client"\
+\
+    px = PxGridControl(cfg)\
+\
+    # 1) AccountCreate (one-time) -> store returned password securely\
+    bootstrap_password = px.account_create(node_name)\
+    print(f"[pxGrid] AccountCreate password (store this!): \{bootstrap_password\}")\
+\
+    # 2) AccountActivate (will be PENDING until approved in ISE)\
+    activate_resp = px.wait_until_enabled(node_name, bootstrap_password, description=description)\
+    print(f"[pxGrid] AccountActivate done: \{activate_resp\}")\
+\
+    # 3) ServiceLookup (PubSub)\
+    pubsub_lookup = px.service_lookup(node_name, bootstrap_password, "com.cisco.ise.pubsub")\
+    pubsub_service = _pick_first_service(pubsub_lookup)\
+    pubsub_node = pubsub_service["nodeName"]\
+    pubsub_props = pubsub_service.get("properties", \{\})\
+    ws_url = pubsub_props.get("wsUrl") or pubsub_props.get("wsURL")  # common variants\
+    if not ws_url:\
+        raise RuntimeError(f"PubSub service missing wsUrl in properties: \{pubsub_service\}")\
+    print(f"[pxGrid] PubSub wsUrl: \{ws_url\} (pubsub node: \{pubsub_node\})")\
+\
+    # 4) AccessSecret (secret is per Consumer<->Provider node; NOT the same as your bootstrap password)\
+    access_secret = px.access_secret(node_name, bootstrap_password, peer_node_name=pubsub_node)\
+    print("[pxGrid] AccessSecret retrieved for PubSub provider node.")\
+\
+    # 5) Subscribe to a topic (example: Session Directory)\
+    #    You can also obtain the topic from ServiceLookup(com.cisco.ise.session) if you want to be dynamic.\
+    session_lookup = px.service_lookup(node_name, bootstrap_password, "com.cisco.ise.session")\
+    session_service = _pick_first_service(session_lookup)\
+    session_topic = _safe_get_topic(session_service.get("properties", \{\})) or "/topic/com.cisco.ise.session"\
+    print(f"[pxGrid] Using session topic: \{session_topic\}")\
+\
+    # WebSocket upgrade auth is BasicAuth(node_name:accessSecret)\
+    ws_auth = _basic_auth_header(node_name, access_secret)\
+\
+    stomp = StompOverWebSocket(ws_url=ws_url, auth_header_value=ws_auth, ca_bundle_path=cfg.ca_bundle_path)\
+    stomp.subscribe_and_print(stomp_host_header=pubsub_node, topic=session_topic)\
+\
+\
+if __name__ == "__main__":\
+    main()\
+}
