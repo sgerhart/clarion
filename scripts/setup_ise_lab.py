@@ -31,7 +31,7 @@ logger = logging.getLogger(__name__)
 
 
 # Lab Configuration
-ISE_URL = "https://192.168.10.31:9060"  # ERS API port
+ISE_URL = "https://192.168.10.31"  # ERS API (port 443, default for HTTPS)
 ISE_USERNAME = "admin"
 ISE_PASSWORD = "C!sco#123"
 VERIFY_SSL = False  # For lab with self-signed certs
@@ -326,7 +326,7 @@ def main():
     import argparse
     
     parser = argparse.ArgumentParser(description="Setup Cisco ISE for lab testing")
-    parser.add_argument("--ise-url", default=ISE_URL, help="ISE server URL (e.g., https://192.168.10.31:9060)")
+    parser.add_argument("--ise-url", default=ISE_URL, help="ISE server URL (e.g., https://192.168.10.31, port optional)")
     parser.add_argument("--username", default=ISE_USERNAME, help="ISE admin username")
     parser.add_argument("--password", default=ISE_PASSWORD, help="ISE admin password")
     parser.add_argument("--verify-ssl", action="store_true", help="Verify SSL certificates")

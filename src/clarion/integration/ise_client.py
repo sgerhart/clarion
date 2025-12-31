@@ -51,6 +51,7 @@ class ISEClient:
         
         Args:
             base_url: ISE server base URL (e.g., "https://192.168.10.31" or "https://ise.example.com")
+                      Port is optional (defaults to 443 for HTTPS). ERS API operates on port 443.
             username: ISE admin username
             password: ISE admin password
             verify_ssl: Whether to verify SSL certificates (default: False for self-signed certs)
@@ -92,16 +93,25 @@ class ISEClient:
         # Test authentication by making a simple request
         try:
             url = urljoin(self.base_url, f"{self.ers_base}/sgt")
+            logger.info(f"Testing ISE authentication: GET {url} with username {self.username}")
             response = self.session.get(
                 url,
                 timeout=self.timeout,
                 params={'size': 1}  # Just get first page to test auth
             )
             
+            logger.info(f"ISE authentication response: status_code={response.status_code}, headers={dict(response.headers)}")
+            
             if response.status_code == 401:
-                raise ISEAuthenticationError(f"ISE authentication failed: {response.text}")
+                error_detail = response.text if response.text else "No error message provided by ISE"
+                logger.error(f"ISE authentication failed (401): {error_detail}. URL: {url}, Username: {self.username}")
+                raise ISEAuthenticationError(f"ISE authentication failed (401): {error_detail}")
             elif response.status_code not in (200, 404):  # 404 is OK if no SGTs exist
-                logger.warning(f"ISE API returned status {response.status_code}: {response.text}")
+                error_detail = response.text if response.text else f"Status code {response.status_code}"
+                logger.warning(f"ISE API returned status {response.status_code}: {error_detail}")
+                # For non-401 errors, still raise authentication error if it's a client error
+                if 400 <= response.status_code < 500:
+                    raise ISEAuthenticationError(f"ISE API error ({response.status_code}): {error_detail}")
                 
         except requests.exceptions.RequestException as e:
             raise ISEAuthenticationError(f"Failed to connect to ISE: {e}")
@@ -166,7 +176,15 @@ class ISEClient:
                 return {}
             
             if response.status_code >= 400:
-                error_msg = f"ISE API error ({response.status_code}): {response.text}"
+                # Include the URL in the error message for debugging
+                error_detail = response.text.strip() if response.text else "No error details provided"
+                
+                # Provide helpful hints for common errors
+                if response.status_code == 404:
+                    hint = " (Hint: Check that the ISE URL and endpoint path are correct. ERS API path is /ers/config/...)"
+                    error_msg = f"ISE API error (404): {error_detail}. URL: {url}{hint}"
+                else:
+                    error_msg = f"ISE API error ({response.status_code}): {error_detail}. URL: {url}"
                 logger.error(error_msg)
                 raise ISEAPIError(error_msg)
             
@@ -361,11 +379,19 @@ class ISEClient:
         Returns:
             Dictionary with 'total', 'resources' list
         """
-        response = self._make_request("GET", "/authorizationpolicy", params={"page": page, "size": size})
-        
-        if 'SearchResult' in response:
-            return response['SearchResult']
-        return {"total": 0, "resources": []}
+        try:
+            response = self._make_request("GET", "/authorizationpolicy", params={"page": page, "size": size})
+            
+            if 'SearchResult' in response:
+                return response['SearchResult']
+            return {"total": 0, "resources": []}
+        except ISEAPIError as e:
+            # Some ISE versions or configurations may not support this endpoint or return 404 if empty
+            # Return empty result instead of raising exception
+            if "404" in str(e):
+                logger.warning(f"Authorization policies endpoint returned 404 (may not be available or empty): {e}")
+                return {"total": 0, "resources": []}
+            raise
     
     def get_all_authorization_policies(self) -> List[Dict[str, Any]]:
         """

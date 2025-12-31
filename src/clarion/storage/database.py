@@ -306,6 +306,57 @@ class ClarionDatabase:
                 logger.warning(f"Could not import ISE configuration cache migration: {e}")
             except Exception as e:
                 logger.error(f"Error running ISE configuration cache migration: {e}")
+        
+        # Check if ISE session assignment tracking table migration has been run
+        cursor = conn.execute("""
+            SELECT name FROM sqlite_master 
+            WHERE type='table' AND name='ise_current_sgt_assignments'
+        """)
+        
+        if not cursor.fetchone():
+            # Run ISE session assignment tracking migration
+            try:
+                from clarion.storage.migrations.add_ise_session_assignments import migrate as migrate_ise_session
+                migrate_ise_session(conn)
+                logger.info("ISE session assignment tracking migration completed")
+            except ImportError as e:
+                logger.warning(f"Could not import ISE session assignment migration: {e}")
+            except Exception as e:
+                logger.error(f"Error running ISE session assignment migration: {e}")
+        
+        # Check if connector management tables migration has been run
+        cursor = conn.execute("""
+            SELECT name FROM sqlite_master 
+            WHERE type='table' AND name='connectors'
+        """)
+        
+        if not cursor.fetchone():
+            # Run connector management migration
+            try:
+                from clarion.storage.migrations.add_connectors_tables import migrate as migrate_connectors
+                migrate_connectors(conn)
+                logger.info("Connector management tables migration completed")
+            except ImportError as e:
+                logger.warning(f"Could not import connector management migration: {e}")
+            except Exception as e:
+                logger.error(f"Error running connector management migration: {e}")
+        
+        # Check if global certificates table migration has been run
+        cursor = conn.execute("""
+            SELECT name FROM sqlite_master 
+            WHERE type='table' AND name='certificates'
+        """)
+        
+        if not cursor.fetchone():
+            # Run global certificates migration
+            try:
+                from clarion.storage.migrations.add_certificates_table import migrate as migrate_certificates
+                migrate_certificates(conn)
+                logger.info("Global certificates table migration completed")
+            except ImportError as e:
+                logger.warning(f"Could not import certificates migration: {e}")
+            except Exception as e:
+                logger.error(f"Error running certificates migration: {e}")
     
     def _init_collectors_schema(self, conn: sqlite3.Connection):
         """Initialize collectors table."""
@@ -1685,7 +1736,7 @@ class ClarionDatabase:
         Store ISE SGTs in cache.
         
         Args:
-            ise_server: ISE server identifier (e.g., "https://192.168.10.31:9060")
+            ise_server: ISE server identifier (e.g., "https://192.168.10.31")
             sgts: List of SGT dictionaries from ISE API
             
         Returns:
@@ -1970,6 +2021,60 @@ class ClarionDatabase:
                 "count": policy_row['count'] if policy_row else 0,
             },
         }
+    
+    # ========== ISE Session SGT Assignment Operations ==========
+    
+    def store_ise_session_sgt_assignment(
+        self,
+        endpoint_id: str,
+        user_id: Optional[str],
+        session_id: str,
+        user_sgt: Optional[int],
+        device_sgt: Optional[int],
+        current_sgt: Optional[int],
+        ise_profile: Optional[str],
+        policy_set: Optional[str],
+        authz_profile: Optional[str],
+        ip_address: Optional[str],
+        switch_id: Optional[str],
+    ) -> None:
+        """
+        Store current SGT assignment from an ISE session event (pxGrid).
+        
+        This tracks what SGT ISE has actually assigned to a device/user,
+        allowing Clarion to compare its recommendations with actual ISE assignments.
+        """
+        conn = self._get_connection()
+        
+        # Use INSERT OR REPLACE to update existing assignments
+        conn.execute("""
+            INSERT OR REPLACE INTO ise_current_sgt_assignments
+            (endpoint_id, user_id, session_id, user_sgt, device_sgt, current_sgt,
+             ise_profile, policy_set, authz_profile, ip_address, switch_id,
+             assigned_at, last_seen)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+        """, (
+            endpoint_id, user_id, session_id, user_sgt, device_sgt, current_sgt,
+            ise_profile, policy_set, authz_profile, ip_address, switch_id
+        ))
+        conn.commit()
+    
+    def get_ise_current_sgt_assignment(self, endpoint_id: str) -> Optional[Dict[str, Any]]:
+        """Get the current ISE SGT assignment for a device."""
+        conn = self._get_connection()
+        cursor = conn.execute("""
+            SELECT * FROM ise_current_sgt_assignments WHERE endpoint_id = ?
+        """, (endpoint_id,))
+        row = cursor.fetchone()
+        return dict(row) if row else None
+    
+    def clear_ise_session_assignment(self, session_id: str) -> None:
+        """Clear ISE session assignment when session terminates."""
+        conn = self._get_connection()
+        conn.execute("""
+            DELETE FROM ise_current_sgt_assignments WHERE session_id = ?
+        """, (session_id,))
+        conn.commit()
 
 
 # Global database instance

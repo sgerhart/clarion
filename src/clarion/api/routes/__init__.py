@@ -21,6 +21,9 @@ from clarion.api.routes import (
     users,
     user_sgt,
     ise_config,
+    pxgrid,
+    connectors,
+    certificates,
 )
 
 __all__ = [
@@ -40,5 +43,8 @@ __all__ = [
     "users",
     "user_sgt",
     "ise_config",
+    "pxgrid",
+    "connectors",
+    "certificates",
 ]
 

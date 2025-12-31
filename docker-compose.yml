@@ -1,0 +1,164 @@
+# Docker Compose file for Clarion microservices
+# Note: version field is obsolete in Compose v2
+
+services:
+  # Frontend Service
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        - VITE_API_URL=http://localhost:8000
+    container_name: clarion-frontend
+    ports:
+      - "3000:80"
+    networks:
+      - clarion-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:80/health"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
+    depends_on:
+      - api
+
+  # Main API Service
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: clarion-api
+    ports:
+      - "8000:8000"
+    environment:
+      - CLARION_DB_PATH=/app/data/clarion.db
+      - PYTHONPATH=/app/src
+    volumes:
+      # Shared database volume
+      - clarion-db:/app/data
+      # Optional: Mount source code for development
+      # - ./src:/app/src:ro
+    networks:
+      - clarion-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import requests; requests.get('http://localhost:8000/api/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    # depends_on:
+    #   - postgres  # Only needed if using PostgreSQL profile
+
+  # pxGrid Service (ISE Integration)
+  pxgrid:
+    build:
+      context: .
+      dockerfile: services/pxgrid/Dockerfile
+    container_name: clarion-pxgrid
+    # Status API port (optional - can be removed if not needed)
+    ports:
+      - "9000:9000"
+    environment:
+      - CLARION_DB_PATH=/app/data/clarion.db
+      - PYTHONPATH=/app/src
+      - PXGRID_CERT_DIR=/app/certs
+      # pxGrid configuration (override via environment or secrets)
+      - PXGRID_ISE_HOSTNAME=${PXGRID_ISE_HOSTNAME:-192.168.10.31}
+      - PXGRID_CLIENT_NAME=${PXGRID_CLIENT_NAME:-clarion-pxgrid-client}
+      - PXGRID_USERNAME=${PXGRID_USERNAME:-}
+      - PXGRID_PASSWORD=${PXGRID_PASSWORD:-}
+      - PXGRID_USE_SSL=${PXGRID_USE_SSL:-true}
+      - PXGRID_VERIFY_SSL=${PXGRID_VERIFY_SSL:-false}
+      - PXGRID_PORT=${PXGRID_PORT:-8910}
+    volumes:
+      # Shared database volume
+      - clarion-db:/app/data
+      # pxGrid certificates (mount from host or use secrets)
+      - ./certs/pxgrid:/app/certs:ro
+      # Optional: Mount source code for development
+      # - ./src:/app/src:ro
+    networks:
+      - clarion-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import requests; requests.get('http://localhost:9000/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    # depends_on:
+    #   - postgres  # Only needed if using PostgreSQL profile
+    # Uncomment to use Docker secrets (production)
+    # secrets:
+    #   - pxgrid_client_cert
+    #   - pxgrid_client_key
+    #   - pxgrid_ca_cert
+
+  # PostgreSQL Database (Future - optional, can use SQLite instead)
+  postgres:
+    image: postgres:15-alpine
+    container_name: clarion-postgres
+    environment:
+      - POSTGRES_DB=clarion
+      - POSTGRES_USER=clarion
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-clarion_password_change_me}
+      - POSTGRES_INITDB_ARGS=--encoding=UTF-8 --lc-collate=C --lc-ctype=C
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    networks:
+      - clarion-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U clarion"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    # Comment out to use SQLite instead
+    profiles:
+      - postgres
+
+  # Redis (Optional - for message queue in future)
+  redis:
+    image: redis:7-alpine
+    container_name: clarion-redis
+    networks:
+      - clarion-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+    # Only start if explicitly requested
+    profiles:
+      - redis
+
+networks:
+  clarion-network:
+    driver: bridge
+    name: clarion-network
+
+volumes:
+  # Shared database volume (for SQLite)
+  clarion-db:
+    driver: local
+    name: clarion-db
+  
+  # PostgreSQL data volume
+  postgres-data:
+    driver: local
+    name: clarion-postgres-data
+
+# Docker secrets (for production certificate management)
+# Uncomment and use: docker-compose --profile secrets up
+# secrets:
+#   pxgrid_client_cert:
+#     file: ./certs/pxgrid/client.crt
+#   pxgrid_client_key:
+#     file: ./certs/pxgrid/client.key
+#   pxgrid_ca_cert:
+#     file: ./certs/pxgrid/ca.crt
+

@@ -63,7 +63,7 @@ const navigation: NavItem[] = [
     href: '/connectors', 
     icon: Plug,
     subItems: [
-      { name: 'ISE pxGrid', href: '/connectors/ise', icon: Plug },
+      { name: 'ISE', href: '/connectors/ise', icon: Plug },
       { name: 'Active Directory', href: '/connectors/ad', icon: Plug },
       { name: 'IoT Connectors', href: '/connectors/iot', icon: Plug },
     ]

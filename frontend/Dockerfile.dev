@@ -1,0 +1,22 @@
+# Development Dockerfile for Clarion Frontend
+# Uses Vite dev server with hot module replacement
+
+FROM node:20-alpine
+
+WORKDIR /app
+
+# Copy package files
+COPY package*.json ./
+
+# Install all dependencies (including dev dependencies)
+RUN npm ci
+
+# Copy remaining files (will be overridden by volume mounts in dev mode)
+COPY . .
+
+# Expose Vite dev server port
+EXPOSE 3000
+
+# Start Vite dev server
+CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0"]
+

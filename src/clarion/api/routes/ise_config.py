@@ -22,10 +22,11 @@ router = APIRouter()
 
 class ISESyncRequest(BaseModel):
     """Request to sync ISE configuration."""
-    ise_url: str = Field(..., description="ISE server URL (e.g., https://192.168.10.31:9060)")
-    ise_username: str = Field(..., description="ISE admin username")
-    ise_password: str = Field(..., description="ISE admin password")
-    verify_ssl: bool = Field(False, description="Verify SSL certificates")
+    ise_url: Optional[str] = Field(None, description="ISE server URL (e.g., https://192.168.10.31). Port is optional (defaults to 443). If not provided, uses saved connector configuration.")
+    ise_username: Optional[str] = Field(None, description="ISE admin username. If not provided, uses saved connector configuration.")
+    ise_password: Optional[str] = Field(None, description="ISE admin password. If not provided, uses saved connector configuration.")
+    verify_ssl: Optional[bool] = Field(None, description="Verify SSL certificates. If not provided, uses saved connector configuration.")
+    use_saved_config: bool = Field(True, description="Use saved connector configuration if credentials are not provided")
 
 
 class ISESyncResponse(BaseModel):
@@ -61,32 +62,109 @@ async def sync_ise_configuration(request: ISESyncRequest):
     - Avoid creating duplicate SGTs
     - Recommend using existing SGTs when appropriate
     """
+    import json
+    
     try:
+        # If credentials not provided, try to use saved connector configuration
+        if request.use_saved_config and (not request.ise_url or not request.ise_username or not request.ise_password):
+            db = get_database()
+            conn = db._get_connection()
+            cursor = conn.execute("""
+                SELECT config FROM connectors WHERE connector_id = 'ise_ers'
+            """)
+            row = cursor.fetchone()
+            
+            if row and row['config']:
+                saved_config = json.loads(row['config'])
+                ise_url = request.ise_url or saved_config.get('ise_url')
+                ise_username = request.ise_username or saved_config.get('ise_username')
+                ise_password = request.ise_password or saved_config.get('ise_password')
+                verify_ssl = request.verify_ssl if request.verify_ssl is not None else saved_config.get('verify_ssl', False)
+                
+                if not ise_url or not ise_username or not ise_password:
+                    raise HTTPException(
+                        status_code=400,
+                        detail="Missing ISE configuration. Please provide credentials or configure the ISE ERS API connector first."
+                    )
+            else:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Missing ISE configuration. Please provide credentials or configure the ISE ERS API connector first."
+                )
+        else:
+            ise_url = request.ise_url
+            ise_username = request.ise_username
+            ise_password = request.ise_password
+            verify_ssl = request.verify_ssl if request.verify_ssl is not None else False
+            
+            if not ise_url or not ise_username or not ise_password:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Missing required ISE configuration: ise_url, ise_username, and ise_password are required"
+                )
+        
+        # Log the sync operation start with ISE prefix for troubleshooting
+        logger.info(f"ISE Sync: Starting configuration sync from ISE server {ise_url} (username: {ise_username}, verify_ssl: {verify_ssl})")
+        
         # Initialize ISE client
         ise_client = ISEClient(
-            base_url=request.ise_url,
-            username=request.ise_username,
-            password=request.ise_password,
-            verify_ssl=request.verify_ssl,
+            base_url=ise_url,
+            username=ise_username,
+            password=ise_password,
+            verify_ssl=verify_ssl,
         )
         
         db = get_database()
-        ise_server = request.ise_url  # Use URL as server identifier
+        ise_server = ise_url  # Use URL as server identifier
         
         # Extract and store SGTs
-        logger.info(f"Syncing SGTs from ISE server {ise_server}")
+        logger.info(f"ISE Sync: Extracting SGTs from ISE server {ise_server}")
         sgts = ise_client.get_all_sgts()
         sgts_count = db.store_ise_sgts(ise_server, sgts)
         
+        # Log SGT details
+        sgt_names = [sgt.get('name', 'Unknown') for sgt in sgts[:10]]  # Log first 10 names
+        logger.info(f"ISE Sync: Synced {sgts_count} SGTs from {ise_server}. Sample SGTs: {', '.join(sgt_names)}")
+        if sgts_count > 10:
+            logger.info(f"ISE Sync: ... and {sgts_count - 10} more SGTs")
+        
         # Extract and store authorization profiles
-        logger.info(f"Syncing authorization profiles from ISE server {ise_server}")
+        logger.info(f"ISE Sync: Extracting authorization profiles from ISE server {ise_server}")
         profiles = ise_client.get_all_authorization_profiles()
         profiles_count = db.store_ise_auth_profiles(ise_server, profiles)
         
-        # Extract and store authorization policies
-        logger.info(f"Syncing authorization policies from ISE server {ise_server}")
-        policies = ise_client.get_all_authorization_policies()
-        policies_count = db.store_ise_auth_policies(ise_server, policies)
+        # Log profile details
+        profile_names = [prof.get('name', 'Unknown') for prof in profiles[:10]]  # Log first 10 names
+        logger.info(f"ISE Sync: Synced {profiles_count} authorization profiles from {ise_server}. Sample profiles: {', '.join(profile_names)}")
+        if profiles_count > 10:
+            logger.info(f"ISE Sync: ... and {profiles_count - 10} more authorization profiles")
+        
+        # Extract and store authorization policies (may fail on some ISE versions/configurations)
+        policies_count = 0
+        try:
+            logger.info(f"ISE Sync: Extracting authorization policies from ISE server {ise_server}")
+            policies = ise_client.get_all_authorization_policies()
+            policies_count = db.store_ise_auth_policies(ise_server, policies)
+            
+            # Log policy details
+            policy_names = [pol.get('name', 'Unknown') for pol in policies[:10]]  # Log first 10 names
+            logger.info(f"ISE Sync: Synced {policies_count} authorization policies from {ise_server}. Sample policies: {', '.join(policy_names)}")
+            if policies_count > 10:
+                logger.info(f"ISE Sync: ... and {policies_count - 10} more authorization policies")
+        except Exception as e:
+            # Authorization policies endpoint may not be available or return 404 on some ISE versions
+            if "404" in str(e):
+                logger.warning(f"ISE Sync: Authorization policies endpoint not available or returned 404 (this is OK): {e}")
+            else:
+                logger.warning(f"ISE Sync: Failed to sync authorization policies (continuing anyway): {e}")
+            # Continue with sync even if policies fail
+        
+        # Log successful sync completion with summary
+        logger.info(
+            f"ISE Sync: Successfully completed sync from {ise_server}. "
+            f"Summary - SGTs: {sgts_count}, Authorization Profiles: {profiles_count}, "
+            f"Authorization Policies: {policies_count}"
+        )
         
         return ISESyncResponse(
             status="success",
@@ -98,13 +176,13 @@ async def sync_ise_configuration(request: ISESyncRequest):
         )
         
     except ISEAuthenticationError as e:
-        logger.error(f"ISE authentication failed: {e}")
+        logger.error(f"ISE Sync: Authentication failed for {ise_url}: {e}")
         raise HTTPException(status_code=401, detail=f"ISE authentication failed: {e}")
     except ISEAPIError as e:
-        logger.error(f"ISE API error during sync: {e}", exc_info=True)
+        logger.error(f"ISE Sync: API error during sync from {ise_url}: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"ISE API error: {e}")
     except Exception as e:
-        logger.error(f"Error syncing ISE configuration: {e}", exc_info=True)
+        logger.error(f"ISE Sync: Unexpected error syncing configuration from {ise_url}: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 

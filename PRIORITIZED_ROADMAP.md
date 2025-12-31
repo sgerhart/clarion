@@ -208,6 +208,29 @@ This document outlines the prioritized development plan for Clarion, focusing on
 
 ---
 
+### Priority 0: Production Infrastructure 🔴 **CRITICAL - Must Complete Before Production**
+
+**Goal:** Make Clarion production-ready with security, monitoring, and high availability.
+
+**Status:** ❌ Not Started - Critical Gap
+
+**Tasks:**
+- [ ] Authentication & Authorization (JWT-based, user management, RBAC)
+- [ ] Security Hardening (rate limiting, input validation, secrets management, SSL/TLS)
+- [ ] PostgreSQL Migration (production database, migration scripts)
+- [ ] Monitoring & Observability (Prometheus metrics, centralized logging, alerting, Grafana)
+- [ ] High Availability (multi-instance deployment, load balancing, failover)
+- [ ] CI/CD Pipeline (automated builds, deployment automation)
+- [ ] Database Backup/Recovery (backup procedures, disaster recovery)
+
+**Priority:** 🔴 CRITICAL  
+**Timeline:** 10-14 weeks (Phase 1: 4-6 weeks, Phase 2: 4-6 weeks, Phase 3: 2-4 weeks)  
+**Note:** See `docs/PRODUCTION_READINESS.md` for detailed requirements and prioritization.
+
+**This must be completed before any production deployment.**
+
+---
+
 ### Priority 5: Edge Agent 🔄
 
 **Status:** ⚠️ Basic implementation exists
@@ -274,10 +297,16 @@ This document outlines the prioritized development plan for Clarion, focusing on
 
 **Weeks 19-22: Multi-Source Ingestion & User Database**
 - ✅ User database schema creation (completed)
+- ✅ User management (CRUD operations, API endpoints, UI)
+- ✅ User clustering (AD group-based and traffic-based clustering)
+- ✅ User SGT assignments and recommendations (user SGT management, traffic analysis)
+- ✅ User traffic aggregation (user traffic patterns, user-to-user traffic)
 - ✅ ISE ERS API integration (brownfield support: sync existing ISE configuration)
 - ✅ ISE configuration cache (store existing SGTs, profiles, policies)
 - ✅ Policy recommendation engine with brownfield support (check existing SGTs)
-- [ ] ISE pxGrid integration (user session data, user-device associations - pending)
+- ✅ Containerization (Docker, docker-compose for API, pxGrid, frontend services)
+- [ ] ISE pxGrid WebSocket/STOMP integration (full real-time event reception - architecture in place)
+- [ ] pxGrid certificate-based authentication
 - [ ] AD integration (user details, group memberships, user database enrichment)
 - [ ] User-device association resolution engine
 

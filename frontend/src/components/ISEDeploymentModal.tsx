@@ -20,7 +20,7 @@ export default function ISEDeploymentModal({
   onDeploy,
   recommendationName,
 }: ISEDeploymentModalProps) {
-  const [iseUrl, setIseUrl] = useState('https://192.168.10.31:9060')
+  const [iseUrl, setIseUrl] = useState('https://192.168.10.31')
   const [iseUsername, setIseUsername] = useState('admin')
   const [isePassword, setIsePassword] = useState('C!sco#123')
   const [verifySsl, setVerifySsl] = useState(false)
@@ -103,12 +103,12 @@ export default function ISEDeploymentModal({
                 type="text"
                 value={iseUrl}
                 onChange={(e) => setIseUrl(e.target.value)}
-                placeholder="https://192.168.10.31:9060"
+                placeholder="https://192.168.10.31"
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 disabled={isDeploying}
               />
               <p className="text-xs text-gray-500 mt-1">
-                ERS API typically runs on port 9060
+                ISE server URL (port optional, defaults to 443 for HTTPS)
               </p>
             </div>
 

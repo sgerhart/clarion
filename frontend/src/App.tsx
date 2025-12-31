@@ -39,6 +39,7 @@ import Settings from './pages/Settings'
 import GlobalSettings from './pages/settings/Global'
 import ClusteringSettings from './pages/settings/Clustering'
 import PolicySettings from './pages/settings/Policy'
+import CertificateSettings from './pages/settings/Certificates'
 import SystemSettings from './pages/settings/System'
 
 // Monitoring & Reports
@@ -101,6 +102,7 @@ function App() {
                 <Route path="global" element={<GlobalSettings />} />
                 <Route path="clustering" element={<ClusteringSettings />} />
                 <Route path="policy" element={<PolicySettings />} />
+                <Route path="certificates" element={<CertificateSettings />} />
                 <Route path="system" element={<SystemSettings />} />
               </Route>
               

@@ -4,6 +4,8 @@
 
 This document provides a comprehensive, cohesive roadmap of all Clarion capabilities - both completed and planned. It consolidates all features, enhancements, and infrastructure requirements discussed across all documentation to ensure nothing is missed during implementation.
 
+**⚠️ PRODUCTION READINESS:** Before deploying to production, review `docs/PRODUCTION_READINESS.md`. Critical infrastructure requirements (authentication, security, monitoring, high availability) must be completed first.
+
 ---
 
 ## Current Status Summary
@@ -17,6 +19,13 @@ This document provides a comprehensive, cohesive roadmap of all Clarion capabili
 - Network topology management (locations, address spaces, subnets, switches)
 - NetFlow collector (v5 complete, v9/IPFIX with template parsing)
 - Basic database (SQLite with all core tables)
+- **User database** (users, user_device_associations, ad_group_memberships tables)
+- **User clustering** (user clusterer, traffic-based user clustering)
+- **User SGT assignments and recommendations** (user SGT management, traffic analysis)
+- **User traffic aggregation** (user traffic patterns, user-to-user traffic)
+- **Containerization** (Docker, docker-compose for API, pxGrid, frontend services)
+- **ISE brownfield support** (ISE configuration sync, cache, existing SGT recommendations)
+- **ISE policy deployment** (automated deployment via ERS API, UI integration)
 
 ---
 
@@ -134,24 +143,32 @@ This document provides a comprehensive, cohesive roadmap of all Clarion capabili
 
 #### 3.2 ISE pxGrid Integration
 - [x] **User database schema** (users, user_device_associations, ad_group_memberships tables)
-- [ ] **pxGrid subscriber client** (session events)
+- [x] **pxGrid client architecture** (pxgrid_client.py, pxgrid_subscriber.py structure)
+- [x] **pxGrid API endpoints** (configuration, status, test connection)
+- [x] **Database schema for pxGrid data** (ise_current_sgt_assignments table)
+- [x] **Connector management infrastructure** (database tables, API endpoints, certificate storage)
+- [ ] **Connector configuration UI** (unified UI for all connectors with enable/disable)
+- [ ] **Certificate upload UI** (upload certificates via UI for pxGrid authentication)
+- [ ] **Dynamic container deployment** (automatically deploy containers when connectors enabled)
+- [ ] **pxGrid WebSocket/STOMP subscription** (full real-time event reception)
+- [ ] **Certificate-based authentication** (pxGrid requires client certificates - infrastructure ready)
 - [ ] **User data ingestion from ISE** (username, mac_address, ip_address from pxGrid sessions)
 - [ ] **User-device association tracking** (link users to devices from ISE sessions)
 - [ ] **Identity data ingestion** (user, device, endpoint)
 - [ ] **SGT assignment data** (from ISE - current ISE assignments)
 - [ ] **Policy changes** (SGACL updates from ISE)
-- [ ] **Real-time synchronization** (event-driven updates)
-- [ ] **Current ISE assignment display** (show what ISE assigned)
+- [ ] **Real-time synchronization** (event-driven updates via WebSocket)
+- [ ] **Current ISE assignment display** (show what ISE assigned in UI)
 - [x] **ISE SGT import** (import existing SGT definitions from ISE via ERS API)
 - [x] **ISE configuration sync** (sync existing SGTs, authorization profiles, and policies)
 - [x] **ISE configuration cache** (store synced ISE configuration for brownfield support)
 - [ ] **SGT assignment status check** (check if device has SGT from ISE)
 
-**Status:** ⚠️ User database complete, brownfield sync implemented, pxGrid integration pending  
+**Status:** ⚠️ User database complete, brownfield sync implemented, pxGrid architecture in place, connector management infrastructure complete (WebSocket/STOMP and UI pending)  
 **Priority:** 🔴 High (Critical for ISE alignment and User SGT recommendations)  
-**Timeline:** 6-8 weeks (includes pxGrid subscriber and real-time sync)  
-**Dependencies:** Streaming data processing  
-**Architecture Note:** See `docs/ISE_INTEGRATION.md` - ISE assigns SGTs via authorization policies. Clarion works in multiple scenarios: greenfield (recommend new SGT structure), brownfield (sync existing ISE configuration, recommend existing SGTs), and incremental (new devices). User database is complete, brownfield ISE configuration sync is implemented via ERS API. pxGrid integration for real-time sync is pending.
+**Timeline:** 4-6 weeks remaining (UI implementation, WebSocket/STOMP implementation, certificate auth, real-time sync)  
+**Dependencies:** Certificate management (infrastructure complete, UI pending), WebSocket/STOMP library integration  
+**Architecture Note:** See `docs/ISE_INTEGRATION.md` and `docs/CONNECTOR_MANAGEMENT.md` - Connector management infrastructure is complete (database, API endpoints, certificate storage). UI for connector configuration and certificate upload is pending. pxGrid client and subscriber architecture is implemented; WebSocket/STOMP subscription and certificate authentication are pending. See `docs/DEPLOYMENT_ARCHITECTURE.md` for containerized deployment architecture.
 
 #### 3.2.1 ISE Policy Recommendation & Export
 - [x] **Policy recommendation engine** (cluster → SGT → policy conditions)
@@ -225,6 +242,62 @@ This document provides a comprehensive, cohesive roadmap of all Clarion capabili
 **Priority:** 🔴 High  
 **Timeline:** 4-6 weeks  
 **Dependencies:** Multi-source ingestion (3.2, 3.3)
+
+---
+
+### 3.7 User Management & User Clustering
+
+#### 3.7.1 User Database
+- [x] **User database schema** (users, user_device_associations, ad_group_memberships tables)
+- [x] **User CRUD operations** (create, read, update user records)
+- [x] **User-device associations** (track which users use which devices)
+- [x] **AD group memberships storage** (store user AD group memberships)
+- [x] **User API endpoints** (GET /users, GET /users/{user_id})
+- [x] **Users UI page** (list users, view user details)
+- [ ] **User search and filtering** (advanced search by department, AD group, etc.)
+
+**Status:** ✅ Core complete  
+**Priority:** ✅ Completed  
+**Timeline:** ✅ Completed
+
+#### 3.7.2 User Clustering
+- [x] **User clusterer** (cluster users by AD groups and departments)
+- [x] **Traffic-based user clustering** (cluster users by traffic patterns using HDBSCAN)
+- [x] **User cluster storage** (user_clusters, user_cluster_assignments tables)
+- [x] **User cluster API endpoints** (GET /users/clusters, GET /users/clusters/{id}/users)
+- [x] **User cluster UI** (view user clusters in Clusters page)
+- [x] **Mixed clustering support** (combine AD group-based and traffic-based clustering)
+
+**Status:** ✅ Complete  
+**Priority:** ✅ Completed  
+**Timeline:** ✅ Completed
+
+#### 3.7.3 User SGT Management
+- [x] **User SGT assignments** (assign SGTs directly to users, separate from device SGTs)
+- [x] **User SGT assignment history** (audit trail for user SGT changes)
+- [x] **User SGT API endpoints** (GET/PUT/DELETE /users/{user_id}/sgt)
+- [x] **User SGT UI** (view and assign SGTs in User Detail Modal)
+- [x] **User SGT recommendations** (recommend SGTs based on AD groups and traffic patterns)
+- [x] **User SGT recommendation engine** (compare AD group expectations vs actual traffic)
+- [x] **Security-focused recommendations** (identify users with out-of-scope access)
+- [x] **User cluster SGT recommendations** (recommend SGTs for entire user clusters)
+
+**Status:** ✅ Complete  
+**Priority:** ✅ Completed  
+**Timeline:** ✅ Completed
+
+#### 3.7.4 User Traffic Analysis
+- [x] **User traffic aggregation** (aggregate traffic patterns per user across all devices)
+- [x] **User traffic patterns** (total bytes, flows, unique peers, top ports, protocols)
+- [x] **User-to-user traffic** (correlate user-to-user communication patterns)
+- [x] **User traffic API endpoints** (GET /users/{user_id}/traffic)
+- [x] **User traffic UI** (display traffic patterns in User Detail Modal)
+
+**Status:** ✅ Complete  
+**Priority:** ✅ Completed  
+**Timeline:** ✅ Completed
+
+**Note:** User management features are complete and integrated into the UI. Users can be managed, clustered, assigned SGTs, and have their traffic patterns analyzed for security-focused SGT recommendations.
 
 ---
 
@@ -346,10 +419,15 @@ This document provides a comprehensive, cohesive roadmap of all Clarion capabili
 - [x] React frontend (TypeScript, Tailwind CSS)
 - [x] Dashboard (system metrics, health)
 - [x] Network flows visualization (D3.js)
-- [x] Clusters page (cluster list, members)
+- [x] Clusters page (cluster list, members, user clusters)
 - [x] SGT matrix (heatmap visualization)
 - [x] Policy builder (SGACL generation, editing)
 - [x] Topology management (locations, subnets, switches)
+- [x] Users page (user list, user details, user SGT assignments)
+- [x] User Detail Modal (user info, AD groups, devices, SGT assignments, traffic patterns)
+- [x] ISE deployment UI (ISE deployment modal, policy deployment workflow)
+- [x] FlowGraph navigation fixes (zoom, pan, node click locking)
+- [x] Machine name display (prominent display of device names)
 
 #### 7.2 UI Enhancements
 - [ ] **Improved cluster visualization** (better charts, PCA/t-SNE plots)

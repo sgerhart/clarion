@@ -26,8 +26,12 @@ from clarion.api.routes import (
     users,
     user_sgt,
     ise_config,
+    pxgrid,
+    connectors,
+    certificates,
 )
 from clarion.storage import init_database
+import os
 
 logger = logging.getLogger(__name__)
 
@@ -40,8 +44,9 @@ def create_app() -> FastAPI:
         Configured FastAPI app
     """
     # Initialize database on startup
-    init_database()
-    logger.info("Database initialized")
+    db_path = os.environ.get("CLARION_DB_PATH", "clarion.db")
+    init_database(db_path)
+    logger.info(f"Database initialized at {db_path}")
     
     app = FastAPI(
         title="Clarion TrustSec Policy Copilot API",
@@ -82,7 +87,10 @@ def create_app() -> FastAPI:
     app.include_router(policy_recommendations.router, prefix="/api", tags=["Policy Recommendations"])
     app.include_router(users.router, prefix="/api", tags=["Users"])
     app.include_router(user_sgt.router, prefix="/api", tags=["User SGT"])
-app.include_router(ise_config.router, prefix="/api", tags=["ISE Configuration"])
+    app.include_router(ise_config.router, prefix="/api", tags=["ISE Configuration"])
+    app.include_router(pxgrid.router, prefix="/api", tags=["pxGrid"])
+    app.include_router(connectors.router, prefix="/api", tags=["Connectors"])
+    app.include_router(certificates.router, prefix="/api", tags=["Certificates"])
     
     @app.exception_handler(Exception)
     async def global_exception_handler(request, exc):

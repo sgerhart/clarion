@@ -4,6 +4,7 @@ const settingsPages = [
   { name: 'Global Settings', href: '/settings/global' },
   { name: 'Clustering', href: '/settings/clustering' },
   { name: 'Policy', href: '/settings/policy' },
+  { name: 'Certificates', href: '/settings/certificates' },
   { name: 'System', href: '/settings/system' },
 ]
 

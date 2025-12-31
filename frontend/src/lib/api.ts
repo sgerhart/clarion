@@ -209,6 +209,25 @@ export const apiClient = {
     verify_ssl: iseConfig.verify_ssl ?? false,
   }),
 
+  // ISE Configuration
+  syncIseConfig: (iseConfig?: {
+    ise_url?: string
+    ise_username?: string
+    ise_password?: string
+    verify_ssl?: boolean
+    use_saved_config?: boolean
+  }) => api.post('/ise/config/sync', {
+    ise_url: iseConfig?.ise_url,
+    ise_username: iseConfig?.ise_username,
+    ise_password: iseConfig?.ise_password,
+    verify_ssl: iseConfig?.verify_ssl,
+    use_saved_config: iseConfig?.use_saved_config ?? true,
+  }),
+  getIseConfigStatus: (iseServer: string) => api.get('/ise/config/status', { params: { ise_server: iseServer } }),
+  getIseSgts: (iseServer?: string) => api.get('/ise/config/sgts', { params: { ise_server: iseServer } }),
+  getIseAuthProfiles: (iseServer?: string, sgtValue?: number) => api.get('/ise/config/auth-profiles', { params: { ise_server: iseServer, sgt_value: sgtValue } }),
+  getIseAuthPolicies: (iseServer?: string, profileName?: string) => api.get('/ise/config/auth-policies', { params: { ise_server: iseServer, profile_name: profileName } }),
+
   // Users
   getUsers: (params?: {
     search?: string
@@ -235,6 +254,62 @@ export const apiClient = {
   getClusterSGTRecommendation: (clusterId: number) => api.get(`/users/clusters/${clusterId}/recommendation`),
   getUsersBySGT: (sgtValue: number) => api.get(`/sgts/${sgtValue}/users`),
   getUserSGTHistory: (userId: string) => api.get(`/users/${userId}/sgt/history`),
+
+  // Connectors
+  getConnectors: () => api.get('/connectors'),
+  getConnector: (connectorId: string) => api.get(`/connectors/${connectorId}`),
+  configureConnector: (connectorId: string, config: any, enabled?: boolean) =>
+    api.post(`/connectors/${connectorId}/configure`, { config, enabled }),
+  enableConnector: (connectorId: string) => api.post(`/connectors/${connectorId}/enable`),
+  disableConnector: (connectorId: string) => api.post(`/connectors/${connectorId}/disable`),
+  getConnectorStatus: (connectorId: string) => api.get(`/connectors/${connectorId}/status`),
+  uploadCertificate: (connectorId: string, certType: string, certFile: File) => {
+    const formData = new FormData()
+    formData.append('cert_file', certFile)
+    formData.append('cert_type', certType)
+    return api.post(`/connectors/${connectorId}/certificates`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    })
+  },
+  listCertificates: (connectorId: string) => api.get(`/connectors/${connectorId}/certificates`),
+  deleteCertificate: (connectorId: string, certType: string) =>
+    api.delete(`/connectors/${connectorId}/certificates/${certType}`),
+
+  // Certificates (Global)
+  getCertificates: () => api.get('/certificates'),
+  getCertificate: (certificateId: number) => api.get(`/certificates/${certificateId}`),
+  generateCSR: (data: {
+    name: string
+    description?: string
+    common_name: string
+    organization?: string
+    organizational_unit?: string
+    locality?: string
+    state?: string
+    country?: string
+    email?: string
+    key_size?: number
+  }) => api.post('/certificates/csr/generate', data),
+  uploadGlobalCertificate: (name: string, description: string | null, certType: string, certFile: File) => {
+    const formData = new FormData()
+    formData.append('cert_file', certFile)
+    formData.append('name', name)
+    formData.append('cert_type', certType)
+    if (description) formData.append('description', description)
+    return api.post('/certificates/upload', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    })
+  },
+  deleteCertificateById: (certificateId: number) => api.delete(`/certificates/${certificateId}`),
+  downloadCSR: (certificateId: number) => api.post(`/certificates/${certificateId}/download-csr`, {}, { responseType: 'blob' }),
+  assignCertificateToConnector: (connectorId: string, certificateId: number, referenceType: string) =>
+    api.post(`/connectors/${connectorId}/certificates/assign`, { certificate_id: certificateId, reference_type: referenceType }),
+  unassignCertificateFromConnector: (connectorId: string, referenceType: string) =>
+    api.delete(`/connectors/${connectorId}/certificates/${referenceType}`),
+  getConnectorCertificates: (connectorId: string) => api.get(`/connectors/${connectorId}/certificates`),
+  
+  // Test connection using saved configuration
+  testConnectorConnection: (connectorId: string) => api.post(`/connectors/${connectorId}/test-connection`),
 }
 
 export default api

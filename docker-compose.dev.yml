@@ -1,0 +1,47 @@
+version: '3.8'
+
+# Development docker-compose override
+# Usage: docker-compose -f docker-compose.yml -f docker-compose.dev.yml up
+
+services:
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.dev
+    volumes:
+      # Mount source for hot reload
+      - ./frontend/src:/app/src
+      - ./frontend/public:/app/public
+      - ./frontend/index.html:/app/index.html
+      - ./frontend/vite.config.ts:/app/vite.config.ts
+      - ./frontend/tailwind.config.js:/app/tailwind.config.js
+      - ./frontend/postcss.config.js:/app/postcss.config.js
+      - ./frontend/tsconfig.json:/app/tsconfig.json
+      - ./frontend/tsconfig.node.json:/app/tsconfig.node.json
+      # Exclude node_modules from volume mount
+      - /app/node_modules
+    environment:
+      - VITE_API_URL=http://localhost:8000
+    ports:
+      - "3000:3000"
+    command: npm run dev -- --host 0.0.0.0
+
+  api:
+    volumes:
+      # Mount source code for development (hot reload)
+      - ./src:/app/src
+      - ./scripts:/app/scripts
+    environment:
+      - PYTHONPATH=/app/src
+    # Override command for development (with reload)
+    command: ["python", "-m", "uvicorn", "clarion.api.app:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+
+  pxgrid:
+    volumes:
+      # Mount source code for development
+      - ./src:/app/src
+      # Mount certificates from host (for easy updates)
+      - ./certs/pxgrid:/app/certs:ro
+    environment:
+      - PYTHONPATH=/app/src
+
