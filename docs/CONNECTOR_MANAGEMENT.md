@@ -91,7 +91,7 @@ CREATE TABLE IF NOT EXISTS connectors (
     name TEXT NOT NULL,
     type TEXT NOT NULL,  -- 'ise_ers', 'ise_pxgrid', 'ad', 'iot'
     enabled BOOLEAN DEFAULT 0,
-    status TEXT DEFAULT 'disabled',  -- 'enabled', 'disabled', 'error', 'connecting'
+    status TEXT DEFAULT 'disabled',  -- 'disabled', 'pending_approval', 'connected', 'error', 'connecting'
     
     -- Connection configuration (JSON)
     config TEXT,  -- JSON string with connector-specific settings

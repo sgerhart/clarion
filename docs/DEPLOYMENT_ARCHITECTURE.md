@@ -131,12 +131,14 @@ Clarion is designed as a containerized microservices architecture, allowing for:
 
 ### 3. pxGrid Service (`clarion-pxgrid`)
 
-**Purpose**: ISE pxGrid integration with certificate-based authentication
+**Purpose**: ISE pxGrid integration with dual authentication support
 
 **Container**: `clarion-pxgrid:latest`
 
 **Responsibilities**:
-- Connect to ISE pxGrid using certificate authentication
+- Connect to ISE pxGrid using username/password or certificate-based authentication
+- Manage pxGrid account creation and activation flow
+- Handle PENDING approval state with user-friendly messaging
 - Subscribe to pxGrid topics (session, endpoint events)
 - Process and parse ISE events
 - Update shared database with session data
@@ -147,20 +149,33 @@ Clarion is designed as a containerized microservices architecture, allowing for:
 
 **Dependencies**:
 - Database (shared SQLite file or PostgreSQL connection)
-- pxGrid certificates (mounted as secrets/volumes)
+- pxGrid certificates (for certificate-based auth) or credentials (for username/password auth)
 - ISE pxGrid connection details
 
 **Configuration**:
 - ISE hostname
 - Client name
-- Certificate paths
+- Authentication method (username/password or certificate)
+- Certificate paths (if using certificate auth)
+- Username/password (if using password auth)
 - Database path/connection string
+
+**Authentication Methods**:
+1. **Username/Password**: Uses ISE admin credentials for account creation, client credentials for authentication
+2. **Certificate-Based (Mutual TLS)**: Uses client certificate + private key for secure authentication
+
+**Status Values**:
+- `disabled` - Connector is disabled
+- `pending_approval` - Account created but awaiting approval in ISE
+- `connected` - Successfully connected and operational
+- `error` - Connection error occurred
+- `connecting` - Connection attempt in progress
 
 **Scaling**: Single instance (pxGrid connection is stateful)
 
 **Security**:
-- Certificates stored as Docker secrets or mounted volumes
-- No credentials in environment variables
+- Certificates stored as Docker secrets or mounted volumes (for certificate auth)
+- Credentials stored in database (encrypted at rest in production)
 - Isolated from main API service
 
 ---
