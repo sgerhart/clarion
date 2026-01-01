@@ -306,7 +306,10 @@ clarion/
 
 ### Architecture & Integration
 - **[Categorization Engine](docs/CATEGORIZATION_ENGINE.md)** — Clustering, incremental assignment, SGT lifecycle
+- **[AI-Enhanced Architecture](docs/AI_ENHANCED_ARCHITECTURE.md)** — Comprehensive AI integration with conversational interface
 - **[AI Integration](docs/AI_INTEGRATION.md)** — Optional AI/LLM integration architecture
+- **[Data Collection & Recommendations](docs/DATA_COLLECTION_AND_RECOMMENDATIONS.md)** — Timeline and process for data collection and SGT recommendations
+- **[Implementation Requirements](docs/IMPLEMENTATION_REQUIREMENTS.md)** — What needs to be added to accomplish all features
 - **[ISE Integration](docs/ISE_INTEGRATION.md)** — Cisco ISE integration, policy recommendations, workflows
 - **[Data Architecture](docs/DATA_ARCHITECTURE.md)** — Data sources, storage, correlation requirements
 - **[Topology Architecture](docs/TOPOLOGY_ARCHITECTURE.md)** — Location hierarchy, address spaces, subnet mapping
@@ -320,6 +323,8 @@ clarion/
 - **[Frontend README](frontend/README.md)** — Frontend setup and development
 - **[Collector README](collector/README.md)** — NetFlow and agent collector setup, scalability, testing
 - **[Lab README](lab/README.md)** — VM setup, edge agents, lab environment
+- **[CML Lab Setup](lab/CML_LAB_SETUP.md)** — Cisco CML lab setup guide for ISE and AD integration
+- **[ISE Configuration](lab/ISE_CONFIGURATION.md)** — Complete ISE configuration guide
 
 ## 🚀 Quick Start
 
