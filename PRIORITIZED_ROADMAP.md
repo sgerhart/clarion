@@ -106,7 +106,11 @@ This document outlines the prioritized development plan for Clarion, focusing on
 - [x] First-seen tracking (detect new devices/users) - ✅ Implemented: Database fields and methods
 - [ ] Identity-aware clustering (handle late-arriving identity data)
 - [x] SGT lifecycle management (stable SGTs, dynamic membership) - ✅ Implemented: `SGTLifecycleManager` class
-- [ ] Cluster stability tracking
+- [ ] **Cluster stability tracking** (evolution over time)
+  - [ ] **Stability scoring** (track cluster behavior changes over time)
+  - [ ] **Behavior change detection** (flag clusters with wild behavior changes)
+  - [ ] **SGT stability protection** (prevent automatic SGT updates for unstable clusters)
+  - [ ] **Policy "flapping" prevention** (require manual review for unstable clusters)
 - [x] Database schema updates (first_seen, SGT registry, centroids) - ✅ Implemented: All tables and methods exist
 - [x] **Enhanced confidence scoring system** (all decisions have confidence scores) - ✅ Implemented: `ConfidenceScorer` class
 - [x] **Enhanced explainability system** (clear "why" explanations for all decisions) - ✅ Implemented: `explanation.py` module
@@ -168,6 +172,10 @@ This document outlines the prioritized development plan for Clarion, focusing on
 - [ ] Batch processing optimization
 - [ ] Production hardening
 - [ ] Comprehensive testing
+- [ ] **AI-Driven SGT Taxonomy Design** (human-readable SGT names from business context)
+  - [ ] Analyze AD Group names and ISE Profiles to suggest meaningful SGT names
+  - [ ] Generate business-auditor-friendly SGT names (not just "Cluster-0")
+  - [ ] Context-aware naming (use business terminology, department names)
 
 **Files:**
 - `src/clarion/ai/llm_backend.py` - LLM abstraction
@@ -207,6 +215,31 @@ This document outlines the prioritized development plan for Clarion, focusing on
 - Update `src/clarion/ingest/sketch_builder.py`
 
 **Timeline:** 4-6 weeks
+
+#### 1.4 Behavioral Anomaly Detection (Zero Trust Continuous Verification)
+
+**Status:** 📋 Planned
+
+**Goal:** Detect behavioral anomalies and trigger security responses (SGT quarantining) for Zero Trust continuous verification.
+
+**Tasks:**
+- [ ] Baseline behavioral sketches (establish "normal" behavior for each SGT)
+- [ ] Anomaly detection engine (detect deviations from normal behavior)
+- [ ] Example: Detect if "Printer" SGT starts talking to "Database" SGT over SSH
+- [ ] SGT Quarantining integration (trigger ISE quarantine events for anomalies)
+- [ ] Continuous verification (ongoing monitoring of SGT behavior)
+- [ ] Anomaly scoring (confidence scores for detected anomalies)
+- [ ] False positive reduction (learn from user feedback on anomalies)
+- [ ] Alerting and notification (notify security team of detected anomalies)
+
+**Files:**
+- `src/clarion/security/anomaly_detector.py`
+- `src/clarion/security/baseline_builder.py`
+- `src/clarion/integration/ise_quarantine.py`
+
+**Priority:** 🔴 High (Critical for Zero Trust security)  
+**Timeline:** 4-6 weeks  
+**Dependencies:** Baseline behavioral sketches, ISE integration, anomaly detection algorithms
 
 ---
 

@@ -43,6 +43,11 @@ This document provides a comprehensive, cohesive roadmap of all Clarion capabili
 - [ ] **Identity-aware clustering** (handle late-arriving identity data)
 - [x] **SGT lifecycle management** (stable SGTs, dynamic membership) - ✅ Implemented: `SGTLifecycleManager` class with registry, membership, and history tracking
 - [ ] **Cluster stability tracking** (evolution over time)
+  - [ ] **Stability scoring** (track cluster behavior changes over time)
+  - [ ] **Behavior change detection** (flag clusters with wild behavior changes)
+  - [ ] **SGT stability protection** (prevent automatic SGT updates for unstable clusters)
+  - [ ] **Policy "flapping" prevention** (require manual review for unstable clusters)
+  - [ ] **Stability metrics** (track cluster membership changes, behavior variance)
 - [x] **Cluster centroid storage** (for fast incremental assignment) - ✅ Implemented: `cluster_centroids` table, `store_cluster_centroid()`, `get_cluster_centroid()`, `list_all_centroids()` methods
 - [x] **Enhanced confidence scoring** (all decisions have confidence 0.0-1.0) - ✅ Implemented: `ConfidenceScorer` class with distance-based, probability-based, and combined confidence scoring
 - [x] **Enhanced explainability** (clear "why" explanations for all decisions) - ✅ Implemented: `explanation.py` with `generate_cluster_explanation()` function
@@ -77,6 +82,11 @@ This document provides a comprehensive, cohesive roadmap of all Clarion capabili
 - [ ] **Response caching** (cache AI responses for similar queries)
 - [ ] **Batch processing optimization** (process multiple clusters in one request)
 - [ ] **Cost optimization** (track and optimize AI API costs)
+- [ ] **AI-Driven SGT Taxonomy Design** (human-readable SGT names from business context)
+  - [ ] Analyze AD Group names and ISE Profiles to suggest meaningful SGT names
+  - [ ] Generate business-auditor-friendly SGT names (not just "Cluster-0")
+  - [ ] Context-aware naming (use business terminology, department names)
+  - [ ] SGT name validation (ensure names make sense to non-technical stakeholders)
 
 **Status:** 📋 Planned - **BLOCKED until Vault integration complete**  
 **Priority:** 🔴 High (Priority 1.2) - **Cannot start until Priority 0.5 (Vault) complete**  
@@ -95,6 +105,21 @@ This document provides a comprehensive, cohesive roadmap of all Clarion capabili
 **Priority:** 🟡 Medium (Priority 1.3)  
 **Timeline:** 2-3 weeks
 
+#### 1.4 Behavioral Anomaly Detection (Zero Trust Continuous Verification)
+- [ ] **Baseline behavioral sketches** (establish "normal" behavior for each SGT)
+- [ ] **Anomaly detection engine** (detect deviations from normal behavior)
+- [ ] **Example:** Detect if "Printer" SGT starts talking to "Database" SGT over SSH
+- [ ] **SGT Quarantining integration** (trigger ISE quarantine events for anomalies)
+- [ ] **Continuous verification** (ongoing monitoring of SGT behavior)
+- [ ] **Anomaly scoring** (confidence scores for detected anomalies)
+- [ ] **False positive reduction** (learn from user feedback on anomalies)
+- [ ] **Alerting and notification** (notify security team of detected anomalies)
+
+**Status:** 📋 Planned  
+**Priority:** 🔴 High (Critical for Zero Trust security)  
+**Timeline:** 4-6 weeks  
+**Dependencies:** Baseline behavioral sketches, ISE integration, anomaly detection algorithms
+
 ---
 
 ### 2. Data Layer & Scalability
@@ -112,16 +137,23 @@ This document provides a comprehensive, cohesive roadmap of all Clarion capabili
 **Timeline:** 4-6 weeks  
 **Dependencies:** None
 
-#### 2.2 Graph Database
+#### 2.2 Graph Database (Neo4j)
 - [ ] **Neo4j deployment** (for relationship storage)
 - [ ] **Graph schema design** (nodes, edges, properties)
+  - [ ] **User → Device → App relationships** (visualize identity-to-application paths)
+  - [ ] **SGT relationship graph** (show SGT-to-SGT communication patterns)
 - [ ] **Edge agent graph merging** (merge local graphs into global)
 - [ ] **Graph queries** (traversal, relationship queries)
 - [ ] **Graph visualization** (in UI)
+- [ ] **Blast Radius Analysis** (show exactly what an attacker could reach if SGT compromised)
+  - [ ] **Attack path visualization** (show potential attack paths from compromised SGT)
+  - [ ] **Reachability analysis** (what resources are accessible from given SGT)
+  - [ ] **Risk assessment** (identify high-risk SGTs based on reachability)
+  - [ ] **Graph-based policy analysis** (analyze policy effectiveness using graph)
 
 **Status:** 📋 Planned  
-**Priority:** 🟡 Medium  
-**Timeline:** 3-4 weeks  
+**Priority:** 🟡 Medium (Enhanced with Blast Radius Analysis for security)  
+**Timeline:** 4-5 weeks (enhanced with security analysis features)  
 **Dependencies:** PostgreSQL migration
 
 #### 2.3 Data Persistence & Buffering
@@ -222,11 +254,15 @@ This document provides a comprehensive, cohesive roadmap of all Clarion capabili
 - [ ] **🔍 Advanced AD Integration Architecture Investigation** (evaluate LDAP/LDAPS + DirSync for near-real-time AD mirror, WEF→WEC for Security log streaming, event correlation using stable identifiers (SID, username, computer account))
   - [ ] **LDAP/LDAPS + DirSync** (near-real-time mirror of users/groups/membership from AD)
   - [ ] **Windows Event Forwarding (WEF) → Windows Event Collector (WEC)** (stream DC and endpoint Security logs to collector)
+    - [ ] Near-real-time login/logout event streaming (reduces risk of mapping flow to "previous" user)
+    - [ ] Security log ingestion (authentication events, group changes)
+    - [ ] Event correlation using stable identifiers (SID, username, computer account)
+    - [ ] Minimal event set design (avoid unnecessary noise and DC overhead)
   - [ ] **Event correlation engine** (correlate events using stable identifiers: SID, username, computer account)
   - [ ] **Target outcomes to support:**
-    - [ ] User login/logout timeline
-    - [ ] Map user→device→IP for NetFlow correlation
-    - [ ] Detect risky auth + group changes
+    - [ ] User login/logout timeline (near-real-time visibility)
+    - [ ] Map user→device→IP for NetFlow correlation (reduce identity lag)
+    - [ ] Detect risky auth + group changes (security insights)
   - [ ] **Architecture design** (minimal event set, avoid unnecessary noise and DC overhead)
 
 **Status:** 📋 Planned (Basic LDAP connector) + 🔍 Investigation (Advanced architecture) - **BLOCKED until Vault integration complete**  
@@ -248,28 +284,45 @@ This document provides a comprehensive, cohesive roadmap of all Clarion capabili
 **Timeline:** 1-2 weeks  
 **Note:** Mentioned in roadmap as needed capability
 
-#### 3.5 IoT/Third-Party Connectors
+#### 3.5 IoT/Third-Party Connectors & OT Fingerprinting
 - [ ] **IoT connector framework** (pluggable adapters)
 - [ ] **MediGate integration** (healthcare IoT)
 - [ ] **ClearPass integration** (Aruba device context)
 - [ ] **Generic IoT adapter** (REST API based)
 - [ ] **Device type enrichment** (from IoT platforms)
+- [ ] **IoT/OT Fingerprinting** (deep protocol analysis for accurate classification)
+  - [ ] **Deep Packet Inspection (DPI)** integration (identify protocols, applications)
+  - [ ] **Specialized platform integration** (Medigate for medical devices, other OT platforms)
+  - [ ] **Protocol-based classification** (distinguish "Medical Imaging" SGT from "Building Management" SGT)
+  - [ ] **Behavioral protocol analysis** (identify devices by communication patterns)
+  - [ ] **OT device fingerprinting** (SCADA, PLC, medical devices, building automation)
 
 **Status:** 📋 Planned  
-**Priority:** 🟢 Low  
-**Timeline:** 4-6 weeks (framework first, then specific connectors)
+**Priority:** 🟡 Medium (Enhanced with OT fingerprinting for accurate SGT classification)  
+**Timeline:** 6-8 weeks (framework + DPI/fingerprinting capabilities)
 
-#### 3.6 Correlation Engine
+#### 3.6 Correlation Engine & Identity Enrichment
 - [ ] **Cross-source data joins** (NetFlow + ISE + AD)
 - [ ] **Identity resolution service** (IP → MAC → Endpoint → User)
 - [ ] **Temporal correlation** (time-based joins)
 - [ ] **Confidence scoring** (for correlated data)
 - [ ] **Conflict resolution** (when sources disagree)
+- [ ] **Passive Identity Correlation** (multi-source confidence scoring engine)
+  - [ ] Correlate NetFlow + ISE pxGrid + AD for late-binding identity
+  - [ ] Handle flows that start before user authentication completes
+  - [ ] Confidence scoring for identity assignments (0.0-1.0)
+  - [ ] Temporal correlation window (handle identity arriving after flow)
+  - [ ] Multi-source identity aggregation (combine signals from all sources)
+- [ ] **Identity Enrichment Framework** (high-fidelity identity context)
+  - [ ] User-to-device confidence scoring
+  - [ ] Device-to-IP confidence scoring
+  - [ ] Historical identity patterns (learn typical user-device mappings)
+  - [ ] Identity context caching (reduce correlation overhead)
 
 **Status:** 📋 Planned  
-**Priority:** 🔴 High  
-**Timeline:** 4-6 weeks  
-**Dependencies:** Multi-source ingestion (3.2, 3.3)
+**Priority:** 🔴 High (Critical for accurate SGT assignments)  
+**Timeline:** 6-8 weeks (enhanced with identity enrichment)  
+**Dependencies:** Multi-source ingestion (3.2, 3.3), Vault integration (for credentials)
 
 ---
 
@@ -376,7 +429,12 @@ This document provides a comprehensive, cohesive roadmap of all Clarion capabili
 - [ ] **Automatic flow enrichment** (add location context to flows)
 - [ ] **Location-based queries** (flows by location)
 - [ ] **Inter-location vs intra-location** analysis
-- [ ] **Location-aware policy recommendations**
+- [ ] **Location-aware policy recommendations** (Geo-Segmentation)
+  - [ ] **Location-based policy differentiation** (different policies for Branch vs Headquarters)
+  - [ ] **Example:** Finance User in branch has more restricted access than at HQ
+  - [ ] **Topology-aware policy generation** (use location hierarchy in policy conditions)
+  - [ ] **Location risk scoring** (higher risk locations get stricter policies)
+  - [ ] **Cross-location policy rules** (inter-location vs intra-location policies)
 
 **Status:** 📋 Planned  
 **Priority:** 🟡 Medium  
@@ -498,6 +556,12 @@ This document provides a comprehensive, cohesive roadmap of all Clarion capabili
 - [x] SGT matrix builder (communication patterns)
 - [x] SGACL generator (permit/deny rules)
 - [x] Impact analysis (what would break)
+- [ ] **Automated Policy Impact Analysis** (enhanced impact analysis for monitor mode)
+  - [ ] **User/device denial preview** (show exactly which users/devices would be denied if "Permit" changed to "Deny")
+  - [ ] **Traffic impact visualization** (show affected flows, connections, applications)
+  - [ ] **Business impact assessment** (identify critical services that would be affected)
+  - [ ] **Rollback preview** (show impact of reverting policy changes)
+  - [ ] **What-if analysis** (test policy changes before deployment)
 - [x] Policy customization (human-in-the-loop review)
 - [x] Export formats (Cisco CLI, ISE JSON, JSON)
 
@@ -512,6 +576,12 @@ This document provides a comprehensive, cohesive roadmap of all Clarion capabili
 - [ ] **Rollback capability** (revert to previous policy)
 - [x] **Current ISE policy display** (sync and cache existing ISE policies)
 - [x] **Brownfield ISE support** (sync existing ISE configuration, recommend existing SGTs)
+- [ ] **Brownfield "Least-Privilege" Delta Analysis** (identify over-privileged SGTs)
+  - [ ] **Over-privilege detection** (identify SGTs with "Permit All" but limited observed traffic)
+  - [ ] **Policy tightening recommendations** (recommend narrowing policies based on observed behavior)
+  - [ ] **Example:** If SGT has "Permit All" but only 443/TCP observed, recommend "Tighten Policy" action
+  - [ ] **Privilege reduction suggestions** (show what can be safely restricted)
+  - [ ] **Risk-based prioritization** (prioritize high-risk over-privileged SGTs)
 - [ ] **Incremental policy updates** (generate updates vs full replacement)
 - [x] **Policy comparison** (Clarion recommendations check existing ISE SGTs)
 - [x] **New device policy assignment** (categorize new devices, recommend policies)
@@ -566,14 +636,22 @@ This document provides a comprehensive, cohesive roadmap of all Clarion capabili
 - [x] Metrics endpoints (basic)
 - [ ] **Container health updates** (real-time health status from all containers, health check aggregation API)
 - [ ] **Diagnostic logging** (structured logging, log levels, diagnostic endpoints, log aggregation)
+  - [ ] **Structured logging** (JSON format, log levels, correlation IDs)
+  - [ ] **Diagnostic endpoints** (detailed system state, troubleshooting info)
+  - [ ] **Log aggregation** (centralized log collection and analysis)
+- [ ] **Edge Agent Health Monitoring** (trust that edge agents are reporting correctly)
+  - [ ] **Edge agent health status** (verify agents on switches are operational)
+  - [ ] **Data reporting validation** (ensure edge agents are sending data)
+  - [ ] **Agent connectivity monitoring** (detect agent disconnections)
+  - [ ] **Agent performance metrics** (CPU, memory, network usage on switches)
 - [ ] **Prometheus metrics export** (standard format)
 - [ ] **Grafana dashboards** (pre-built dashboards)
 - [ ] **Logging infrastructure** (centralized logging)
 - [ ] **Alerting** (critical issues notification)
 
 **Status:** ⚠️ Basic monitoring exists  
-**Priority:** 🔴 High (container health, diagnostic logging)  
-**Timeline:** 2-3 weeks
+**Priority:** 🔴 High (container health, diagnostic logging, edge agent monitoring)  
+**Timeline:** 3-4 weeks (enhanced with edge agent monitoring)
 
 #### 10.3 Security & Secrets Management (HashiCorp Vault)
 
