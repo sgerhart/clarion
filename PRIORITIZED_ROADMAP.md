@@ -45,28 +45,64 @@ This document outlines the prioritized development plan for Clarion, focusing on
 
 **Status:** 📋 Planned
 
-**Tasks:**
-- [ ] AI categorization agent architecture
-- [ ] LLM backend abstraction (Ollama, OpenAI, Anthropic)
-- [ ] Local model support (Llama, Mistral via Ollama)
-- [ ] Cloud model support (OpenAI, Anthropic)
-- [ ] Optional RAG (database context)
-- [ ] Fallback to rule-based labeling
+**Phase 1: Core AI Infrastructure (Weeks 1-2)**
+- [ ] LLM backend abstraction layer (pluggable backends)
+- [ ] Ollama integration (local models: Llama 3, Mistral)
+- [ ] AI agent base classes
+- [ ] Basic cluster labeling with AI
 - [ ] Configuration management
-- [ ] **AI explainability** (show AI reasoning to users)
-- [ ] **AI vs rule-based comparison** (show both options when they differ)
-- [ ] **AI enhancement framework** (AI augments, doesn't replace rule-based)
+- [ ] Error handling and fallback
+
+**Phase 2: Cloud Integration (Weeks 3-4)**
+- [ ] OpenAI integration (GPT-4o, o1-preview)
+- [ ] Anthropic integration (Claude 3 Opus, Sonnet, Haiku)
+- [ ] Google Gemini integration
+- [ ] Rate limiting and cost tracking
+- [ ] Response caching (Redis)
+
+**Phase 3: Conversational AI Interface (Weeks 5-6)**
+- [ ] Conversational AI agent
+- [ ] Natural language query processing
+- [ ] Context retrieval from database
+- [ ] Explanation generation
+- [ ] What-if analysis capabilities
+- [ ] Chat API endpoint
+- [ ] Frontend chat interface
+
+**Phase 4: RAG & Advanced Features (Weeks 7-8)**
+- [ ] RAG context builder
+- [ ] Knowledge base system
+- [ ] Vector embeddings for similarity search
+- [ ] Advanced insights generation
+- [ ] Proactive recommendations
+- [ ] AI-powered insights dashboard
+
+**Phase 5: Optimization & Production (Weeks 9-10)**
+- [ ] Performance optimization
+- [ ] Caching strategies
+- [ ] Batch processing optimization
+- [ ] Production hardening
+- [ ] Comprehensive testing
 
 **Files:**
-- `src/clarion/clustering/ai_agent.py`
-- `src/clarion/clustering/llm_backend.py`
-- `src/clarion/clustering/rag_context.py` (optional)
-- `src/clarion/clustering/ai_enhancer.py` (AI augmentation framework)
+- `src/clarion/ai/llm_backend.py` - LLM abstraction
+- `src/clarion/ai/agents/cluster_agent.py` - Cluster analysis
+- `src/clarion/ai/agents/conversational_agent.py` - Conversational AI
+- `src/clarion/ai/rag/context_builder.py` - RAG context
+- `src/clarion/ai/rag/knowledge_base.py` - Knowledge base
+- `src/clarion/ai/config.py` - AI configuration
+- `src/clarion/api/routes/ai_chat.py` - Chat API
+- `frontend/src/components/AIChat.tsx` - Chat UI
 
 **Dependencies:**
 - Verify architecture can support local models before implementation
 - Ensure optional nature (can disable AI completely)
 - AI must enhance, not replace rule-based logic
+- LangChain for orchestration
+- LlamaIndex for RAG (optional)
+- Vector database (Chroma/Qdrant) for RAG (optional)
+
+**Architecture:** See `docs/AI_ENHANCED_ARCHITECTURE.md` for comprehensive design
 
 #### 1.3 Streaming Data Processing
 

@@ -57,20 +57,32 @@ This document provides a comprehensive, cohesive roadmap of all Clarion capabili
 
 #### 1.2 AI/LLM Integration (Optional)
 - [ ] **AI categorization agent architecture**
-- [ ] **LLM backend abstraction** (pluggable backends)
-- [ ] **Local model support** (Llama, Mistral via Ollama)
-- [ ] **Cloud model support** (OpenAI GPT-4, Anthropic Claude)
-- [ ] **Optional RAG** (database context for categorization)
+- [ ] **LLM backend abstraction** (pluggable backends: Ollama, OpenAI, Anthropic, Google)
+- [ ] **Local model support** (Llama 3, Mistral via Ollama/Transformers)
+- [ ] **Cloud model support** (OpenAI GPT-4o, o1-preview, Anthropic Claude 3, Google Gemini)
+- [ ] **Optional RAG** (database context for categorization, vector embeddings)
 - [ ] **Fallback to rule-based labeling** (graceful degradation)
-- [ ] **AI configuration management** (enable/disable, model selection)
+- [ ] **AI configuration management** (enable/disable, model selection, cost tracking)
 - [ ] **AI explainability** (show AI reasoning to users)
 - [ ] **AI vs rule-based comparison** (show both options when they differ)
 - [ ] **AI enhancement framework** (AI augments, doesn't replace rule-based)
+- [ ] **Conversational AI interface** (natural language queries, discussions, explanations)
+- [ ] **AI-powered insights dashboard** (proactive insights, trend analysis, anomaly detection)
+- [ ] **Intelligent recommendation engine** (AI-powered SGT/policy recommendations with reasoning)
+- [ ] **What-if analysis** (explore scenarios and implications)
+- [ ] **Data quality analysis** (AI analyzes data quality and suggests improvements)
+- [ ] **Pattern detection** (early detection of traffic patterns and anomalies)
+- [ ] **Security insights** (security-focused observations and recommendations)
+- [ ] **Performance insights** (network performance observations)
+- [ ] **Response caching** (cache AI responses for similar queries)
+- [ ] **Batch processing optimization** (process multiple clusters in one request)
+- [ ] **Cost optimization** (track and optimize AI API costs)
 
 **Status:** 📋 Planned  
 **Priority:** 🔴 High (Priority 1.2)  
-**Timeline:** 2 weeks (after architecture validation)  
-**Dependencies:** Verify Ollama integration, validate optional architecture
+**Timeline:** 10 weeks (phased implementation)  
+**Dependencies:** Verify Ollama integration, validate optional architecture  
+**Architecture:** See `docs/AI_ENHANCED_ARCHITECTURE.md` for comprehensive AI architecture
 
 #### 1.3 Streaming Data Processing
 - [ ] **Real-time flow ingestion** (streaming vs batch)
@@ -444,7 +456,24 @@ This document provides a comprehensive, cohesive roadmap of all Clarion capabili
 - [x] Machine name display (prominent display of device names)
 - [ ] **Connector information tabs** (Summary/Overview tabs for ISE, AD, and other connectors explaining purpose, capabilities, and usage)
 
-#### 7.2 UI Enhancements
+#### 7.2 AI-Enhanced UI Features
+- [ ] **Conversational AI chat interface** (natural language queries, discussions)
+- [ ] **AI insights dashboard** (proactive insights, trend analysis, anomaly detection)
+- [ ] **AI-powered explanations** (detailed explanations for any decision or recommendation)
+- [ ] **What-if analysis UI** (explore scenarios and their implications)
+- [ ] **AI vs rule-based comparison** (show both options when they differ)
+- [ ] **AI recommendation discussions** (discuss SGT and policy recommendations with AI)
+- [ ] **Data quality insights** (AI analyzes data quality and suggests improvements)
+- [ ] **Pattern detection alerts** (early detection of traffic patterns and anomalies)
+- [ ] **Security insights panel** (security-focused observations and recommendations)
+- [ ] **Performance insights panel** (network performance observations)
+
+**Status:** 📋 Planned  
+**Priority:** 🔴 High (Priority 1.2 - AI Integration)  
+**Timeline:** 6-8 weeks (phased with AI backend)  
+**Dependencies:** AI backend infrastructure (Phase 3-4)
+
+#### 7.3 UI Enhancements
 - [ ] **Improved cluster visualization** (better charts, PCA/t-SNE plots)
 - [ ] **Real-time updates** (WebSocket for live data)
 - [ ] **SGT lifecycle visualization** (timeline, changes over time)
