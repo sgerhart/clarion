@@ -217,6 +217,7 @@ This document outlines the prioritized development plan for Clarion, focusing on
 - [ ] Enhanced policy matrix UI
 - [ ] AI categorization feedback/controls
 - [ ] Better error handling and user feedback
+- [x] **Connector configuration UI** (unified UI for all connectors with enable/disable) - ✅ Implemented: `ISE.tsx`, `AD.tsx`, `IoT.tsx` pages
 - [ ] **Connector information tabs** (Summary/Overview tabs for ISE, AD, and other connectors explaining purpose, capabilities, and usage)
 - [ ] Performance optimization
 - [ ] Mobile responsiveness (if needed)
