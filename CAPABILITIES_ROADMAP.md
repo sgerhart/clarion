@@ -55,7 +55,7 @@ This document provides a comprehensive, cohesive roadmap of all Clarion capabili
 **Timeline:** 2-4 weeks remaining (quality framework, edge cases, override tracking)  
 **Quality Review:** See `docs/CATEGORIZATION_ENGINE_REVIEW.md` for detailed quality enhancements
 
-#### 1.2 AI/LLM Integration (Optional)
+#### 1.2 AI/LLM Integration (Optional) ⚠️ **BLOCKED: Requires Vault Integration**
 - [ ] **AI categorization agent architecture**
 - [ ] **LLM backend abstraction** (pluggable backends: Ollama, OpenAI, Anthropic, Google)
 - [ ] **Local model support** (Llama 3, Mistral via Ollama/Transformers)
@@ -78,11 +78,12 @@ This document provides a comprehensive, cohesive roadmap of all Clarion capabili
 - [ ] **Batch processing optimization** (process multiple clusters in one request)
 - [ ] **Cost optimization** (track and optimize AI API costs)
 
-**Status:** 📋 Planned  
-**Priority:** 🔴 High (Priority 1.2)  
-**Timeline:** 10 weeks (phased implementation)  
-**Dependencies:** Verify Ollama integration, validate optional architecture  
-**Architecture:** See `docs/AI_ENHANCED_ARCHITECTURE.md` for comprehensive AI architecture
+**Status:** 📋 Planned - **BLOCKED until Vault integration complete**  
+**Priority:** 🔴 High (Priority 1.2) - **Cannot start until Priority 0.5 (Vault) complete**  
+**Timeline:** 10 weeks (phased implementation) - **Starts after Vault integration**  
+**Dependencies:** ✅ **Vault integration (Priority 0.5) - API keys must be stored in Vault**, Verify Ollama integration, validate optional architecture  
+**Architecture:** See `docs/AI_ENHANCED_ARCHITECTURE.md` for comprehensive AI architecture  
+**⚠️ BLOCKING:** AI integration requires API keys (OpenAI, Anthropic, Google) which must be stored in Vault, not database
 
 #### 1.3 Streaming Data Processing
 - [ ] **Real-time flow ingestion** (streaming vs batch)
@@ -207,7 +208,7 @@ This document provides a comprehensive, cohesive roadmap of all Clarion capabili
 **Dependencies:** None  
 **Architecture Note:** See `docs/ISE_INTEGRATION.md` - Clarion supports multiple scenarios: (1) Greenfield: NetFlow → clustering → SGT recommendations → ISE policies, (2) Identity-enhanced: Same with AD/IoT data, (3) Brownfield: Sync existing ISE configuration, recommend existing SGTs when appropriate, avoid creating duplicates. Brownfield support includes ISE configuration sync, cache, and recommendation engine updates to check existing SGTs.
 
-#### 3.3 Active Directory Integration
+#### 3.3 Active Directory Integration ⚠️ **BLOCKED: Requires Vault Integration**
 - [ ] **AD connector implementation** (LDAP connector for user/group queries)
 - [ ] **User database enrichment** (update user records with AD data: email, department, title, display_name)
 - [ ] **AD group membership queries** (user groups, nested groups)
@@ -228,11 +229,12 @@ This document provides a comprehensive, cohesive roadmap of all Clarion capabili
     - [ ] Detect risky auth + group changes
   - [ ] **Architecture design** (minimal event set, avoid unnecessary noise and DC overhead)
 
-**Status:** 📋 Planned (Basic LDAP connector) + 🔍 Investigation (Advanced architecture)  
-**Priority:** 🔴 High (Critical for User SGT recommendations)  
-**Timeline:** 3-4 weeks (basic LDAP), +2-3 weeks (advanced architecture investigation and implementation)  
-**Dependencies:** Identity-aware clustering, User database schema, Connector management infrastructure  
-**Note:** Advanced architecture (DirSync + WEF/WEC) provides near-real-time AD synchronization and Security event streaming, enabling better correlation than periodic LDAP queries. Investigation needed to determine optimal event set and architecture for target outcomes.
+**Status:** 📋 Planned (Basic LDAP connector) + 🔍 Investigation (Advanced architecture) - **BLOCKED until Vault integration complete**  
+**Priority:** 🔴 High (Critical for User SGT recommendations) - **Cannot start until Priority 0.5 (Vault) complete**  
+**Timeline:** 3-4 weeks (basic LDAP), +2-3 weeks (advanced architecture investigation and implementation) - **Starts after Vault integration**  
+**Dependencies:** ✅ **Vault integration (Priority 0.5) - LDAP credentials must be stored in Vault**, Identity-aware clustering, User database schema, Connector management infrastructure  
+**Note:** Advanced architecture (DirSync + WEF/WEC) provides near-real-time AD synchronization and Security event streaming, enabling better correlation than periodic LDAP queries. Investigation needed to determine optimal event set and architecture for target outcomes.  
+**⚠️ BLOCKING:** AD integration requires LDAP credentials (username/password) which must be stored in Vault, not database
 
 #### 3.4 DNS Resolution
 - [ ] **Hostname resolution** (IP → hostname via DNS)
@@ -573,23 +575,80 @@ This document provides a comprehensive, cohesive roadmap of all Clarion capabili
 **Priority:** 🔴 High (container health, diagnostic logging)  
 **Timeline:** 2-3 weeks
 
-#### 10.3 Security & Secrets Management
-- [ ] **HashiCorp Vault integration** (secure secrets storage, key management)
-- [ ] **Secrets migration** (move passwords, API keys, certificates from database to Vault)
-- [ ] **Vault authentication** (AppRole, Kubernetes, or token-based auth for services)
-- [ ] **Secret rotation** (automated rotation for passwords and API keys)
-- [ ] **Certificate storage in Vault** (pxGrid certificates, TLS certificates)
-- [ ] **Connector credentials in Vault** (ISE admin credentials, AD credentials, API keys)
-- [ ] **Vault client library integration** (Python hvac library, secure secret retrieval)
-- [ ] **Fallback mechanisms** (graceful degradation if Vault unavailable)
-- [ ] **Vault policies** (role-based access to secrets)
-- [ ] **Audit logging** (track secret access and modifications)
+#### 10.3 Security & Secrets Management (HashiCorp Vault)
 
-**Status:** 📋 Planned  
-**Priority:** 🔴 High (Critical for production security)  
-**Timeline:** 3-4 weeks  
+**Status:** 📋 Planned - **CRITICAL PRIORITY - Must complete before AI/AD integration**  
+**Priority:** 🔴 CRITICAL (Blocks AI integration, AD integration, production deployment)  
+**Timeline:** 5 weeks  
 **Dependencies:** Vault deployment, authentication setup  
-**Note:** All sensitive data (passwords, API keys, certificates, tokens) should be stored in Vault, not in the database. Database should only contain non-sensitive configuration and metadata.
+**Blocking:** AI integration (needs API keys), AD integration (needs LDAP credentials), production deployment
+
+**Why This is Critical:**
+- Current implementation stores secrets in SQLite database (not production-ready)
+- AI integration requires API keys (OpenAI, Anthropic, Google) - must be in Vault
+- AD integration requires LDAP credentials - must be in Vault
+- ISE pxGrid already stores passwords and certificates in database - needs migration
+- All sensitive data must be secured before production deployment
+
+**Phase 1: Vault Infrastructure (Week 1)**
+- [ ] **Vault deployment** (Docker container, Kubernetes, or standalone)
+- [ ] **Vault initialization and unsealing** (key management, unseal keys)
+- [ ] **Vault authentication setup** (AppRole for services, token for admin)
+- [ ] **Vault policies creation** (read/write access for different services)
+- [ ] **Vault secrets engine configuration** (KV v2 for secrets, PKI for certificates)
+- [ ] **Vault audit logging** (track all secret access and modifications)
+
+**Phase 2: Vault Client Integration (Week 2)**
+- [ ] **Python hvac library integration** (Vault client library)
+- [ ] **Vault client wrapper class** (`src/clarion/secrets/vault_client.py`)
+  - [ ] Secret retrieval methods (get, list, create, update, delete)
+  - [ ] Certificate storage methods (store cert, key, CA cert)
+  - [ ] Connection pooling and retry logic
+  - [ ] Error handling and fallback mechanisms
+- [ ] **Configuration management** (Vault address, auth method, paths)
+- [ ] **Health checks** (Vault connection monitoring)
+
+**Phase 3: Secrets Migration from Database (Week 3)**
+- [ ] **ISE pxGrid credentials migration**
+  - [ ] Migrate ISE admin username/password from `connectors.config` JSON
+  - [ ] Migrate pxGrid client credentials (username, bootstrap password)
+  - [ ] Migrate pxGrid certificates (client cert, client key, CA cert) from `connector_certificates` table
+- [ ] **ISE ERS API credentials migration**
+  - [ ] Migrate ISE ERS API username/password from `connectors.config` JSON
+- [ ] **Certificate storage migration**
+  - [ ] Migrate all certificates from `certificates` table to Vault
+  - [ ] Migrate all certificates from `connector_certificates` table to Vault
+- [ ] **Database cleanup**
+  - [ ] Remove password fields from `connectors.config` JSON
+  - [ ] Remove certificate BLOB data from database tables
+  - [ ] Keep only metadata and references in database
+  - [ ] Add Vault path references to database (e.g., `vault_path: "secret/data/connectors/ise_pxgrid"`)
+
+**Phase 4: Application Integration (Week 4)**
+- [ ] **Update PxGridClient** to retrieve credentials from Vault
+- [ ] **Update connector API routes** to use Vault for credential storage/retrieval
+- [ ] **Update certificate management API** to use Vault
+- [ ] **Update connector enable/test/disable flows** to use Vault
+- [ ] **Add Vault health checks** to monitoring
+- [ ] **Update deployment documentation** with Vault setup
+
+**Phase 5: Secret Rotation & Management (Week 5)**
+- [ ] **Secret rotation framework** (automated rotation support)
+- [ ] **Automated password rotation** (for ISE, AD credentials)
+- [ ] **Certificate rotation support** (pxGrid certificates, TLS certificates)
+- [ ] **Secret versioning and rollback** (maintain history, rollback capability)
+- [ ] **Secret expiration and renewal** (track expiration, auto-renewal)
+- [ ] **Audit logging** (track secret access, modifications, rotations)
+
+**Files to Create:**
+- `src/clarion/secrets/vault_client.py` - Vault client wrapper
+- `src/clarion/secrets/migration.py` - Database to Vault migration script
+- `src/clarion/secrets/config.py` - Vault configuration
+- `scripts/migrate_secrets_to_vault.py` - Migration script
+- `docker-compose.vault.yml` - Vault deployment configuration
+- `docs/VAULT_INTEGRATION.md` - Vault integration guide
+
+**Note:** All sensitive data (passwords, API keys, certificates, tokens) must be stored in Vault, not in the database. Database should only contain non-sensitive configuration and metadata. This is a **blocking requirement** for AI integration (API keys), AD integration (LDAP credentials), and production deployment.
 
 #### 10.4 Performance & Scalability
 - [ ] **Performance benchmarks** (throughput, latency targets)
@@ -608,56 +667,72 @@ This document provides a comprehensive, cohesive roadmap of all Clarion capabili
 
 Based on `PRIORITIZED_ROADMAP.md`, the recommended implementation order is:
 
-### Phase 1: Backend & Categorization (Weeks 1-6)
-1. **Incremental clustering & SGT lifecycle** (Weeks 1-4)
+### Phase 0.5: HashiCorp Vault Integration (Weeks 1-5) 🔐 **CRITICAL - MUST COMPLETE FIRST**
+1. **Vault Infrastructure** (Week 1)
+   - Vault deployment and initialization
+   - Authentication and policies setup
+2. **Vault Client Integration** (Week 2)
+   - Python hvac library integration
+   - Vault client wrapper class
+3. **Secrets Migration** (Week 3)
+   - Migrate ISE pxGrid credentials from database
+   - Migrate ISE ERS API credentials from database
+   - Migrate all certificates from database
+   - Database cleanup
+4. **Application Integration** (Week 4)
+   - Update PxGridClient to use Vault
+   - Update connector API routes
+   - Update certificate management
+5. **Secret Rotation** (Week 5)
+   - Rotation framework
+   - Automated rotation
+   - Versioning and rollback
+
+### Phase 1: Backend & Categorization (Weeks 6-10)
+1. **Incremental clustering & SGT lifecycle** (Weeks 6-9)
    - Enhanced confidence scoring system
    - Enhanced explainability system
    - Quality assurance framework
    - Edge case handling
-2. **AI integration** (Weeks 5-6, after architecture validation)
+2. **AI integration** (Week 10, after Vault complete) ⚠️ **Requires Vault for API keys**
    - AI explainability framework
    - AI enhancement system (augments rule-based)
    - Override tracking and feedback loop
 
-### Phase 2: Testing & Validation (Weeks 7-10)
+### Phase 2: Testing & Validation (Weeks 11-14)
 3. **Ground truth datasets** (Weeks 7-10)
 4. **Validation framework** (Week 10)
 
-### Phase 3: UI Enhancement (Weeks 11-12)
+### Phase 3: UI Enhancement (Weeks 15-16)
 5. **UI improvements** (Weeks 11-12)
 
-### Phase 4: Collectors & Agents (Weeks 13-14)
+### Phase 4: Collectors & Agents (Weeks 17-18)
 6. **Collector hardening** (Week 13)
 7. **Edge agent optimization** (Week 14)
 
-### Phase 5: Data Layer (Weeks 15-18)
+### Phase 5: Data Layer (Weeks 19-22)
 8. **PostgreSQL migration** (Weeks 15-16)
 9. **Neo4j integration** (Weeks 17-18)
 
-### Phase 6: Multi-Source Ingestion (Weeks 19-24)
-10. **ISE pxGrid & User Database** (Weeks 19-21)
+### Phase 6: Multi-Source Ingestion (Weeks 23-28) ⚠️ **AD integration requires Vault**
+10. **ISE pxGrid & User Database** (Weeks 23-25)
     - User database schema (users, user_device_associations, ad_group_memberships tables)
     - ISE pxGrid subscriber for session events
     - User-device association tracking from ISE sessions
     - Real-time user data ingestion
     - Current ISE SGT assignment tracking
-11. **AD integration** (Week 22)
+11. **AD integration** (Week 26) ⚠️ **Requires Vault for LDAP credentials**
     - LDAP connector for user details
     - AD group membership queries
     - User database enrichment with AD data
     - AD group memberships storage
-12. **DNS resolution** (Week 23)
-13. **Correlation engine** (Week 24)
+12. **DNS resolution** (Week 27)
+13. **Correlation engine** (Week 28)
 
-### Phase 7: Production Readiness (Weeks 25-30)
-14. **Production deployment** (Week 25)
-15. **HashiCorp Vault integration** (Weeks 26-27)
-    - Vault deployment and configuration
-    - Secrets migration from database to Vault
-    - Vault client integration
-    - Certificate and credential storage
-16. **Monitoring & observability** (Week 28)
-17. **Performance optimization** (Weeks 29-30)
+### Phase 7: Production Readiness (Weeks 29-32)
+14. **Production deployment** (Week 29)
+15. **Monitoring & observability** (Week 30)
+16. **Performance optimization** (Weeks 31-32)
 
 ---
 

@@ -8,6 +8,91 @@ This document outlines the prioritized development plan for Clarion, focusing on
 
 ## Development Priorities
 
+### Priority 0.5: HashiCorp Vault Integration 🔐 **CRITICAL - Must Complete Before AI/AD**
+
+**Goal:** Implement secure secrets management using HashiCorp Vault before implementing AI, AD, or other integrations that require credentials.
+
+**Status:** ❌ Not Started - Critical Security Requirement
+
+**Why This Priority:**
+- All sensitive data (passwords, API keys, certificates, tokens) must be stored securely
+- Current implementation stores secrets in SQLite database (not production-ready)
+- AI integration will require API keys (OpenAI, Anthropic, etc.)
+- AD integration will require LDAP credentials
+- ISE pxGrid already stores passwords and certificates in database (needs migration)
+- Must be completed before any production deployment
+
+**Tasks:**
+
+**Phase 1: Vault Infrastructure (Week 1)**
+- [ ] Vault deployment (Docker container, Kubernetes, or standalone)
+- [ ] Vault initialization and unsealing
+- [ ] Vault authentication setup (AppRole for services, token for admin)
+- [ ] Vault policies creation (read/write access for different services)
+- [ ] Vault secrets engine configuration (KV v2 for secrets, PKI for certificates)
+
+**Phase 2: Vault Client Integration (Week 2)**
+- [ ] Python hvac library integration
+- [ ] Vault client wrapper class (`src/clarion/secrets/vault_client.py`)
+- [ ] Secret retrieval methods (get, list, create, update, delete)
+- [ ] Certificate storage methods (store cert, key, CA cert)
+- [ ] Connection pooling and retry logic
+- [ ] Error handling and fallback mechanisms
+- [ ] Configuration management (Vault address, auth method, paths)
+
+**Phase 3: Secrets Migration from Database (Week 3)**
+- [ ] **ISE pxGrid credentials migration**
+  - [ ] Migrate ISE admin username/password from `connectors.config` JSON
+  - [ ] Migrate pxGrid client credentials (username, bootstrap password)
+  - [ ] Migrate pxGrid certificates (client cert, client key, CA cert) from `connector_certificates` table
+- [ ] **ISE ERS API credentials migration**
+  - [ ] Migrate ISE ERS API username/password from `connectors.config` JSON
+- [ ] **Certificate storage migration**
+  - [ ] Migrate all certificates from `certificates` table to Vault
+  - [ ] Migrate all certificates from `connector_certificates` table to Vault
+- [ ] **Database cleanup**
+  - [ ] Remove password fields from `connectors.config` JSON
+  - [ ] Remove certificate BLOB data from database tables
+  - [ ] Keep only metadata and references in database
+  - [ ] Add Vault path references to database (e.g., `vault_path: "secret/data/connectors/ise_pxgrid"`)
+
+**Phase 4: Application Integration (Week 4)**
+- [ ] Update `PxGridClient` to retrieve credentials from Vault
+- [ ] Update connector API routes to use Vault for credential storage/retrieval
+- [ ] Update certificate management API to use Vault
+- [ ] Update connector enable/test/disable flows to use Vault
+- [ ] Add Vault health checks
+- [ ] Add Vault connection monitoring
+- [ ] Update deployment documentation
+
+**Phase 5: Secret Rotation & Management (Week 5)**
+- [ ] Secret rotation framework
+- [ ] Automated password rotation (for ISE, AD credentials)
+- [ ] Certificate rotation support
+- [ ] Secret versioning and rollback
+- [ ] Secret expiration and renewal
+- [ ] Audit logging for secret access
+
+**Files to Create:**
+- `src/clarion/secrets/vault_client.py` - Vault client wrapper
+- `src/clarion/secrets/migration.py` - Database to Vault migration script
+- `src/clarion/secrets/config.py` - Vault configuration
+- `scripts/migrate_secrets_to_vault.py` - Migration script
+- `docker-compose.vault.yml` - Vault deployment configuration
+- `docs/VAULT_INTEGRATION.md` - Vault integration guide
+
+**Dependencies:**
+- HashiCorp Vault deployment
+- Python hvac library
+- Existing secrets in database (for migration)
+
+**Priority:** 🔴 CRITICAL  
+**Timeline:** 5 weeks  
+**Blocking:** AI integration, AD integration, production deployment  
+**Note:** This must be completed before implementing AI (which needs API keys) or AD (which needs LDAP credentials). All existing secrets in the database must be migrated to Vault.
+
+---
+
 ### Priority 1: Backend & Categorization Engine ⭐ **CURRENT FOCUS**
 
 **Goal:** Build a sophisticated categorization engine with AI integration, incremental clustering, and comprehensive data processing.
@@ -95,6 +180,7 @@ This document outlines the prioritized development plan for Clarion, focusing on
 - `frontend/src/components/AIChat.tsx` - Chat UI
 
 **Dependencies:**
+- ✅ **Vault integration complete** (API keys must be stored in Vault, not database)
 - Verify architecture can support local models before implementation
 - Ensure optional nature (can disable AI completely)
 - AI must enhance, not replace rule-based logic
@@ -103,6 +189,8 @@ This document outlines the prioritized development plan for Clarion, focusing on
 - Vector database (Chroma/Qdrant) for RAG (optional)
 
 **Architecture:** See `docs/AI_ENHANCED_ARCHITECTURE.md` for comprehensive design
+
+**⚠️ BLOCKED:** Cannot start AI implementation until Vault integration is complete (Priority 0.5)
 
 #### 1.3 Streaming Data Processing
 
@@ -255,16 +343,6 @@ This document outlines the prioritized development plan for Clarion, focusing on
 **Tasks:**
 - [ ] Authentication & Authorization (JWT-based, user management, RBAC)
 - [ ] Security Hardening (rate limiting, input validation, SSL/TLS)
-- [ ] **HashiCorp Vault Integration** (secure secrets storage, key management)
-  - [ ] Vault deployment and configuration
-  - [ ] Secrets migration (move passwords, API keys, certificates from database to Vault)
-  - [ ] Vault authentication (AppRole, Kubernetes, or token-based auth)
-  - [ ] Certificate storage in Vault (pxGrid certificates, TLS certificates)
-  - [ ] Connector credentials in Vault (ISE admin credentials, AD credentials, API keys)
-  - [ ] Vault client library integration (Python hvac library)
-  - [ ] Secret rotation (automated rotation for passwords and API keys)
-  - [ ] Vault policies (role-based access to secrets)
-  - [ ] Fallback mechanisms (graceful degradation if Vault unavailable)
 - [ ] PostgreSQL Migration (production database, migration scripts)
 - [ ] Monitoring & Observability (Prometheus metrics, centralized logging, alerting, Grafana)
 - [ ] **Container Health Updates** (real-time health status from all containers, health check aggregation)
@@ -274,8 +352,8 @@ This document outlines the prioritized development plan for Clarion, focusing on
 - [ ] Database Backup/Recovery (backup procedures, disaster recovery)
 
 **Priority:** 🔴 CRITICAL  
-**Timeline:** 12-16 weeks (Phase 1: 4-6 weeks, Phase 2: 4-6 weeks, Phase 3: 2-4 weeks, Phase 4: 2-4 weeks for Vault integration)  
-**Note:** See `docs/PRODUCTION_READINESS.md` for detailed requirements and prioritization. **Vault integration is critical for production security** - all sensitive data (passwords, API keys, certificates) must be stored in Vault, not in the database.
+**Timeline:** 10-14 weeks (Phase 1: 4-6 weeks, Phase 2: 4-6 weeks, Phase 3: 2-4 weeks)  
+**Note:** See `docs/PRODUCTION_READINESS.md` for detailed requirements and prioritization. **Note:** Vault integration has been moved to Priority 0.5 and must be completed before AI/AD integration and production deployment.
 
 **This must be completed before any production deployment.**
 
@@ -302,9 +380,16 @@ This document outlines the prioritized development plan for Clarion, focusing on
 
 ## Development Timeline
 
-### Q1 2025 (Weeks 1-12)
+### Q1 2025 (Weeks 1-17)
 
-**Weeks 1-4: Backend Core** ✅ **COMPLETED**
+**Weeks 1-5: HashiCorp Vault Integration** 🔐 **CRITICAL - MUST COMPLETE FIRST**
+- Vault deployment and infrastructure
+- Vault client integration
+- Secrets migration from database to Vault
+- Application integration
+- Secret rotation and management
+
+**Weeks 6-9: Backend Core** ✅ **COMPLETED**
 - ✅ Incremental clustering - `IncrementalClusterer` implemented
 - ✅ First-seen tracking - Database fields and methods implemented
 - ✅ SGT lifecycle management - `SGTLifecycleManager` implemented
@@ -314,7 +399,7 @@ This document outlines the prioritized development plan for Clarion, focusing on
 - [ ] Quality assurance framework - **Remaining**
 - [ ] Edge case handling - **Remaining**
 
-**Weeks 5-6: AI Integration**
+**Weeks 10-11: AI Integration** (⚠️ Requires Vault for API keys)
 - Architecture validation
 - LLM backend implementation
 - Local model support (Ollama)
@@ -323,29 +408,29 @@ This document outlines the prioritized development plan for Clarion, focusing on
 - AI enhancement system (augments rule-based)
 - Override tracking and feedback loop
 
-**Weeks 7-10: Test Scenarios**
+**Weeks 12-15: Test Scenarios**
 - Ground truth dataset creation
 - Validation framework
 - Testing across company types
 - Accuracy metrics
 
-**Weeks 11-12: UI Enhancement**
+**Weeks 16-17: UI Enhancement**
 - Real-time updates
 - Enhanced visualizations
 - AI controls/feedback
 
-### Q2 2025 (Weeks 13-24)
+### Q2 2025 (Weeks 18-29)
 
-**Weeks 13-14: Collectors & Agents**
+**Weeks 18-19: Collectors & Agents**
 - NetFlow collector hardening
 - Edge agent optimization
 - Production deployment guides
 
-**Weeks 15-18: Data Layer**
+**Weeks 20-23: Data Layer**
 - PostgreSQL migration
 - Neo4j integration
 
-**Weeks 19-22: Multi-Source Ingestion & User Database**
+**Weeks 24-27: Multi-Source Ingestion & User Database** (⚠️ AD integration requires Vault for credentials)
 - ✅ User database schema creation (completed)
 - ✅ User management (CRUD operations, API endpoints, UI)
 - ✅ User clustering (AD group-based and traffic-based clustering)
@@ -363,7 +448,7 @@ This document outlines the prioritized development plan for Clarion, focusing on
 - [ ] **Connector information tabs** (Summary/Overview tabs for ISE, AD, and other connectors explaining purpose, capabilities, and usage)
 - [ ] User-device association resolution engine
 
-**Weeks 23-24: Integration & Testing**
+**Weeks 28-29: Integration & Testing**
 - End-to-end testing
 - Performance optimization
 - Bug fixes
