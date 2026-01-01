@@ -573,7 +573,25 @@ This document provides a comprehensive, cohesive roadmap of all Clarion capabili
 **Priority:** 🔴 High (container health, diagnostic logging)  
 **Timeline:** 2-3 weeks
 
-#### 10.3 Performance & Scalability
+#### 10.3 Security & Secrets Management
+- [ ] **HashiCorp Vault integration** (secure secrets storage, key management)
+- [ ] **Secrets migration** (move passwords, API keys, certificates from database to Vault)
+- [ ] **Vault authentication** (AppRole, Kubernetes, or token-based auth for services)
+- [ ] **Secret rotation** (automated rotation for passwords and API keys)
+- [ ] **Certificate storage in Vault** (pxGrid certificates, TLS certificates)
+- [ ] **Connector credentials in Vault** (ISE admin credentials, AD credentials, API keys)
+- [ ] **Vault client library integration** (Python hvac library, secure secret retrieval)
+- [ ] **Fallback mechanisms** (graceful degradation if Vault unavailable)
+- [ ] **Vault policies** (role-based access to secrets)
+- [ ] **Audit logging** (track secret access and modifications)
+
+**Status:** 📋 Planned  
+**Priority:** 🔴 High (Critical for production security)  
+**Timeline:** 3-4 weeks  
+**Dependencies:** Vault deployment, authentication setup  
+**Note:** All sensitive data (passwords, API keys, certificates, tokens) should be stored in Vault, not in the database. Database should only contain non-sensitive configuration and metadata.
+
+#### 10.4 Performance & Scalability
 - [ ] **Performance benchmarks** (throughput, latency targets)
 - [ ] **Load testing** (stress testing at scale)
 - [ ] **Optimization** (query optimization, caching)

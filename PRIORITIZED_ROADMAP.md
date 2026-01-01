@@ -254,7 +254,17 @@ This document outlines the prioritized development plan for Clarion, focusing on
 
 **Tasks:**
 - [ ] Authentication & Authorization (JWT-based, user management, RBAC)
-- [ ] Security Hardening (rate limiting, input validation, secrets management, SSL/TLS)
+- [ ] Security Hardening (rate limiting, input validation, SSL/TLS)
+- [ ] **HashiCorp Vault Integration** (secure secrets storage, key management)
+  - [ ] Vault deployment and configuration
+  - [ ] Secrets migration (move passwords, API keys, certificates from database to Vault)
+  - [ ] Vault authentication (AppRole, Kubernetes, or token-based auth)
+  - [ ] Certificate storage in Vault (pxGrid certificates, TLS certificates)
+  - [ ] Connector credentials in Vault (ISE admin credentials, AD credentials, API keys)
+  - [ ] Vault client library integration (Python hvac library)
+  - [ ] Secret rotation (automated rotation for passwords and API keys)
+  - [ ] Vault policies (role-based access to secrets)
+  - [ ] Fallback mechanisms (graceful degradation if Vault unavailable)
 - [ ] PostgreSQL Migration (production database, migration scripts)
 - [ ] Monitoring & Observability (Prometheus metrics, centralized logging, alerting, Grafana)
 - [ ] **Container Health Updates** (real-time health status from all containers, health check aggregation)
@@ -264,8 +274,8 @@ This document outlines the prioritized development plan for Clarion, focusing on
 - [ ] Database Backup/Recovery (backup procedures, disaster recovery)
 
 **Priority:** 🔴 CRITICAL  
-**Timeline:** 10-14 weeks (Phase 1: 4-6 weeks, Phase 2: 4-6 weeks, Phase 3: 2-4 weeks)  
-**Note:** See `docs/PRODUCTION_READINESS.md` for detailed requirements and prioritization.
+**Timeline:** 12-16 weeks (Phase 1: 4-6 weeks, Phase 2: 4-6 weeks, Phase 3: 2-4 weeks, Phase 4: 2-4 weeks for Vault integration)  
+**Note:** See `docs/PRODUCTION_READINESS.md` for detailed requirements and prioritization. **Vault integration is critical for production security** - all sensitive data (passwords, API keys, certificates) must be stored in Vault, not in the database.
 
 **This must be completed before any production deployment.**
 
