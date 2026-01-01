@@ -649,10 +649,15 @@ Based on `PRIORITIZED_ROADMAP.md`, the recommended implementation order is:
 12. **DNS resolution** (Week 23)
 13. **Correlation engine** (Week 24)
 
-### Phase 7: Production Readiness (Weeks 25-28)
+### Phase 7: Production Readiness (Weeks 25-30)
 14. **Production deployment** (Week 25)
-15. **Monitoring & observability** (Week 26)
-16. **Performance optimization** (Weeks 27-28)
+15. **HashiCorp Vault integration** (Weeks 26-27)
+    - Vault deployment and configuration
+    - Secrets migration from database to Vault
+    - Vault client integration
+    - Certificate and credential storage
+16. **Monitoring & observability** (Week 28)
+17. **Performance optimization** (Weeks 29-30)
 
 ---
 
@@ -735,6 +740,7 @@ Production Infrastructure
 
 ### Production
 - [ ] Production deployment guides complete
+- [ ] HashiCorp Vault integration complete (all secrets migrated from database)
 - [ ] High availability tested
 - [ ] Monitoring/alerting operational
 - [ ] Performance benchmarks met
