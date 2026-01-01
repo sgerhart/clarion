@@ -38,21 +38,21 @@ This document provides a comprehensive, cohesive roadmap of all Clarion capabili
 - [x] Feature extraction (18 behavioral features)
 - [x] Semantic labeling (AD groups, ISE profiles, device types)
 - [x] SGT mapping (cluster → SGT recommendations)
-- [ ] **Incremental clustering** (fast path for new endpoints)
-- [ ] **First-seen tracking** (detect new devices/users)
+- [x] **Incremental clustering** (fast path for new endpoints) - ✅ Implemented: `IncrementalClusterer` class with centroid-based assignment
+- [x] **First-seen tracking** (detect new devices/users) - ✅ Implemented: `first_seen` fields in database, `is_endpoint_first_seen()`, `get_endpoint_first_seen()`, `list_first_seen_endpoints()` methods
 - [ ] **Identity-aware clustering** (handle late-arriving identity data)
-- [ ] **SGT lifecycle management** (stable SGTs, dynamic membership)
+- [x] **SGT lifecycle management** (stable SGTs, dynamic membership) - ✅ Implemented: `SGTLifecycleManager` class with registry, membership, and history tracking
 - [ ] **Cluster stability tracking** (evolution over time)
-- [ ] **Cluster centroid storage** (for fast incremental assignment)
-- [ ] **Enhanced confidence scoring** (all decisions have confidence 0.0-1.0)
-- [ ] **Enhanced explainability** (clear "why" explanations for all decisions)
+- [x] **Cluster centroid storage** (for fast incremental assignment) - ✅ Implemented: `cluster_centroids` table, `store_cluster_centroid()`, `get_cluster_centroid()`, `list_all_centroids()` methods
+- [x] **Enhanced confidence scoring** (all decisions have confidence 0.0-1.0) - ✅ Implemented: `ConfidenceScorer` class with distance-based, probability-based, and combined confidence scoring
+- [x] **Enhanced explainability** (clear "why" explanations for all decisions) - ✅ Implemented: `explanation.py` with `generate_cluster_explanation()` function
 - [ ] **Quality assurance framework** (validation, quality monitoring)
 - [ ] **Edge case handling** (ambiguous endpoints, outliers, low-confidence)
 - [ ] **Override tracking & feedback loop** (learn from user overrides)
 
-**Status:** ⚠️ Core complete, enhancements in progress  
+**Status:** ✅ Core complete, incremental clustering and SGT lifecycle implemented, quality enhancements in progress  
 **Priority:** 🔴 High (Priority 1)  
-**Timeline:** 4-6 weeks  
+**Timeline:** 2-4 weeks remaining (quality framework, edge cases, override tracking)  
 **Quality Review:** See `docs/CATEGORIZATION_ENGINE_REVIEW.md` for detailed quality enhancements
 
 #### 1.2 AI/LLM Integration (Optional)
@@ -159,7 +159,7 @@ This document provides a comprehensive, cohesive roadmap of all Clarion capabili
 - [x] **pxGrid API endpoints** (configuration, status, test connection)
 - [x] **Database schema for pxGrid data** (ise_current_sgt_assignments table)
 - [x] **Connector management infrastructure** (database tables, API endpoints, certificate storage)
-- [ ] **Connector configuration UI** (unified UI for all connectors with enable/disable)
+- [x] **Connector configuration UI** (unified UI for all connectors with enable/disable) - ✅ Implemented: `ISE.tsx`, `AD.tsx`, `IoT.tsx` connector pages with enable/disable functionality
 - [ ] **Connector information tabs** (Summary/Overview tabs explaining connector purpose, capabilities, and usage - for ISE, AD, and other connectors)
 - [ ] **Certificate upload UI** (upload certificates via UI for pxGrid authentication)
 - [ ] **Dynamic container deployment** (automatically deploy containers when connectors enabled)
@@ -454,6 +454,7 @@ This document provides a comprehensive, cohesive roadmap of all Clarion capabili
 - [x] ISE deployment UI (ISE deployment modal, policy deployment workflow)
 - [x] FlowGraph navigation fixes (zoom, pan, node click locking)
 - [x] Machine name display (prominent display of device names)
+- [x] Connector configuration UI (ISE, AD, IoT connector pages with enable/disable, test connection, status display) - ✅ Implemented: `ISE.tsx`, `AD.tsx`, `IoT.tsx` pages
 - [ ] **Connector information tabs** (Summary/Overview tabs for ISE, AD, and other connectors explaining purpose, capabilities, and usage)
 
 #### 7.2 AI-Enhanced UI Features
