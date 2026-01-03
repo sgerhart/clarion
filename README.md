@@ -34,7 +34,7 @@ Modern networks span **campus, branch, WAN, cloud, and data centers** with **mul
 Clarion uses **machine learning** to automatically discover endpoint behavior patterns from network flows. No manual classification required—the system learns what devices actually do, not what you think they should do.
 
 ### 🌐 **Multi-Vendor, Multi-Environment**
-**Not just TrustSec.** Clarion orchestrates policy across:
+Clarion orchestrates policy across:
 - **Network Vendors**: Cisco TrustSec, Aruba ClearPass, Juniper, Palo Alto, Fortinet
 - **Environments**: Campus, Branch, WAN, Cloud (AWS, Azure, GCP), Data Centers
 - **Enforcement Methods**: SGTs, ACLs, firewall rules, cloud security groups, server agents
