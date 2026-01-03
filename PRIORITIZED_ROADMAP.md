@@ -14,9 +14,17 @@ This document outlines the prioritized development plan for Clarion, focusing on
 
 ---
 
-## Development Priorities
+## Development Priorities (Optimized Build Order)
 
-### Priority 0.5: HashiCorp Vault Integration 🔐 **CRITICAL - Must Complete Before AI/AD**
+**Build Order Logic:**
+1. **Foundation** (Vault, Database, Basic Monitoring) - Must be first
+2. **Core Data Collection** (Flow collection, basic connectors) - Builds on foundation
+3. **Identity & Correlation** (AD, ISE, correlation engine) - Needs data sources
+4. **Policy Generation** (TrustSec first, then multi-vendor) - Needs identity data
+5. **Advanced Features** (AI, anomaly detection, multi-vendor deployment) - Builds on core
+6. **Production Hardening** (Monitoring, HA, security) - Final polish
+
+### Priority 0.5: HashiCorp Vault Integration 🔐 **CRITICAL - Must Complete First**
 
 **Goal:** Implement secure secrets management using HashiCorp Vault before implementing AI, AD, or other integrations that require credentials.
 
@@ -208,50 +216,8 @@ This document outlines the prioritized development plan for Clarion, focusing on
 
 **⚠️ BLOCKED:** Cannot start AI implementation until Vault integration is complete (Priority 0.5)
 
-#### 1.3 Streaming Data Processing
-
-**Status:** 📋 Planned
-
-**Tasks:**
-- [ ] Real-time flow ingestion
-- [ ] Incremental sketch updates
-- [ ] Streaming clustering triggers
-- [ ] Backpressure handling
-
-**Files:**
-- `src/clarion/ingest/streaming.py`
-- Update `src/clarion/ingest/sketch_builder.py`
-
-**Timeline:** 4-6 weeks
-
-#### 1.4 Behavioral Anomaly Detection (Zero Trust Continuous Verification)
-
-**Status:** 📋 Planned
-
-**Goal:** Detect behavioral anomalies and trigger security responses (SGT quarantining) for Zero Trust continuous verification.
-
-**Tasks:**
-- [ ] Baseline behavioral sketches (establish "normal" behavior for each SGT)
-- [ ] Anomaly detection engine (detect deviations from normal behavior)
-- [ ] Example: Detect if "Printer" SGT starts talking to "Database" SGT over SSH
-- [ ] SGT Quarantining integration (trigger ISE quarantine events for anomalies)
-- [ ] Continuous verification (ongoing monitoring of SGT behavior)
-- [ ] Anomaly scoring (confidence scores for detected anomalies)
-- [ ] False positive reduction (learn from user feedback on anomalies)
-- [ ] Alerting and notification (notify security team of detected anomalies)
-
-**Files:**
-- `src/clarion/security/anomaly_detector.py`
-- `src/clarion/security/baseline_builder.py`
-- `src/clarion/integration/ise_quarantine.py`
-
-**Priority:** 🔴 High (Critical for Zero Trust security)  
-**Timeline:** 4-6 weeks  
-**Dependencies:** Baseline behavioral sketches, ISE integration, anomaly detection algorithms
 
 ---
-
-### Priority 2: Test Scenarios & Validation 🧪
 
 **Goal:** Build comprehensive test datasets representing different company types to validate categorization accuracy.
 
@@ -324,11 +290,13 @@ This document outlines the prioritized development plan for Clarion, focusing on
 - [ ] Performance benchmarks
 - [ ] Regression testing
 
-**Timeline:** 2 weeks
+**Timeline:** 2 weeks  
+**Priority:** 🟡 Medium (Important for validation, but not blocking)  
+**Dependencies:** Core clustering and policy generation
 
 ---
 
-### Priority 3: Robust UI Enhancement 🎨
+### Priority 3: UI Enhancement & User Experience 🎨
 
 **Goal:** Enhance the existing UI to be production-ready and user-friendly.
 
@@ -355,9 +323,9 @@ This document outlines the prioritized development plan for Clarion, focusing on
 
 ---
 
-### Priority 4: Native NetFlow Collectors 📡
+### Priority 4: Collectors & Data Sources 📡
 
-**Status:** ✅ Mostly Complete
+**Status:** ✅ Mostly Complete (Cisco NetFlow), Multi-vendor planned
 
 **Current State:**
 - NetFlow v5 fully implemented
@@ -368,10 +336,53 @@ This document outlines the prioritized development plan for Clarion, focusing on
 **Remaining Tasks:**
 - [ ] Production hardening
 - [ ] Performance optimization
+- [ ] **Cloud flow log collection** (AWS VPC Flow Logs, Azure NSG Flow Logs, GCP VPC Flow Logs)
+- [ ] **sFlow support** (Juniper, Arista)
 - [ ] Enhanced monitoring
 - [ ] Documentation
 
-**Timeline:** 1-2 weeks
+**Timeline:** 3-4 weeks (production hardening: 1-2 weeks, cloud flow logs: 2 weeks)  
+**Priority:** 🟡 Medium (Core functionality mostly complete, enhancements for multi-vendor)
+
+---
+
+### Priority 5: Advanced Features 🚀
+
+#### 5.1 Behavioral Anomaly Detection (Zero Trust Continuous Verification)
+
+**Status:** 📋 Planned
+
+**Goal:** Detect behavioral anomalies and trigger security responses (SGT quarantining) for Zero Trust continuous verification.
+
+**Tasks:**
+- [ ] Baseline behavioral sketches (establish "normal" behavior for each SGT)
+- [ ] Anomaly detection engine (detect deviations from normal behavior)
+- [ ] SGT Quarantining integration (trigger ISE quarantine events for anomalies)
+- [ ] Continuous verification (ongoing monitoring of SGT behavior)
+- [ ] Anomaly scoring (confidence scores for detected anomalies)
+- [ ] False positive reduction (learn from user feedback on anomalies)
+- [ ] Alerting and notification (notify security team of detected anomalies)
+
+**Priority:** 🔴 High (Critical for Zero Trust security)  
+**Timeline:** 4-6 weeks  
+**Dependencies:** Baseline behavioral sketches, ISE integration, anomaly detection algorithms
+
+#### 5.2 Multi-Vendor Connectors & Cloud Integration
+
+**Status:** 📋 Planned
+
+**Goal:** Expand connector support to multiple vendors and cloud platforms.
+
+**Tasks:**
+- [ ] **Multi-vendor connector framework** (pluggable adapters for various vendors)
+- [ ] **Cloud platform connectors** (AWS, Azure, GCP - flow logs, security groups, IAM)
+- [ ] **Additional network vendor connectors** (Aruba ClearPass, Palo Alto, Fortinet)
+- [ ] **Security vendor connectors** (SIEM, EDR/XDR, Identity providers)
+- [ ] **Multi-environment support** (Campus, Branch, WAN, Cloud, Data Centers)
+
+**Priority:** 🔴 High (Critical for multi-vendor vision)  
+**Timeline:** 12-16 weeks (framework: 4 weeks, connectors: 8-12 weeks)  
+**Dependencies:** Vault integration (Priority 0.5), PostgreSQL migration (Priority 0.6)
 
 ---
 
@@ -400,7 +411,7 @@ This document outlines the prioritized development plan for Clarion, focusing on
 
 ---
 
-### Priority 5: Edge Agent 🔄
+### Priority 6: Edge Agent 🔄
 
 **Status:** ⚠️ Basic implementation exists
 
@@ -415,13 +426,14 @@ This document outlines the prioritized development plan for Clarion, focusing on
 - [ ] Performance optimization
 - [ ] Error recovery
 
-**Timeline:** 2-3 weeks
+**Timeline:** 2-3 weeks  
+**Priority:** 🟡 Medium (Enhancement, not blocking)
 
 ---
 
 ## Development Timeline
 
-### Q1 2025 (Weeks 1-17)
+### Q1 2025 (Weeks 1-17) - Foundation & Core
 
 **Weeks 1-5: HashiCorp Vault Integration** 🔐 **CRITICAL - MUST COMPLETE FIRST**
 - Vault deployment and infrastructure
@@ -430,48 +442,59 @@ This document outlines the prioritized development plan for Clarion, focusing on
 - Application integration
 - Secret rotation and management
 
-**Weeks 6-9: Backend Core** ✅ **COMPLETED**
+**Weeks 2-5: PostgreSQL/TimescaleDB Migration** 🗄️ **Parallel with Vault (after Week 1)**
+- PostgreSQL deployment
+- TimescaleDB extension installation
+- Database schema migration
+- Hypertable creation
+- Data migration scripts
+- Performance optimization
+
+**Weeks 3-5: Basic Monitoring & Diagnostic Logging** 📊 **Parallel with Vault/DB**
+- Structured logging
+- Diagnostic endpoints
+- Container health updates
+- Edge agent health monitoring
+- Basic Prometheus metrics
+
+**Weeks 6-9: Backend Core Enhancements** ✅ **Mostly COMPLETED**
 - ✅ Incremental clustering - `IncrementalClusterer` implemented
 - ✅ First-seen tracking - Database fields and methods implemented
 - ✅ SGT lifecycle management - `SGTLifecycleManager` implemented
-- ✅ Database schema updates - All tables (sgt_registry, sgt_membership, cluster_centroids, etc.) implemented
+- ✅ Database schema updates - All tables implemented
 - ✅ Enhanced confidence scoring system - `ConfidenceScorer` implemented
 - ✅ Enhanced explainability system - `explanation.py` implemented
 - [ ] Quality assurance framework - **Remaining**
 - [ ] Edge case handling - **Remaining**
+- [ ] Cluster stability tracking - **Remaining**
 
-**Weeks 10-11: AI Integration** (⚠️ Requires Vault for API keys)
-- Architecture validation
-- LLM backend implementation
-- Local model support (Ollama)
-- Optional RAG
-- AI explainability framework
-- AI enhancement system (augments rule-based)
-- Override tracking and feedback loop
+**Weeks 10-13: Connectors & Identity** (⚠️ Requires Vault)
+- AD connector implementation (LDAP, user/group queries)
+- ISE pxGrid WebSocket/STOMP integration completion
+- Advanced AD Integration (WEF/WEC) investigation
+- User-device association resolution engine
 
-**Weeks 12-15: Test Scenarios**
+**Weeks 14-17: Identity Correlation & Enrichment** 🔗
+- Passive Identity Correlation (multi-source confidence scoring)
+- Identity Enrichment Framework
+- Cloud identity correlation
+- Cross-environment identity tracking
+
+### Q2 2025 (Weeks 18-29) - Policy & Multi-Vendor
+
+**Weeks 18-21: Policy Generation & Orchestration** 🎯
+- Enhanced TrustSec policy (impact analysis, stability tracking)
+- Brownfield "Least-Privilege" Delta Analysis
+- Unified Policy Model (vendor-agnostic representation)
+- Policy translation engine (TrustSec first, then multi-vendor)
+
+**Weeks 22-23: Test Scenarios & Validation** 🧪
 - Ground truth dataset creation
 - Validation framework
 - Testing across company types
 - Accuracy metrics
 
-**Weeks 16-17: UI Enhancement**
-- Real-time updates
-- Enhanced visualizations
-- AI controls/feedback
-
-### Q2 2025 (Weeks 18-29)
-
-**Weeks 18-19: Collectors & Agents**
-- NetFlow collector hardening
-- Edge agent optimization
-- Production deployment guides
-
-**Weeks 20-23: Data Layer**
-- PostgreSQL migration
-- Neo4j integration
-
-**Weeks 24-27: Multi-Source Ingestion & User Database** (⚠️ AD integration requires Vault for credentials)
+**Weeks 24-27: Multi-Vendor Expansion** 🌐
 - ✅ User database schema creation (completed)
 - ✅ User management (CRUD operations, API endpoints, UI)
 - ✅ User clustering (AD group-based and traffic-based clustering)
@@ -481,24 +504,39 @@ This document outlines the prioritized development plan for Clarion, focusing on
 - ✅ ISE configuration cache (store existing SGTs, profiles, policies)
 - ✅ Policy recommendation engine with brownfield support (check existing SGTs)
 - ✅ Containerization (Docker, docker-compose for API, pxGrid, frontend services)
-- [ ] ISE pxGrid WebSocket/STOMP integration (full real-time event reception - architecture in place)
-- [x] pxGrid certificate-based authentication (infrastructure implemented)
-- [ ] pxGrid certificate-based authentication testing (end-to-end validation needed)
-- [ ] **AD connector implementation** (LDAP connector, user/group queries, user database enrichment, AD group memberships storage, scheduled synchronization)
-- [ ] **🔍 Advanced AD Integration Architecture Investigation** (LDAP/LDAPS + DirSync for near-real-time AD mirror, WEF→WEC for Security log streaming, event correlation using stable identifiers)
-- [ ] **Connector information tabs** (Summary/Overview tabs for ISE, AD, and other connectors explaining purpose, capabilities, and usage)
-- [ ] User-device association resolution engine
 - [ ] **Multi-vendor connector framework** (pluggable adapters for various vendors)
 - [ ] **Cloud platform connectors** (AWS, Azure, GCP - flow logs, security groups, IAM)
 - [ ] **Additional network vendor connectors** (Aruba ClearPass, Palo Alto, Fortinet)
 - [ ] **Multi-environment support** (Campus, Branch, WAN, Cloud, Data Centers)
-- [ ] **Policy abstraction layer** (vendor-agnostic policy representation)
-- [ ] **Policy translation engine** (convert unified policy to vendor-specific formats)
+- [ ] Cloud flow log collection (AWS VPC Flow Logs, Azure NSG Flow Logs, GCP VPC Flow Logs)
+- [ ] sFlow support (Juniper, Arista)
 
-**Weeks 28-29: Integration & Testing**
+**Weeks 28-29: Advanced Features & Integration** 🚀
+- Behavioral Anomaly Detection (Zero Trust continuous verification)
+- AI Integration (⚠️ Requires Vault for API keys)
+- Multi-vendor policy deployment orchestration
 - End-to-end testing
 - Performance optimization
 - Bug fixes
+
+### Q3 2025 (Weeks 30+) - Production Readiness
+
+**Weeks 30-33: Production Infrastructure** 🔴
+- Authentication & Authorization (JWT-based, RBAC)
+- Security Hardening (rate limiting, SSL/TLS)
+- Neo4j Graph Integration (Blast Radius Analysis)
+- Full Monitoring & Observability (Grafana dashboards, alerting)
+- High Availability setup
+- CI/CD Pipeline
+- Database Backup/Recovery
+
+**Weeks 34+: UI Enhancement & Polish** 🎨
+- Real-time updates (WebSocket)
+- Enhanced visualizations
+- AI controls/feedback
+- Connector information tabs
+- Location-aware policy visualization
+- Performance optimization
 
 ---
 

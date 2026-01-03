@@ -805,51 +805,95 @@ Based on `PRIORITIZED_ROADMAP.md`, the recommended implementation order is:
    - Automated rotation
    - Versioning and rollback
 
+### Phase 0.6: PostgreSQL/TimescaleDB Migration (Weeks 2-5) 🗄️ **Parallel with Vault (after Week 1)**
+- PostgreSQL deployment
+- TimescaleDB extension installation
+- Database schema migration
+- Hypertable creation
+- Data migration scripts
+- Performance optimization
+
+### Phase 0.7: Basic Monitoring & Diagnostic Logging (Weeks 3-5) 📊 **Parallel with Vault/DB**
+- Structured logging
+- Diagnostic endpoints
+- Container health updates
+- Edge agent health monitoring
+- Basic Prometheus metrics
+
 ### Phase 1: Backend & Categorization (Weeks 6-10)
 1. **Incremental clustering & SGT lifecycle** (Weeks 6-9)
    - Enhanced confidence scoring system
    - Enhanced explainability system
    - Quality assurance framework
    - Edge case handling
-2. **AI integration** (Week 10, after Vault complete) ⚠️ **Requires Vault for API keys**
-   - AI explainability framework
-   - AI enhancement system (augments rule-based)
-   - Override tracking and feedback loop
+   - Cluster stability tracking
+2. **Streaming data processing** (Week 10)
+   - Real-time flow ingestion
+   - Incremental sketch updates
+   - Streaming clustering triggers
 
-### Phase 2: Testing & Validation (Weeks 11-14)
+### Phase 1.5: Connectors & Identity (Weeks 10-13) ⚠️ **Requires Vault**
+1. **AD connector implementation** (Weeks 10-11)
+   - LDAP connector, user/group queries
+   - User database enrichment
+   - AD group memberships storage
+   - Scheduled synchronization
+2. **ISE pxGrid completion** (Weeks 12-13)
+   - WebSocket/STOMP integration
+   - Certificate-based authentication testing
+   - User data ingestion from ISE
+   - Real-time synchronization
+
+### Phase 1.6: Identity Correlation & Enrichment (Weeks 14-17) 🔗
+- Passive Identity Correlation (multi-source confidence scoring)
+- Identity Enrichment Framework
+- Cloud identity correlation
+- Cross-environment identity tracking
+
+### Phase 2: Policy Generation & Orchestration (Weeks 18-21) 🎯
+1. **Enhanced TrustSec policy** (Weeks 18-19)
+   - Automated Policy Impact Analysis
+   - SGT Lifecycle & Stability Tracking
+   - Brownfield "Least-Privilege" Delta Analysis
+2. **Unified Policy Model & Translation** (Weeks 20-21)
+   - Policy abstraction layer
+   - Policy translation engine (TrustSec first)
+   - Multi-environment policy generation
+
+### Phase 2.5: Testing & Validation (Weeks 22-23)
 3. **Ground truth datasets** (Weeks 7-10)
 4. **Validation framework** (Week 10)
 
-### Phase 3: UI Enhancement (Weeks 15-16)
+### Phase 3: Multi-Vendor Expansion (Weeks 24-27) 🌐
+- Multi-vendor connector framework
+- Cloud platform connectors (AWS, Azure, GCP)
+- Additional network vendor connectors
+- Cloud flow log collection
+- sFlow support
+
+### Phase 4: Advanced Features (Weeks 28-29) 🚀
+- Behavioral Anomaly Detection
+- AI Integration (⚠️ Requires Vault for API keys)
+- Multi-vendor policy deployment orchestration
+
+### Phase 5: Production Infrastructure (Weeks 30-33) 🔴
+- Authentication & Authorization
+- Security Hardening
+- Neo4j Graph Integration
+- Full Monitoring & Observability
+- High Availability
+- CI/CD Pipeline
+
+### Phase 6: UI Enhancement & Polish (Weeks 34+) 🎨
 5. **UI improvements** (Weeks 11-12)
 
-### Phase 4: Collectors & Agents (Weeks 17-18)
 6. **Collector hardening** (Week 13)
 7. **Edge agent optimization** (Week 14)
 
-### Phase 5: Data Layer (Weeks 19-22)
 8. **PostgreSQL migration** (Weeks 15-16)
 9. **Neo4j integration** (Weeks 17-18)
 
-### Phase 6: Multi-Source Ingestion (Weeks 23-28) ⚠️ **AD integration requires Vault**
-10. **ISE pxGrid & User Database** (Weeks 23-25)
-    - User database schema (users, user_device_associations, ad_group_memberships tables)
-    - ISE pxGrid subscriber for session events
-    - User-device association tracking from ISE sessions
-    - Real-time user data ingestion
-    - Current ISE SGT assignment tracking
-11. **AD integration** (Week 26) ⚠️ **Requires Vault for LDAP credentials**
-    - LDAP connector for user details
-    - AD group membership queries
-    - User database enrichment with AD data
-    - AD group memberships storage
-12. **DNS resolution** (Week 27)
-13. **Correlation engine** (Week 28)
 
-### Phase 7: Production Readiness (Weeks 29-32)
-14. **Production deployment** (Week 29)
-15. **Monitoring & observability** (Week 30)
-16. **Performance optimization** (Weeks 31-32)
 
 ---
 
