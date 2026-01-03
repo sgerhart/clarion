@@ -1,12 +1,15 @@
 # Data Architecture & Analytics Layer
 
+> **⚠️ Important**: See [DATA_STRATEGY.md](DATA_STRATEGY.md) for the complete data strategy, including dual graph architecture, vector database integration, and configuration data handling.
+
 ## Overview
 
 Clarion requires a high-performance, scalable data architecture to handle:
 - **Edge graph merging** - Agents on switches use graphs that must merge with backend
 - **Multi-source ingestion** - NetFlow, agent flows, ISE pxGrid, AD, IoT solutions
 - **Time-series data** - Flow data is inherently temporal
-- **Graph relationships** - Device-to-device, user-to-device, policy relationships
+- **Dual graph relationships** - Flow graph (behavioral) and Topology graph (infrastructure)
+- **Vector embeddings** - RAG context for AI/LLM integration
 - **Correlation** - Cross-source data correlation for policy generation
 - **Scale** - Enterprise-scale data volumes (millions of flows/day)
 
@@ -307,14 +310,18 @@ This enables:
   - High write throughput
   - Time-based partitioning
 
-**2. Graph Database (Relationships)**
-- **Technology:** Neo4j or Amazon Neptune
-- **Purpose:** Device relationships, user-device mappings, policy graphs
+**2. Graph Database (Dual Graph Architecture)**
+- **Technology:** Neo4j
+- **Purpose:** Two distinct graph models:
+  - **Flow Graph**: Behavioral relationships (endpoints, users, SGTs, communication patterns)
+  - **Topology Graph**: Infrastructure relationships (devices, interfaces, connections, paths)
 - **Benefits:**
   - Native graph operations (merge, traverse)
-  - Edge agent graph merging
+  - Edge agent graph merging (Flow Graph)
   - Relationship queries
-  - Policy dependency graphs
+  - Attack path mapping (Topology Graph)
+  - Cross-graph correlation
+- **See [DATA_STRATEGY.md](DATA_STRATEGY.md) for detailed graph schema**
 
 **3. Relational Database (Metadata)**
 - **Technology:** PostgreSQL
@@ -324,7 +331,22 @@ This enables:
   - Complex joins
   - Structured data
 
-**4. Data Lake (Long-term Storage)**
+**4. Vector Database (RAG Context)**
+- **Technology:** Chroma (dev) / Qdrant (prod) / Pinecone (cloud)
+- **Purpose:** Store embeddings for AI/LLM context retrieval
+- **Data Stored:**
+  - Cluster descriptions
+  - Policy justifications
+  - Historical decisions
+  - Device configuration snippets
+  - Documentation
+- **Benefits:**
+  - Semantic search for RAG
+  - Similar pattern discovery
+  - AI agent context retrieval
+- **See [DATA_STRATEGY.md](DATA_STRATEGY.md) for vector DB strategy**
+
+**5. Data Lake (Long-term Storage)**
 - **Technology:** S3 + Parquet or Delta Lake
 - **Purpose:** Historical data, analytics, ML training
 - **Benefits:**

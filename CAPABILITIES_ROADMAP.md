@@ -178,7 +178,21 @@ This document provides a comprehensive, cohesive roadmap of all Clarion capabili
 **Timeline:** 6-8 weeks (enhanced with network topology and attack path features)  
 **Dependencies:** PostgreSQL migration (Priority 0.6), Device discovery (4.5), Network topology (4.6)
 
-#### 2.3 Data Persistence & Buffering
+#### 2.3 Vector Database (RAG Context)
+- [ ] **Vector database deployment** (Chroma for dev, Qdrant for prod)
+- [ ] **Embedding generation** (cluster descriptions, policy justifications, configs)
+- [ ] **RAG context builder** (retrieve relevant context for AI agents)
+- [ ] **Semantic search** (find similar clusters, policies, configurations)
+- [ ] **Configuration embeddings** (store device config snippets with embeddings)
+- [ ] **Historical decision storage** (store past decisions with context for learning)
+
+**Status:** 📋 Planned  
+**Priority:** 🔴 High (Required for AI integration)  
+**Timeline:** 3-4 weeks  
+**Dependencies:** AI backend infrastructure, embedding model selection  
+**See:** [DATA_STRATEGY.md](docs/DATA_STRATEGY.md) for complete vector database strategy
+
+#### 2.4 Data Persistence & Buffering
 - [ ] **Redis integration** (for buffering/caching)
 - [ ] **Kafka integration** (optional, for high-volume streaming)
 - [ ] **Data loss prevention** (persistent queues)
