@@ -990,6 +990,10 @@ Multi-Source Ingestion
 
 Network Topology
   ├─> Location Hierarchy (foundation)
+  ├─> Device Management (switches, routers, firewalls)
+  ├─> Device Discovery (SNMP, API, config parsing) - requires Vault for credentials
+  ├─> Network Topology Graph (requires Neo4j, device discovery)
+  ├─> Attack Path Mapping (requires topology graph, policy data)
   ├─> Flow Location Correlation (requires topology)
   └─> Topology Builder UI (requires API)
 
