@@ -164,31 +164,78 @@ This document outlines the prioritized development plan for Clarion, focusing on
 
 ---
 
-### Priority 0.8: Neo4j Graph Database Integration 🕸️ **Required for Network Topology**
+### Priority 0.8: Neo4j Graph Database Integration 🕸️ **Dual Graph Architecture**
 
-**Goal:** Deploy Neo4j for relationship storage and graph-based analysis (user-device-app relationships, network topology graph, attack path mapping).
+**Goal:** Deploy Neo4j with dual graph architecture for both behavioral relationships and network topology.
 
-**Status:** ❌ Not Started - Required for Network Topology
+**Status:** ❌ Not Started - Required for Network Topology and Flow Analysis
 
 **Why This Priority:**
 - Network Topology (Priority 2.6) requires graph database for device connection graph
+- Flow analysis requires graph for behavioral relationships
 - Attack path mapping requires graph queries
 - Blast radius analysis requires graph traversal
 - Should be deployed before Network Topology work begins
 
 **Tasks:**
+
+**Graph 1: Flow Graph (Behavioral Relationships)**
 - [ ] Neo4j deployment (Docker container or managed service)
-- [ ] Graph schema design (nodes, edges, properties)
+- [ ] Flow Graph schema design (Endpoint, User, Service, Cluster, SGT nodes)
+- [ ] Flow Graph edges (FLOWS_TO, ASSIGNED_TO, MEMBER_OF, TAGGED_WITH, COMMUNICATES_WITH)
 - [ ] User → Device → App relationship graph
-- [ ] SGT relationship graph
-- [ ] Network topology graph (device nodes, connection edges)
-- [ ] Graph queries (traversal, relationship queries, path finding)
+- [ ] SGT relationship graph (SGT-to-SGT communication patterns)
+- [ ] Edge agent graph merging (merge local graphs into global Flow Graph)
+- [ ] Flow Graph queries (traversal, relationship queries, blast radius analysis)
+
+**Graph 2: Topology Graph (Infrastructure Relationships)**
+- [ ] Topology Graph schema design (Device, Interface, Subnet, VLAN, Zone, Location nodes)
+- [ ] Topology Graph edges (CONNECTED_TO, HAS_INTERFACE, CONNECTED_VIA, ROUTES_TO, LOCATED_AT, ENFORCES_POLICY)
+- [ ] Network topology graph (device nodes, connection edges, interface relationships)
+- [ ] Topology Graph queries (path finding, attack path mapping, policy gap detection)
+- [ ] Cross-graph correlation (Flow Graph ↔ Topology Graph)
+
+**Common:**
 - [ ] Graph visualization (in UI)
+- [ ] Graph query API endpoints
+- [ ] Graph performance optimization
 
 **Priority:** 🔴 High  
-**Timeline:** 3-4 weeks (Weeks 18-21, before Network Topology)  
+**Timeline:** 4-5 weeks (Weeks 18-22, before Network Topology)  
 **Dependencies:** PostgreSQL migration (Priority 0.6)  
+**See:** [DATA_STRATEGY.md](docs/DATA_STRATEGY.md) for complete dual graph architecture  
 **Note:** Should be deployed before Network Topology (Priority 2.6) work begins. Can run parallel with Policy Generation (Priority 2).
+
+---
+
+### Priority 0.9: Vector Database Integration 🔍 **Required for AI/RAG**
+
+**Goal:** Deploy vector database for RAG (Retrieval-Augmented Generation) context storage and semantic search.
+
+**Status:** ❌ Not Started - Required for AI Integration
+
+**Why This Priority:**
+- AI integration (Priority 1.2) requires vector database for RAG context
+- Configuration analysis requires semantic search across vendor configs
+- Similar pattern discovery (clusters, policies) requires embeddings
+- Should be deployed before AI integration work begins
+
+**Tasks:**
+- [ ] Vector database selection and deployment (Chroma for dev, Qdrant for prod)
+- [ ] Embedding model selection and integration (sentence-transformers, OpenAI embeddings)
+- [ ] Cluster description storage (store cluster descriptions with embeddings)
+- [ ] Policy justification storage (store policy justifications with embeddings)
+- [ ] Configuration snippet storage (store device config snippets with embeddings)
+- [ ] Historical decision storage (store past decisions with context)
+- [ ] RAG context builder (retrieve relevant context for AI agents)
+- [ ] Semantic search API (find similar clusters, policies, configurations)
+- [ ] Vector database performance optimization
+
+**Priority:** 🔴 High (Required for AI integration)  
+**Timeline:** 2-3 weeks (Weeks 20-22, parallel with Neo4j)  
+**Dependencies:** AI backend infrastructure (Priority 1.2), embedding model selection  
+**See:** [DATA_STRATEGY.md](docs/DATA_STRATEGY.md) for complete vector database strategy  
+**Note:** Can run parallel with Neo4j (Priority 0.8). Required before AI integration (Priority 1.2) can begin.
 
 ---
 
@@ -288,12 +335,12 @@ This document outlines the prioritized development plan for Clarion, focusing on
 
 **Dependencies:**
 - ✅ **Vault integration complete** (API keys must be stored in Vault, not database)
+- ✅ **Vector database (Priority 0.9) - Required for RAG context**
 - Verify architecture can support local models before implementation
 - Ensure optional nature (can disable AI completely)
 - AI must enhance, not replace rule-based logic
 - LangChain for orchestration
 - LlamaIndex for RAG (optional)
-- Vector database (Chroma/Qdrant) for RAG (optional)
 
 **Architecture:** See `docs/AI_ENHANCED_ARCHITECTURE.md` for comprehensive design
 
@@ -641,20 +688,21 @@ This document outlines the prioritized development plan for Clarion, focusing on
 
 ### Q2 2025 (Weeks 18-29) - Policy & Multi-Vendor
 
-**Weeks 18-21: Graph Database & Policy Generation** 🕸️🎯
-- Neo4j Graph Integration (Priority 0.8) - **Required before Network Topology**
+**Weeks 18-22: Graph Database, Vector DB & Policy Generation** 🕸️🔍🎯
+- Neo4j Graph Integration (Priority 0.8) - **Dual Graph Architecture (Flow Graph + Topology Graph)**
+- Vector Database Integration (Priority 0.9) - **Required for AI/RAG**
 - Enhanced TrustSec policy (impact analysis, stability tracking)
 - Brownfield "Least-Privilege" Delta Analysis
 - Unified Policy Model (vendor-agnostic representation)
 - Policy translation engine (TrustSec first, then multi-vendor)
 
-**Weeks 26-27: Test Scenarios & Validation** 🧪
+**Weeks 27-28: Test Scenarios & Validation** 🧪
 - Ground truth dataset creation
 - Validation framework
 - Testing across company types
 - Accuracy metrics
 
-**Weeks 28-31: Multi-Vendor Expansion** 🌐
+**Weeks 29-32: Multi-Vendor Expansion** 🌐
 - ✅ User database schema creation (completed)
 - ✅ User management (CRUD operations, API endpoints, UI)
 - ✅ User clustering (AD group-based and traffic-based clustering)
@@ -671,7 +719,7 @@ This document outlines the prioritized development plan for Clarion, focusing on
 - [ ] Cloud flow log collection (AWS VPC Flow Logs, Azure NSG Flow Logs, GCP VPC Flow Logs)
 - [ ] sFlow support (Juniper, Arista)
 
-**Weeks 32-33: Advanced Features & Integration** 🚀
+**Weeks 33-34: Advanced Features & Integration** 🚀
 - Behavioral Anomaly Detection (Zero Trust continuous verification)
 - AI Integration (⚠️ Requires Vault for API keys)
 - Multi-vendor policy deployment orchestration
@@ -681,7 +729,7 @@ This document outlines the prioritized development plan for Clarion, focusing on
 
 ### Q3 2025 (Weeks 34+) - Production Readiness
 
-**Weeks 34-37: Production Infrastructure** 🔴
+**Weeks 35-38: Production Infrastructure** 🔴
 - Authentication & Authorization (JWT-based, RBAC)
 - Security Hardening (rate limiting, SSL/TLS)
 - Full Monitoring & Observability (Grafana dashboards, alerting)
@@ -689,7 +737,7 @@ This document outlines the prioritized development plan for Clarion, focusing on
 - CI/CD Pipeline
 - Database Backup/Recovery
 
-**Weeks 38+: UI Enhancement & Polish** 🎨
+**Weeks 39+: UI Enhancement & Polish** 🎨
 - Real-time updates (WebSocket)
 - Enhanced visualizations
 - AI controls/feedback
