@@ -232,37 +232,6 @@ See exactly which users or devices would be denied if you change a "Permit" to "
 
 ---
 
-## 🚀 Quick Start
-
-### Complete System Demo
-
-```bash
-# Terminal 1: Start backend API
-python scripts/run_api.py --port 8000
-
-# Terminal 2: Start React frontend
-cd frontend
-npm install  # First time only
-npm run dev
-```
-
-Then open **http://localhost:3000** in your browser.
-
-**See [QUICK_START.md](QUICK_START.md) for detailed instructions.**
-
-### Docker Compose (Recommended)
-
-```bash
-docker-compose up -d
-```
-
-Access:
-- **Frontend**: http://localhost:3000
-- **API**: http://localhost:8000
-- **API Docs**: http://localhost:8000/api/docs
-
----
-
 ## 📁 Project Structure
 
 ```
