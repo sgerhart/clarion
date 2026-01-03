@@ -31,7 +31,7 @@ Modern networks span **campus, branch, WAN, cloud, and data centers** with **mul
 ## ✨ What Makes Clarion Different?
 
 ### 🧠 **Intelligent Discovery**
-Clarion uses **unsupervised machine learning** to automatically discover endpoint behavior patterns from network flows. No manual classification required—the system learns what devices actually do, not what you think they should do.
+Clarion uses **machine learning** to automatically discover endpoint behavior patterns from network flows. No manual classification required—the system learns what devices actually do, not what you think they should do.
 
 ### 🌐 **Multi-Vendor, Multi-Environment**
 **Not just TrustSec.** Clarion orchestrates policy across:
@@ -46,7 +46,7 @@ Build a comprehensive graph of your network infrastructure—switches, routers, 
 Generate policies based on **observed traffic patterns**, not assumptions. See exactly what would be denied if you change a "Permit" to "Deny" with automated impact analysis.
 
 ### 🎯 **Identity-Aware Segmentation**
-Correlate network flows with identity data (ISE pxGrid, Active Directory, cloud IAM) to build **high-fidelity identity context** for accurate policy recommendations.
+Correlate network flows with identity data to build **high-fidelity identity context** for accurate policy recommendations.
 
 ### 🚀 **Scale-First Architecture**
 **Edge processing** compresses flows to behavioral sketches on-switch, eliminating central bottlenecks. Handle enterprise-scale traffic with **O(endpoints) memory**, not O(flows).
@@ -62,7 +62,7 @@ Optional AI/LLM integration provides:
 
 ## 🏗️ Architecture
 
-Clarion uses a **distributed, scale-first architecture** that processes data at the edge:
+Clarion uses a **distributed, scale-first architecture** that processes data at the edge. Cisco Example:
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
