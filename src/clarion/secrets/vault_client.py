@@ -3,24 +3,67 @@ HashiCorp Vault Client Wrapper
 
 Provides a Python interface for interacting with HashiCorp Vault.
 Handles authentication, secret storage/retrieval, and error handling.
+Includes connection pooling, retry logic, and comprehensive error handling.
 """
 import logging
 import time
-from typing import Optional, Dict, Any, List
+from typing import Optional, Dict, Any, List, Callable
 from pathlib import Path
+from functools import wraps
+import threading
 
 try:
     import hvac
-    from hvac.exceptions import VaultError
+    from hvac.exceptions import VaultError, InvalidRequest, InvalidPath
     HVAC_AVAILABLE = True
 except ImportError:
     HVAC_AVAILABLE = False
     hvac = None
     VaultError = Exception
+    InvalidRequest = Exception
+    InvalidPath = Exception
 
 from clarion.secrets.config import VaultConfig
 
 logger = logging.getLogger(__name__)
+
+
+def retry_on_failure(max_retries: int = 3, backoff_factor: float = 1.0, exceptions: tuple = (VaultError,)):
+    """
+    Decorator for retrying Vault operations on failure.
+    
+    Args:
+        max_retries: Maximum number of retry attempts
+        backoff_factor: Multiplier for exponential backoff
+        exceptions: Tuple of exceptions to catch and retry
+    """
+    def decorator(func: Callable) -> Callable:
+        @wraps(func)
+        def wrapper(self, *args, **kwargs):
+            last_exception = None
+            for attempt in range(max_retries):
+                try:
+                    return func(self, *args, **kwargs)
+                except exceptions as e:
+                    last_exception = e
+                    if attempt < max_retries - 1:
+                        wait_time = backoff_factor * (2 ** attempt)
+                        logger.warning(
+                            f"Vault operation failed (attempt {attempt + 1}/{max_retries}): {e}. "
+                            f"Retrying in {wait_time}s..."
+                        )
+                        time.sleep(wait_time)
+                        # Re-authenticate if token might be expired
+                        if hasattr(self, '_authenticate'):
+                            try:
+                                self._authenticate()
+                            except Exception as auth_error:
+                                logger.error(f"Re-authentication failed: {auth_error}")
+                    else:
+                        logger.error(f"Vault operation failed after {max_retries} attempts: {e}")
+            raise last_exception
+        return wrapper
+    return decorator
 
 
 class VaultClient:
@@ -29,7 +72,10 @@ class VaultClient:
     
     Provides methods for storing and retrieving secrets from Vault.
     Supports both token and AppRole authentication.
+    Includes connection pooling, retry logic, and comprehensive error handling.
     """
+    
+    _lock = threading.Lock()  # Thread-safe client access
     
     def __init__(self, config: Optional[VaultConfig] = None):
         """
@@ -45,41 +91,79 @@ class VaultClient:
             )
         
         self.config = config or VaultConfig.from_env()
-        self.client = hvac.Client(url=self.config.address)
+        self._client = None
+        self._last_auth_time = 0
+        self._auth_token_ttl = 3600  # Assume 1 hour TTL, will be updated from Vault
         
-        # Set namespace if provided
-        if self.config.namespace:
-            self.client.adapter.namespace = self.config.namespace
-        
-        # Authenticate
-        self._authenticate()
-        
-        # Verify connection
-        if not self.client.is_authenticated():
-            raise ConnectionError("Failed to authenticate with Vault")
+        # Initialize client
+        self._initialize_client()
         
         logger.info(f"Vault client initialized: {self.config.address}")
     
+    def _initialize_client(self):
+        """Initialize and authenticate Vault client."""
+        with self._lock:
+            self._client = hvac.Client(
+                url=self.config.address,
+                timeout=self.config.timeout,
+                verify=self.config.verify
+            )
+            
+            # Set namespace if provided
+            if self.config.namespace:
+                self._client.adapter.namespace = self.config.namespace
+            
+            # Authenticate
+            self._authenticate()
+            
+            # Verify connection
+            if not self._client.is_authenticated():
+                raise ConnectionError("Failed to authenticate with Vault")
+    
+    @property
+    def client(self):
+        """Get Vault client, re-authenticating if token expired."""
+        # Check if token might be expired (simple heuristic)
+        if time.time() - self._last_auth_time > (self._auth_token_ttl * 0.8):
+            try:
+                if not self._client.is_authenticated():
+                    logger.info("Vault token expired, re-authenticating...")
+                    self._authenticate()
+            except Exception as e:
+                logger.warning(f"Token check failed, re-authenticating: {e}")
+                self._authenticate()
+        
+        return self._client
+    
     def _authenticate(self):
         """Authenticate with Vault using token or AppRole."""
-        if self.config.token:
-            self.client.token = self.config.token
-            logger.debug("Authenticated with Vault using token")
-        elif self.config.role_id and self.config.secret_id:
-            try:
-                response = self.client.auth.approle.login(
-                    role_id=self.config.role_id,
-                    secret_id=self.config.secret_id
+        with self._lock:
+            if self.config.token:
+                self._client.token = self.config.token
+                logger.debug("Authenticated with Vault using token")
+                self._last_auth_time = time.time()
+            elif self.config.role_id and self.config.secret_id:
+                try:
+                    response = self._client.auth.approle.login(
+                        role_id=self.config.role_id,
+                        secret_id=self.config.secret_id
+                    )
+                    self._client.token = response['auth']['client_token']
+                    self._last_auth_time = time.time()
+                    
+                    # Update token TTL from response
+                    if 'lease_duration' in response.get('auth', {}):
+                        self._auth_token_ttl = response['auth']['lease_duration']
+                    
+                    logger.debug(f"Authenticated with Vault using AppRole (TTL: {self._auth_token_ttl}s)")
+                except VaultError as e:
+                    raise ConnectionError(f"Failed to authenticate with Vault using AppRole: {e}")
+            else:
+                raise ValueError(
+                    "Either VAULT_TOKEN or VAULT_ROLE_ID/VAULT_SECRET_ID must be provided"
                 )
-                self.client.token = response['auth']['client_token']
-                logger.debug("Authenticated with Vault using AppRole")
-            except VaultError as e:
-                raise ConnectionError(f"Failed to authenticate with Vault using AppRole: {e}")
-        else:
-            raise ValueError(
-                "Either VAULT_TOKEN or VAULT_ROLE_ID/VAULT_SECRET_ID must be provided"
-            )
     
+    @retry_on_failure(max_retries=2, backoff_factor=0.5)
     def health_check(self) -> Dict[str, Any]:
         """
         Check Vault health.
@@ -94,6 +178,8 @@ class VaultClient:
                 "initialized": health.get("initialized", False),
                 "sealed": health.get("sealed", False),
                 "standby": health.get("standby", False),
+                "server_time_utc": health.get("server_time_utc"),
+                "version": health.get("version"),
             }
         except Exception as e:
             logger.error(f"Vault health check failed: {e}")
@@ -102,6 +188,7 @@ class VaultClient:
                 "error": str(e)
             }
     
+    @retry_on_failure(max_retries=3, backoff_factor=1.0)
     def write_secret(
         self,
         path: str,
@@ -130,10 +217,15 @@ class VaultClient:
             )
             logger.debug(f"Secret written to {mount}/{path}")
             return True
+        except InvalidRequest as e:
+            # Don't retry on invalid requests (e.g., bad data format)
+            logger.error(f"Invalid request writing secret to {mount}/{path}: {e}")
+            raise
         except VaultError as e:
             logger.error(f"Failed to write secret to {mount}/{path}: {e}")
             raise
     
+    @retry_on_failure(max_retries=3, backoff_factor=1.0)
     def read_secret(
         self,
         path: str,
@@ -157,6 +249,10 @@ class VaultClient:
                 mount_point=mount
             )
             return response.get('data', {}).get('data', {})
+        except InvalidPath as e:
+            # Path doesn't exist - not an error, just return None
+            logger.debug(f"Secret not found at {mount}/{path}")
+            return None
         except VaultError as e:
             if 'not found' in str(e).lower() or '404' in str(e):
                 logger.debug(f"Secret not found at {mount}/{path}")
@@ -164,6 +260,7 @@ class VaultClient:
             logger.error(f"Failed to read secret from {mount}/{path}: {e}")
             raise
     
+    @retry_on_failure(max_retries=3, backoff_factor=1.0)
     def delete_secret(
         self,
         path: str,
@@ -188,6 +285,10 @@ class VaultClient:
             )
             logger.debug(f"Secret deleted from {mount}/{path}")
             return True
+        except InvalidPath as e:
+            # Path doesn't exist - consider it already deleted
+            logger.debug(f"Secret not found at {mount}/{path} (already deleted)")
+            return True
         except VaultError as e:
             if 'not found' in str(e).lower() or '404' in str(e):
                 logger.debug(f"Secret not found at {mount}/{path} (already deleted)")
@@ -195,6 +296,7 @@ class VaultClient:
             logger.error(f"Failed to delete secret from {mount}/{path}: {e}")
             raise
     
+    @retry_on_failure(max_retries=2, backoff_factor=0.5)
     def list_secrets(
         self,
         path: str = "",
@@ -218,6 +320,9 @@ class VaultClient:
                 mount_point=mount
             )
             return response.get('data', {}).get('keys', [])
+        except InvalidPath as e:
+            # Path doesn't exist - return empty list
+            return []
         except VaultError as e:
             if 'not found' in str(e).lower() or '404' in str(e):
                 return []
