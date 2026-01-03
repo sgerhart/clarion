@@ -29,6 +29,7 @@ from clarion.api.routes import (
     pxgrid,
     connectors,
     certificates,
+    vault,
 )
 from clarion.storage import init_database
 import os
@@ -91,6 +92,7 @@ def create_app() -> FastAPI:
     app.include_router(pxgrid.router, prefix="/api", tags=["pxGrid"])
     app.include_router(connectors.router, prefix="/api", tags=["Connectors"])
     app.include_router(certificates.router, prefix="/api", tags=["Certificates"])
+    app.include_router(vault.router, prefix="/api", tags=["Vault"])
     
     @app.exception_handler(Exception)
     async def global_exception_handler(request, exc):

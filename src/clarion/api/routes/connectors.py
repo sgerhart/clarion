@@ -23,11 +23,25 @@ router = APIRouter()
 
 def load_pxgrid_certificates(conn, connector_id: str = 'ise_pxgrid'):
     """
-    Load certificate data from database for pxGrid connector.
+    Load certificate data from Vault (preferred) or database (fallback) for pxGrid connector.
     
     Returns:
         tuple: (client_cert_data, client_key_data, ca_cert_data) as bytes or None
     """
+    # Try Vault first
+    try:
+        from clarion.secrets.helpers import load_certificates_from_vault
+        certs = load_certificates_from_vault(connector_id)
+        if certs and any(certs):
+            client_cert_data, client_key_data, ca_cert_data = certs
+            if client_cert_data or client_key_data or ca_cert_data:
+                logger.info(f"Loaded certificates for {connector_id} from Vault")
+                return client_cert_data, client_key_data, ca_cert_data
+    except Exception as e:
+        logger.debug(f"Could not load certificates from Vault: {e}")
+    
+    # Fallback to database
+    logger.debug(f"Falling back to database for certificates for {connector_id}")
     client_cert_data = None
     client_key_data = None
     ca_cert_data = None
@@ -382,22 +396,58 @@ async def configure_connector(connector_id: str, request: ConnectorConfigRequest
         """, (connector_id,))
         exists = cursor.fetchone() is not None
         
-        # For pxGrid, if username matches client_name, ensure we're using client credentials
-        if connector_id == 'ise_pxgrid' and request.config:
-            config = request.config
-            username = config.get('username', '')
-            client_name = config.get('client_name', '')
-            password = config.get('password', '')
+        # Store credentials in Vault if provided
+        if request.config:
+            config = request.config.copy()  # Work with a copy
             
-            # If username matches client_name, this is client credentials - ensure username is set correctly
-            if username == client_name and password:
-                logger.info(f"pxGrid configuration: username matches client_name - using client credentials")
-                logger.info(f"  username: {username}, client_name: {client_name}, password_length: {len(password)}")
-                # Ensure username is set to client_name (should already be, but double-check)
-                config['username'] = client_name
-            elif username != client_name and password:
-                logger.info(f"pxGrid configuration: username != client_name - using ISE admin credentials for new client creation")
-                logger.info(f"  username: {username}, client_name: {client_name}, password_length: {len(password)}")
+            # Extract credentials for Vault storage
+            username = config.get('username', '')
+            password = config.get('password', '')
+            hostname = config.get('ise_hostname') or config.get('ise_url', '')
+            
+            # Store credentials in Vault if password is provided
+            if password:
+                from clarion.secrets.helpers import store_connector_credentials_to_vault
+                
+                # Prepare additional fields for Vault
+                vault_data = {}
+                if hostname:
+                    vault_data['hostname'] = hostname
+                
+                # Copy other non-sensitive config fields
+                for key, value in config.items():
+                    if key not in ['username', 'password'] and not key.startswith('_'):
+                        vault_data[key] = value
+                
+                # Store in Vault
+                if store_connector_credentials_to_vault(
+                    connector_id=connector_id,
+                    username=username,
+                    password=password,
+                    **vault_data
+                ):
+                    logger.info(f"Stored credentials for {connector_id} in Vault")
+                    # Remove password from config (keep in Vault only)
+                    config.pop('password', None)
+                    config['vault_path'] = f"connectors/{connector_id}"
+                else:
+                    logger.warning(f"Failed to store credentials in Vault for {connector_id}, keeping in database")
+            
+            # For pxGrid, if username matches client_name, ensure we're using client credentials
+            if connector_id == 'ise_pxgrid':
+                client_name = config.get('client_name', '')
+                
+                # If username matches client_name, this is client credentials - ensure username is set correctly
+                if username == client_name:
+                    logger.info(f"pxGrid configuration: username matches client_name - using client credentials")
+                    logger.info(f"  username: {username}, client_name: {client_name}")
+                    # Ensure username is set to client_name (should already be, but double-check)
+                    config['username'] = client_name
+                elif username != client_name:
+                    logger.info(f"pxGrid configuration: username != client_name - using ISE admin credentials for new client creation")
+                    logger.info(f"  username: {username}, client_name: {client_name}")
+            
+            request.config = config  # Update with modified config
         
         config_json = json.dumps(request.config) if request.config else None
         
@@ -490,15 +540,27 @@ async def enable_connector(connector_id: str):
             try:
                 from clarion.integration.ise_client import ISEClient, ISEAuthenticationError
                 
+                # Load credentials from Vault (preferred) or database (fallback)
+                from clarion.secrets.helpers import load_connector_credentials_from_vault
+                
+                vault_creds = load_connector_credentials_from_vault(connector_id)
+                
                 ise_url = config.get('ise_url')
                 ise_username = config.get('ise_username')
                 ise_password = config.get('ise_password')
                 verify_ssl = config.get('verify_ssl', False)
                 
+                # Use Vault credentials if available
+                if vault_creds:
+                    ise_username = vault_creds.get('username') or ise_username
+                    ise_password = vault_creds.get('password') or ise_password
+                    ise_url = vault_creds.get('hostname') or vault_creds.get('ise_url') or ise_url
+                    logger.info(f"Loaded ISE ERS credentials from Vault for enable: {connector_id}")
+                
                 if not ise_url or not ise_username or not ise_password:
                     raise HTTPException(
                         status_code=400,
-                        detail=f"Missing required ISE configuration: ise_url, ise_username, and ise_password are required"
+                        detail=f"Missing required ISE configuration: ise_url, ise_username, and ise_password are required (check Vault or database)"
                     )
                 
                 # Test connection using saved credentials
@@ -554,33 +616,58 @@ async def enable_connector(connector_id: str):
                 verify_ssl = config.get('verify_ssl', False)
                 auth_method = config.get('auth_method', 'username_password')
                 
-                # For enable, determine which credentials to use:
-                # - If stored_username == client_name: We have client credentials (client already exists)
-                # - If stored_username != client_name: We have ISE admin credentials (use to create client)
+                # Load credentials from Vault (preferred) or database (fallback)
+                from clarion.secrets.helpers import load_connector_credentials_from_vault
+                
+                vault_creds = load_connector_credentials_from_vault(connector_id)
                 stored_username = config.get('username', '')
                 stored_password = config.get('password', '')
                 
-                if stored_username == client_name and stored_password:
-                    # We have client credentials stored - client already exists, use client credentials
-                    username = client_name
-                    password = stored_password
-                    logger.info(f"Using stored client credentials for enable (client exists): username={client_name}, password_length={len(password)}")
-                elif stored_username and stored_username != client_name and stored_password:
-                    # We have ISE admin credentials stored - use them to create the client
-                    username = stored_username
-                    password = stored_password
-                    logger.info(f"Using stored ISE admin credentials for enable (will create client): username={username}, password_length={len(password)}")
-                elif stored_password:
-                    # We have a password but unclear username - assume it's ISE admin credentials for new client
-                    # This handles edge cases where username might not be set correctly
-                    username = stored_username if stored_username else 'admin'  # Default to 'admin' if not set
-                    password = stored_password
-                    logger.info(f"Using stored credentials for enable (assuming ISE admin for new client): username={username}, password_length={len(password)}")
+                # Use Vault credentials if available, otherwise use database
+                if vault_creds:
+                    vault_username = vault_creds.get('username', '')
+                    vault_password = vault_creds.get('password', '')
+                    logger.info(f"Loaded credentials from Vault for {connector_id}")
+                    
+                    # Determine which credentials to use based on username
+                    if vault_username == client_name and vault_password:
+                        # Client credentials from Vault
+                        username = client_name
+                        password = vault_password
+                        logger.info(f"Using client credentials from Vault (client exists): username={client_name}, password_length={len(password)}")
+                    elif vault_username and vault_username != client_name and vault_password:
+                        # ISE admin credentials from Vault
+                        username = vault_username
+                        password = vault_password
+                        logger.info(f"Using ISE admin credentials from Vault (will create client): username={username}, password_length={len(password)}")
+                    else:
+                        # Use what we have
+                        username = vault_username
+                        password = vault_password
                 else:
-                    # No stored credentials - use empty (will fail validation)
-                    username = stored_username
-                    password = stored_password
-                    logger.warning(f"No stored credentials found in database config")
+                    # Fallback to database credentials
+                    logger.debug(f"No Vault credentials found, using database credentials for {connector_id}")
+                    
+                    if stored_username == client_name and stored_password:
+                        # We have client credentials stored - client already exists, use client credentials
+                        username = client_name
+                        password = stored_password
+                        logger.info(f"Using stored client credentials from database (client exists): username={client_name}, password_length={len(password)}")
+                    elif stored_username and stored_username != client_name and stored_password:
+                        # We have ISE admin credentials stored - use them to create the client
+                        username = stored_username
+                        password = stored_password
+                        logger.info(f"Using stored ISE admin credentials from database (will create client): username={username}, password_length={len(password)}")
+                    elif stored_password:
+                        # We have a password but unclear username - assume it's ISE admin credentials for new client
+                        username = stored_username if stored_username else 'admin'  # Default to 'admin' if not set
+                        password = stored_password
+                        logger.info(f"Using stored credentials from database (assuming ISE admin for new client): username={username}, password_length={len(password)}")
+                    else:
+                        # No stored credentials - use empty (will fail validation)
+                        username = stored_username
+                        password = stored_password
+                        logger.warning(f"No stored credentials found in database config or Vault")
                 
                 # Check if certificates are assigned (for certificate auth)
                 has_client_cert = False
@@ -650,13 +737,24 @@ async def enable_connector(connector_id: str):
                     is_connected = client.connect()
                     logger.info(f"pxGrid client.connect() returned: {is_connected}")
                     
-                    # CRITICAL: ALWAYS update config with bootstrap password if ISE returned one
+                    # CRITICAL: ALWAYS store bootstrap password in Vault (and database for reference) if ISE returned one
                     # This is the client password that ISE generated - we MUST store it immediately for future use
-                    # The bootstrap_password is set in _create_account() when AccountCreate succeeds
                     if client.bootstrap_password:
-                        logger.info(f"✅ Bootstrap password received from ISE during enable, storing in database IMMEDIATELY (length: {len(client.bootstrap_password)})")
-                        config['password'] = client.bootstrap_password
+                        logger.info(f"✅ Bootstrap password received from ISE during enable, storing in Vault IMMEDIATELY (length: {len(client.bootstrap_password)})")
+                        
+                        # Store in Vault (preferred)
+                        from clarion.secrets.helpers import store_connector_credentials_to_vault
+                        store_connector_credentials_to_vault(
+                            connector_id=connector_id,
+                            username=client_name,
+                            password=client.bootstrap_password,
+                            hostname=ise_hostname
+                        )
+                        
+                        # Update database config (remove password, add vault_path reference)
+                        config.pop('password', None)  # Remove password from config
                         config['username'] = client_name  # Use client_name as username for client credentials
+                        config['vault_path'] = f"connectors/{connector_id}"  # Reference to Vault path
                         config_json = json.dumps(config)
                         conn.execute("""
                             UPDATE connectors
@@ -664,7 +762,7 @@ async def enable_connector(connector_id: str):
                             WHERE connector_id = ?
                         """, (config_json, connector_id))
                         conn.commit()
-                        logger.info(f"✅ Bootstrap password stored in database - this is now the client password for '{client_name}'")
+                        logger.info(f"✅ Bootstrap password stored in Vault and database updated with vault_path reference")
                     else:
                         logger.warning(f"⚠️  No bootstrap password received from ISE - client may already exist or account creation failed")
                     
@@ -683,16 +781,28 @@ async def enable_connector(connector_id: str):
                     error_msg = str(e)
                     logger.info(f"pxGrid account is pending approval: {error_msg}")
                     
-                    # CRITICAL: ALWAYS update config with bootstrap password if ISE returned one (even if pending approval)
+                    # CRITICAL: ALWAYS store bootstrap password in Vault (and database for reference) if ISE returned one (even if pending approval)
                     # This is the client password that ISE generated - we MUST store it for future use
                     logger.info(f"🔍 Checking for bootstrap password in client object...")
                     logger.info(f"   client.bootstrap_password exists: {hasattr(client, 'bootstrap_password')}")
                     logger.info(f"   client.bootstrap_password value: {getattr(client, 'bootstrap_password', None) is not None}")
                     if hasattr(client, 'bootstrap_password') and client.bootstrap_password:
                         logger.info(f"✅ Bootstrap password found in client object (length: {len(client.bootstrap_password)})")
-                        logger.info(f"✅ Saving bootstrap password to database IMMEDIATELY...")
-                        config['password'] = client.bootstrap_password
+                        logger.info(f"✅ Saving bootstrap password to Vault IMMEDIATELY...")
+                        
+                        # Store in Vault (preferred)
+                        from clarion.secrets.helpers import store_connector_credentials_to_vault
+                        store_connector_credentials_to_vault(
+                            connector_id=connector_id,
+                            username=client_name,
+                            password=client.bootstrap_password,
+                            hostname=ise_hostname
+                        )
+                        
+                        # Update database config (remove password, add vault_path reference)
+                        config.pop('password', None)  # Remove password from config
                         config['username'] = client_name  # Use client_name as username for client credentials
+                        config['vault_path'] = f"connectors/{connector_id}"  # Reference to Vault path
                         config_json = json.dumps(config)
                         conn.execute("""
                             UPDATE connectors
@@ -700,8 +810,8 @@ async def enable_connector(connector_id: str):
                             WHERE connector_id = ?
                         """, (config_json, connector_id))
                         conn.commit()
-                        logger.info(f"✅✅✅ Bootstrap password successfully stored in database - this is now the client password for '{client_name}'")
-                        logger.info(f"   Database updated: username='{client_name}', password_length={len(client.bootstrap_password)}")
+                        logger.info(f"✅✅✅ Bootstrap password successfully stored in Vault and database updated with vault_path reference")
+                        logger.info(f"   Database updated: username='{client_name}', vault_path='connectors/{connector_id}'")
                     else:
                         logger.error(f"❌❌❌ CRITICAL: No bootstrap password found in client object!")
                         logger.error(f"   This means the password was not received from ISE or was not stored in client.bootstrap_password")
@@ -1325,43 +1435,46 @@ async def test_connector_connection(connector_id: str):
                 verify_ssl = config.get('verify_ssl', False)
                 auth_method = config.get('auth_method', 'username_password')  # Default to username/password for backward compatibility
                 
-                # For test connection, always use stored client credentials from database
-                # When client is created, ISE returns a bootstrap password which becomes the client password
-                # The config stores: username = client_name, password = bootstrap_password (client password)
+                # Load credentials from Vault (preferred) or database (fallback)
+                from clarion.secrets.helpers import load_connector_credentials_from_vault
+                
+                vault_creds = load_connector_credentials_from_vault(connector_id)
                 stored_username = config.get('username', '')
                 stored_password = config.get('password', '')
                 
-                # For test connection, ALWAYS try to use client credentials first
-                # If stored_username == client_name, we have client credentials stored - use them
-                # If stored_username != client_name, we have ISE admin credentials - but client may exist, so try client credentials
-                if not stored_password:
+                # Use Vault credentials if available, otherwise use database
+                if vault_creds and vault_creds.get('password'):
+                    vault_username = vault_creds.get('username', '')
+                    vault_password = vault_creds.get('password', '')
+                    logger.info(f"🔍 TEST CONNECTION - Using credentials from Vault")
+                    
+                    # For test connection, use client_name as username (client credentials)
+                    username = client_name
+                    password = vault_password
+                    
+                    logger.info(f"   - Username: {username} (client_name)")
+                    logger.info(f"   - Client Name: {client_name}")
+                    logger.info(f"   - Password length: {len(password)}")
+                    logger.info(f"   - ✅ Using client credentials from Vault")
+                elif stored_password:
+                    # Fallback to database credentials
+                    logger.info(f"🔍 TEST CONNECTION - Using credentials from database (Vault not available)")
+                    
+                    # Always use client_name as username for test connection (client credentials)
+                    username = client_name
+                    password = stored_password
+                    
+                    if stored_username == client_name:
+                        logger.info(f"   - Username: {username} (matches client_name)")
+                        logger.info(f"   - ✅ Using client credentials from database")
+                    else:
+                        logger.info(f"   - Username: {username} (client_name, overriding stored username '{stored_username}')")
+                        logger.info(f"   - ⚠️  Stored username was '{stored_username}' (ISE admin), but using client_name as username")
+                else:
                     raise HTTPException(
                         status_code=400,
-                        detail=f"No password stored in database for pxGrid connector. Please save configuration with credentials first."
+                        detail=f"No password found in Vault or database for pxGrid connector. Please save configuration with credentials first."
                     )
-                
-                # Always use client_name as username for test connection (client credentials)
-                # The password should be the client password if the client exists
-                username = client_name
-                password = stored_password
-                
-                if stored_username == client_name:
-                    # We have client credentials stored - use them
-                    logger.info(f"🔍 TEST CONNECTION - Using stored CLIENT credentials from database:")
-                    logger.info(f"   - Username: {username} (matches client_name)")
-                    logger.info(f"   - Client Name: {client_name}")
-                    logger.info(f"   - Password length: {len(password)}")
-                    logger.info(f"   - ✅ Using client credentials for existing client")
-                else:
-                    # We have ISE admin credentials stored, but trying client credentials
-                    # This will work if the stored password is actually the client password
-                    # If it fails, the error will indicate we need the client password
-                    logger.info(f"🔍 TEST CONNECTION - Attempting with client credentials:")
-                    logger.info(f"   - Username: {username} (client_name, overriding stored username '{stored_username}')")
-                    logger.info(f"   - Client Name: {client_name}")
-                    logger.info(f"   - Password length: {len(password)}")
-                    logger.info(f"   - ⚠️  Stored username was '{stored_username}' (ISE admin), but using client_name as username")
-                    logger.info(f"   - ⚠️  If this fails, the stored password may be ISE admin password, not client password")
                 
                 # Check if certificates are assigned (for certificate auth)
                 # Use certificate_connector_references (new global certificates system)
