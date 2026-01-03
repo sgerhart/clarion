@@ -53,3 +53,6 @@ urllib3>=2.0.0
 
 # Cryptography (for CSR generation and certificate management)
 cryptography>=41.0.0
+
+# Secrets Management (HashiCorp Vault)
+hvac>=1.2.0
