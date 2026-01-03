@@ -7,6 +7,8 @@
 
 > **Transform network security policy from manual, error-prone configuration into intelligent, data-driven orchestration across your entire infrastructure.**
 
+> **Note:** The first phase of Clarion is built on a **Cisco network stack**, leveraging Cisco TrustSec (SGTs), ISE (pxGrid and ERS API), and Catalyst switches for edge processing. This foundation enables rapid deployment and validation in Cisco environments, while the architecture is designed to expand to multi-vendor support in subsequent phases.
+
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Status](https://img.shields.io/badge/Status-Active%20Development-blue.svg)]()
