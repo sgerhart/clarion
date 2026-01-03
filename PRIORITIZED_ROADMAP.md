@@ -146,12 +146,16 @@ This document outlines the prioritized development plan for Clarion, focusing on
 - [ ] Update deployment documentation
 
 **Phase 5: Secret Rotation & Management (Week 5)**
-- [ ] Secret rotation framework
-- [ ] Automated password rotation (for ISE, AD credentials)
-- [ ] Certificate rotation support
-- [ ] Secret versioning and rollback
-- [ ] Secret expiration and renewal
-- [ ] Audit logging for secret access
+- [x] Secret rotation framework (`SecretRotationManager`)
+- [x] Password rotation (for ISE, AD credentials)
+- [x] Certificate rotation support
+- [x] Secret expiration tracking and renewal
+- [x] Rotation metadata management
+- [x] Rotation API endpoints
+- [x] List secrets needing rotation
+- [ ] Secret versioning and rollback (placeholder - requires Vault versioning API)
+- [ ] Automated password generation (future enhancement)
+- [ ] Audit logging for secret access (future enhancement)
 
 **Files to Create:**
 - `src/clarion/secrets/vault_client.py` - Vault client wrapper
