@@ -3,62 +3,66 @@
   <img src="frontend/public/clarionicon.jpg" alt="Clarion Icon" width="100"/>
 </div>
 
-**TrustSec Policy Copilot** — Scale-first network segmentation using edge processing and unsupervised learning.
+**Clarion** — Intelligent Policy Orchestration Platform for Heterogeneous Network Environments
 
-
-
-> [!NOTE]
-> ## ✅ MVP Implementation Complete
-> **All core phases are implemented and functional.** The system can:
-> - Process flow data and build behavioral sketches (edge and backend)
-> - Cluster endpoints using HDBSCAN (unsupervised learning)
-> - Generate SGT taxonomies and SGACL policies automatically
-> - Customize recommendations via human-in-the-loop review
-> - Run edge processing with simulator (no physical switch required)
-> - Visualize clusters and policies via React frontend
-> - Ingest NetFlow v5/v9/IPFIX from switches
-> - Support network topology management (locations, subnets, switches)
-> - **Track first-seen endpoints and manage SGT lifecycle**
-> - **Incremental clustering for fast new endpoint assignment**
-> - **Confidence scoring and explanations for all decisions**
-> 
-> **Ready for testing and evaluation with synthetic data.**
+> **Transform network security policy from manual, error-prone configuration into intelligent, data-driven orchestration across your entire infrastructure.**
 
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Status](https://img.shields.io/badge/Status-MVP%20Complete-green.svg)]()
+[![Status](https://img.shields.io/badge/Status-Active%20Development-blue.svg)]()
 
 ---
 
-## 🎯 What is Clarion?
+## 🎯 The Challenge: Policy Management at Scale
 
-Clarion helps organizations adopt **Cisco TrustSec** by automatically discovering endpoint behavior patterns and generating SGT (Security Group Tag) policies. Unlike traditional approaches that require manual classification, Clarion uses **unsupervised learning** to cluster endpoints by behavior and recommend policy.
+Modern networks span **campus, branch, WAN, cloud, and data centers** with **multiple vendors** (Cisco, Aruba, Juniper, Palo Alto, Fortinet) and **diverse enforcement methods** (SGTs, ACLs, firewall rules, cloud security groups, server agents). 
 
-### MVP Categorization Engine (Latest)
-- **First-Seen Tracking**: Automatically detects when new endpoints appear on the network
-- **SGT Lifecycle Management**: Stable SGT registry with dynamic endpoint membership and assignment history
-- **Incremental Clustering**: Fast assignment of new endpoints to existing clusters using stored centroids
-- **Confidence Scoring**: Consistent confidence scores for all cluster and SGT assignments
-- **Basic Explanations**: Human-readable explanations for clustering decisions
+**Traditional policy management is broken:**
+- ❌ Manual classification is slow, error-prone, and doesn't scale
+- ❌ Policy conflicts across vendors and environments
+- ❌ No visibility into actual traffic patterns vs. intended policy
+- ❌ Reactive security: policies lag behind network changes
+- ❌ Fragmented view: can't see policy across the entire infrastructure
 
-### Key Capabilities
+**Clarion solves this by leveraging network visibility and identity context to automatically discover, generate, and deploy policy across heterogeneous environments.**
 
-1. **Edge Processing** — Compress flows to behavioral sketches on-switch (Catalyst 9K App Hosting)
-2. **Behavioral Clustering** — Group endpoints by what they do, not what they are
-3. **SGT Recommendation** — Auto-generate SGT taxonomy from discovered clusters
-4. **Policy Generation** — Build SGACL rules from observed traffic patterns
-5. **Scale-First** — Handle enterprise-scale traffic without central bottlenecks
-6. **Device-Agnostic** — Works with Windows, Linux, Mac, IoT, and non-AD devices
-7. **Full Admin Control** — Override any AI recommendation (groups, SGTs, policies)
-8. **Network Topology** — Location-aware policy recommendations (Campus, Branch, Remote Sites)
-9. **Multi-Source Correlation** — Integrate NetFlow, ISE pxGrid, AD, and IoT data
-10. **Graph Database** — Merge edge agent graphs for global policy view
+---
+
+## ✨ What Makes Clarion Different?
+
+### 🧠 **Intelligent Discovery**
+Clarion uses **unsupervised machine learning** to automatically discover endpoint behavior patterns from network flows. No manual classification required—the system learns what devices actually do, not what you think they should do.
+
+### 🌐 **Multi-Vendor, Multi-Environment**
+**Not just TrustSec.** Clarion orchestrates policy across:
+- **Network Vendors**: Cisco TrustSec, Aruba ClearPass, Juniper, Palo Alto, Fortinet
+- **Environments**: Campus, Branch, WAN, Cloud (AWS, Azure, GCP), Data Centers
+- **Enforcement Methods**: SGTs, ACLs, firewall rules, cloud security groups, server agents
+
+### 🔗 **Complete Network Topology**
+Build a comprehensive graph of your network infrastructure—switches, routers, firewalls, and their connections. Enable **attack path mapping**, **blast radius analysis**, and **policy gap detection** across your entire environment.
+
+### 📊 **Data-Driven Policy Generation**
+Generate policies based on **observed traffic patterns**, not assumptions. See exactly what would be denied if you change a "Permit" to "Deny" with automated impact analysis.
+
+### 🎯 **Identity-Aware Segmentation**
+Correlate network flows with identity data (ISE pxGrid, Active Directory, cloud IAM) to build **high-fidelity identity context** for accurate policy recommendations.
+
+### 🚀 **Scale-First Architecture**
+**Edge processing** compresses flows to behavioral sketches on-switch, eliminating central bottlenecks. Handle enterprise-scale traffic with **O(endpoints) memory**, not O(flows).
+
+### 🤖 **AI-Enhanced Intelligence** (Optional)
+Optional AI/LLM integration provides:
+- **Conversational AI interface** for natural language policy queries
+- **Intelligent SGT taxonomy design** from business context
+- **Anomaly detection** for zero-trust continuous verification
+- **Policy justification** with human-readable explanations
 
 ---
 
 ## 🏗️ Architecture
 
-Clarion uses a **distributed, scale-first architecture**:
+Clarion uses a **distributed, scale-first architecture** that processes data at the edge:
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
@@ -74,9 +78,11 @@ Clarion uses a **distributed, scale-first architecture**:
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │                              BACKEND TIER                                    │
 │                                                                              │
-│   Merge Sketches ──▶ HDBSCAN Clustering ──▶ Semantic Labels ──▶ SGT Mapping │
+│   Merge Sketches ──▶ HDBSCAN Clustering ──▶ Semantic Labels ──▶ Policy Gen  │
 │                                                                              │
-│                              Policy Matrix ──▶ SGACL Generation              │
+│   Identity Correlation ──▶ Topology Graph ──▶ Attack Path Mapping         │
+│                                                                              │
+│   Policy Matrix ──▶ Multi-Vendor Translation ──▶ Deployment Orchestration │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -88,13 +94,23 @@ Clarion uses a **distributed, scale-first architecture**:
 | O(flows) memory growth | O(endpoints) memory — bounded |
 | Central processing bottleneck | Horizontally distributed |
 | Batch clustering overnight | Incremental real-time updates |
+| Single-vendor focus | Multi-vendor orchestration |
+| Manual policy configuration | Automated policy generation |
 
 ---
 
 ## 🧠 How It Works
 
-### 1. Behavioral Sketches (Edge)
+### 1. **Multi-Source Data Ingestion**
+Gather data from across your infrastructure:
+- **NetFlow/IPFIX/sFlow** from network devices
+- **ISE pxGrid** for identity and session data
+- **Active Directory** for user/group context
+- **Cloud platforms** (AWS, Azure, GCP) for cloud flow logs and security groups
+- **IoT platforms** (Medigate, ClearPass) for device classification
+- **Network topology** via SNMP, APIs, and configuration parsing
 
+### 2. **Behavioral Discovery**
 Each endpoint gets a lightweight behavioral fingerprint:
 
 ```python
@@ -117,8 +133,7 @@ class EndpointSketch:
     active_hours: int             # Activity pattern bitmap
 ```
 
-### 2. Unsupervised Clustering (Backend)
-
+### 3. **Intelligent Clustering**
 HDBSCAN finds natural groupings based on behavior:
 
 ```
@@ -128,21 +143,17 @@ Cluster-2: [printer-1, printer-2, ...] → "Printers"
 Cluster-3: [camera-1, sensor-1, ...] → "IoT Devices"
 ```
 
-### 3. SGT Mapping
+### 4. **Identity Correlation**
+Correlate network flows with identity data for high-fidelity context:
+- **User → Device → IP** mapping from ISE pxGrid
+- **AD group memberships** for user context
+- **Device attributes** from multiple sources
+- **Confidence scoring** for identity assignments
 
-Clusters map to Security Group Tags:
+### 5. **Policy Generation**
+Generate policies based on observed traffic patterns:
 
-```
-"Corporate Users"  → SGT 2
-"Servers"          → SGT 10
-"Printers"         → SGT 20
-"IoT Devices"      → SGT 21
-```
-
-### 4. Policy Generation
-
-Observed traffic patterns become SGACL rules:
-
+**TrustSec (Current):**
 ```
 ! SGT 2 (Corp-Users) → SGT 10 (Servers)
 permit tcp dst eq 443
@@ -150,11 +161,105 @@ permit tcp dst eq 22
 deny ip log
 ```
 
+**Multi-Vendor (Planned):**
+- **ACLs** for traditional routers/switches
+- **Firewall rules** for Palo Alto, Fortinet, Check Point
+- **Cloud security groups** for AWS, Azure, GCP
+- **Server agents** for host-based enforcement
+
+### 6. **Network Topology & Attack Path Mapping**
+Build a complete graph of your network:
+- **Device connections** (switches, routers, firewalls)
+- **Attack path visualization** (trace potential attack paths)
+- **Blast radius analysis** (what can be reached from compromised device/SGT)
+- **Policy gap detection** (identify paths without policy enforcement)
+
+### 7. **Deployment Orchestration**
+Deploy policies across your infrastructure:
+- **Automated deployment** via vendor APIs (ISE ERS, firewall APIs, cloud APIs)
+- **Multi-vendor coordination** (ensure policies are consistent)
+- **Policy conflict detection** (identify conflicting policies)
+- **Impact analysis** (show exactly what would be denied)
+
 ---
 
-## 📊 Sample Dataset
+## 🎯 Key Capabilities
 
-Clarion includes a synthetic enterprise campus dataset for development with switches, users, endpoints, flows, services, and ISE sessions.
+### ✅ **Currently Implemented (MVP)**
+- ✅ **Behavioral Clustering** — Unsupervised learning to discover endpoint groups
+- ✅ **Incremental Clustering** — Fast assignment of new endpoints to existing clusters
+- ✅ **SGT Lifecycle Management** — Stable SGT registry with dynamic membership
+- ✅ **Confidence Scoring** — Consistent confidence scores for all decisions
+- ✅ **Policy Generation** — Automated SGT and SGACL generation for TrustSec
+- ✅ **ISE Integration** — Brownfield support, policy deployment via ERS API
+- ✅ **Network Topology** — Location hierarchy, subnets, switches
+- ✅ **User Management** — User database, clustering, SGT assignments
+- ✅ **Edge Processing** — On-switch sketch building and clustering
+- ✅ **NetFlow Collection** — v5, v9, IPFIX with SGT extraction
+- ✅ **React Frontend** — Production-ready UI for visualization and management
+
+### 🚧 **In Active Development**
+- 🚧 **Multi-Vendor Connectors** — Aruba, Juniper, Palo Alto, Fortinet
+- 🚧 **Cloud Platform Integration** — AWS, Azure, GCP flow logs and security groups
+- 🚧 **Network Topology Graph** — Complete device connection graph with attack path mapping
+- 🚧 **Device Discovery** — SNMP, API, and configuration-based topology discovery
+- 🚧 **Advanced AD Integration** — WEF/WEC for near-real-time identity correlation
+- 🚧 **AI Integration** — Conversational AI, intelligent recommendations, anomaly detection
+- 🚧 **PostgreSQL/TimescaleDB** — Production-scale time-series database
+- 🚧 **Neo4j Graph Database** — Relationship storage and graph-based analysis
+
+---
+
+## 📊 Use Cases
+
+### 1. **Greenfield Segmentation**
+Start with zero-trust segmentation from day one. Clarion discovers endpoint behavior, recommends SGTs, and generates policies automatically.
+
+### 2. **Brownfield Optimization**
+Sync existing ISE configuration, identify over-privileged SGTs, and recommend policy tightening based on observed traffic.
+
+### 3. **Multi-Environment Policy Orchestration**
+Generate and deploy consistent policies across campus, branch, WAN, cloud, and data centers—regardless of vendor.
+
+### 4. **Attack Path Analysis**
+Visualize potential attack paths through your network infrastructure and identify policy gaps.
+
+### 5. **Zero Trust Continuous Verification**
+Detect behavioral anomalies and automatically trigger security responses (SGT quarantining).
+
+### 6. **Policy Impact Analysis**
+See exactly which users or devices would be denied if you change a "Permit" to "Deny" before deploying.
+
+---
+
+## 🚀 Quick Start
+
+### Complete System Demo
+
+```bash
+# Terminal 1: Start backend API
+python scripts/run_api.py --port 8000
+
+# Terminal 2: Start React frontend
+cd frontend
+npm install  # First time only
+npm run dev
+```
+
+Then open **http://localhost:3000** in your browser.
+
+**See [QUICK_START.md](QUICK_START.md) for detailed instructions.**
+
+### Docker Compose (Recommended)
+
+```bash
+docker-compose up -d
+```
+
+Access:
+- **Frontend**: http://localhost:3000
+- **API**: http://localhost:8000
+- **API Docs**: http://localhost:8000/api/docs
 
 ---
 
@@ -162,119 +267,31 @@ Clarion includes a synthetic enterprise campus dataset for development with swit
 
 ```
 clarion/
-├── docs/
-│   ├── DESIGN.md              # System architecture (v2.0)
-│   └── PROJECT_PLAN.md        # Development roadmap
+├── docs/                        # Comprehensive documentation
+│   ├── DESIGN.md               # System architecture
+│   ├── AI_ENHANCED_ARCHITECTURE.md  # AI integration design
+│   ├── ISE_INTEGRATION.md      # ISE integration guide
+│   └── ...
 │
-├── data/
-│   ├── raw/                   # Synthetic datasets
-│   │   └── trustsec_copilot_synth_campus/
-│   └── processed/             # Transformed data
+├── src/clarion/                 # Backend library
+│   ├── sketches/               # HyperLogLog, Count-Min Sketch
+│   ├── clustering/             # HDBSCAN, incremental clustering, SGT lifecycle
+│   ├── integration/            # ISE pxGrid, AD, connectors
+│   ├── policy/                 # Policy generation, multi-vendor translation
+│   ├── topology/               # Network topology, device discovery
+│   └── api/                    # FastAPI REST API
 │
-├── src/clarion/               # Backend library
-│   ├── sketches/              # HyperLogLog, Count-Min Sketch
-│   ├── clustering/            # HDBSCAN, feature extraction, SGT mapping
-│   ├── ingest/                # Data loading, sketch building
-│   ├── identity/              # IP → User resolution
-│   ├── policy/                # Matrix, SGACL generation, customization, export
-│   ├── visualization/         # Cluster and policy visualization
-│   ├── api/                   # FastAPI REST API
-│   └── ui/                    # Legacy Streamlit UI (deprecated)
+├── edge/                       # Edge container (Catalyst 9K)
+│   └── clarion_edge/          # Lightweight edge processing
 │
-├── edge/                      # Edge container (Catalyst 9K)
-│   ├── Dockerfile
-│   ├── iox-app.yaml           # IOx descriptor
-│   └── clarion_edge/          # Lightweight Python package
-│       ├── sketch.py          # Edge sketches (pure Python)
-│       ├── agent.py           # Edge agent with clustering
-│       ├── simulator.py      # Flow simulator for testing
-│       └── streaming.py       # Backend sync
+├── collector/                  # Flow collector (NetFlow/IPFIX/sFlow)
+│   └── clarion_collector/     # Collector implementation
 │
-├── collector/                 # Flow collector (NetFlow/IPFIX + agent collector)
-│   ├── clarion_collector/     # Collector implementation
-│   ├── Dockerfile             # Container image
-│   ├── docker-compose.yml     # Docker Compose config
-│   └── README.md              # Collector documentation
-├── tests/                     # Test suite
-│   ├── unit/                  # Unit tests
-│   └── integration/           # Integration tests
-├── frontend/                  # React frontend (production UI)
-│   ├── src/                  # React components and pages
-│   ├── public/               # Static assets
-│   └── package.json          # Frontend dependencies
-├── scripts/                   # Utility scripts
-│   ├── run_api.py            # Start API server
-│   ├── setup_frontend.sh     # Setup React frontend
-│   ├── test_system.py        # Full system test
-│   └── test_api.py           # API endpoint tests
-├── notebooks/                 # Jupyter exploration
-└── deploy/                    # K8s, Ansible artifacts
+├── frontend/                   # React frontend (production UI)
+│   └── src/                   # React components and pages
+│
+└── tests/                      # Test suite
 ```
-
----
-
-## 🗺️ Roadmap
-
-### Phase 1: Core Data Structures ✅ Complete
-- [x] EndpointSketch with HyperLogLog, Count-Min Sketch
-- [x] Load synthetic data into sketches
-- [x] Identity resolution (flow → user/device)
-
-### Phase 2: Clustering Pipeline ✅ Complete
-- [x] Feature extraction from sketches
-- [x] HDBSCAN clustering
-- [x] Semantic labeling (AD groups, ISE profiles)
-- [x] SGT recommendations
-
-### Phase 3: Policy Generation ✅ Complete
-- [x] SGT → SGT matrix builder
-- [x] SGACL generator
-- [x] Impact analysis
-- [x] Policy customization (human-in-the-loop)
-
-### Phase 4: Edge Container ✅ Complete
-- [x] Flow simulator (for testing without switch)
-- [x] On-switch sketch builder
-- [x] Lightweight K-means clustering
-- [x] HTTP sync to backend
-- [x] Docker/IOx packaging
-
-### Phase 5: API & Visualization ✅ Complete
-- [x] FastAPI backend with REST endpoints
-- [x] Cluster visualization (PCA/t-SNE)
-- [x] Policy matrix heatmap
-- [x] **React frontend (production-ready UI)**
-- [x] **Persistent storage (SQLite database)**
-- [x] **NetFlow ingestion endpoints**
-
-### Phase 6: Data Layer & Scalability ⬜ In Progress
-- [ ] PostgreSQL + TimescaleDB migration (time-series optimization)
-- [ ] Neo4j graph database integration (edge graph merging)
-- [ ] Multi-source data ingestion architecture
-- [ ] Correlation engine for cross-source data joins
-
-### Phase 7: Network Topology ⬜ In Progress
-- [ ] Location hierarchy (Campus, Branch, Remote Site)
-- [ ] Address space management (customer-defined IP ranges)
-- [ ] Subnet-to-location mapping
-- [ ] Switch-to-location mapping
-- [ ] Flow location correlation
-- [ ] Topology builder UI
-
-### Phase 8: Multi-Source Ingestion ⬜ In Progress
-- [x] NetFlow collector (v5 ✅, v9 ⚠️ stubbed, IPFIX ⚠️ stubbed)
-- [x] Native NetFlow collector (UDP listener for switches)
-- [x] Agent collector (HTTP endpoint for edge agents)
-- [ ] NetFlow v9/IPFIX template parsing (SGT extraction pending)
-- [ ] ISE pxGrid subscriber (identity & SGT data)
-- [ ] AD LDAP connector (users, groups, devices)
-- [ ] IoT connector framework (MediGate, ClearPass, etc.)
-
-### Phase 9: Production Integration ⬜ Future
-- [ ] Production deployment guides
-- [ ] High availability setup
-- [ ] Performance optimization
-- [ ] Monitoring and alerting
 
 ---
 
@@ -287,112 +304,96 @@ clarion/
 | **Clustering** | scikit-learn, hdbscan |
 | **API** | FastAPI |
 | **Database** | SQLite (dev) → PostgreSQL + TimescaleDB (prod) |
-| **Graph DB** | Neo4j (for relationships & edge graph merging) |
+| **Graph DB** | Neo4j (relationships, topology, attack paths) |
 | **Frontend** | React + TypeScript + Tailwind CSS |
 | **Edge Container** | Alpine Linux + Python |
-| **Serialization** | Protocol Buffers |
-| **NetFlow** | v5, v9, IPFIX (with SGT support) |
-| **Identity** | ISE pxGrid, AD LDAP, IoT connectors |
+| **NetFlow** | v5, v9, IPFIX, sFlow |
+| **Identity** | ISE pxGrid, AD LDAP, Cloud IAM |
+| **AI** | Ollama (local), OpenAI, Anthropic, Google (cloud) |
 
 ---
 
 ## 📖 Documentation
 
 ### Core Documentation
-- **[Quick Start Guide](QUICK_START.md)** — Complete system setup and getting started
-- **[Design Document](docs/DESIGN.md)** — System architecture, data model, algorithms
-- **[Capabilities Roadmap](CAPABILITIES_ROADMAP.md)** — Complete feature inventory and roadmap
+- **[Quick Start Guide](QUICK_START.md)** — Complete system setup
+- **[Capabilities Roadmap](CAPABILITIES_ROADMAP.md)** — Complete feature inventory
 - **[Prioritized Roadmap](PRIORITIZED_ROADMAP.md)** — Development priorities and timeline
 
 ### Architecture & Integration
-- **[Categorization Engine](docs/CATEGORIZATION_ENGINE.md)** — Clustering, incremental assignment, SGT lifecycle
-- **[AI-Enhanced Architecture](docs/AI_ENHANCED_ARCHITECTURE.md)** — Comprehensive AI integration with conversational interface
-- **[AI Integration](docs/AI_INTEGRATION.md)** — Optional AI/LLM integration architecture
-- **[Data Collection & Recommendations](docs/DATA_COLLECTION_AND_RECOMMENDATIONS.md)** — Timeline and process for data collection and SGT recommendations
-- **[Implementation Requirements](docs/IMPLEMENTATION_REQUIREMENTS.md)** — What needs to be added to accomplish all features
-- **[ISE Integration](docs/ISE_INTEGRATION.md)** — Cisco ISE integration, policy recommendations, workflows
-- **[Data Architecture](docs/DATA_ARCHITECTURE.md)** — Data sources, storage, correlation requirements
-- **[Topology Architecture](docs/TOPOLOGY_ARCHITECTURE.md)** — Location hierarchy, address spaces, subnet mapping
-- **[Admin Guide](docs/ADMIN_GUIDE.md)** — Administrative control and user management
-
-### Testing & Development
-- **[Testing Guide](docs/TESTING.md)** — Comprehensive testing guide (without AD/ISE)
-- **[CI/CD Setup](.github/workflows/SETUP.md)** — GitHub Actions, Codecov, email notifications setup
+- **[Design Document](docs/DESIGN.md)** — System architecture and data model
+- **[AI-Enhanced Architecture](docs/AI_ENHANCED_ARCHITECTURE.md)** — AI integration design
+- **[ISE Integration](docs/ISE_INTEGRATION.md)** — Cisco ISE integration guide
+- **[Data Architecture](docs/DATA_ARCHITECTURE.md)** — Data sources and correlation
+- **[Topology Architecture](docs/TOPOLOGY_ARCHITECTURE.md)** — Network topology design
 
 ### Components
 - **[Frontend README](frontend/README.md)** — Frontend setup and development
-- **[Collector README](collector/README.md)** — NetFlow and agent collector setup, scalability, testing
-- **[Lab README](lab/README.md)** — VM setup, edge agents, lab environment
-- **[CML Lab Setup](lab/CML_LAB_SETUP.md)** — Cisco CML lab setup guide for ISE and AD integration
+- **[Collector README](collector/README.md)** — Flow collector setup
+- **[CML Lab Setup](lab/CML_LAB_SETUP.md)** — Cisco CML lab setup guide
 - **[ISE Configuration](lab/ISE_CONFIGURATION.md)** — Complete ISE configuration guide
 
-## 🚀 Quick Start
+---
 
-### Complete System Demo (Recommended)
+## 🗺️ Roadmap
 
-Start the backend and frontend:
+### ✅ **Phase 1: Foundation (Complete)**
+- Core data structures (sketches, clustering)
+- Policy generation for TrustSec
+- Edge processing
+- React frontend
+- ISE integration (brownfield support)
 
-```bash
-# Terminal 1: Start backend API
-python scripts/run_api.py --port 8000
+### 🚧 **Phase 2: Multi-Vendor & Scale (In Progress)**
+- PostgreSQL/TimescaleDB migration
+- Neo4j graph database integration
+- Network topology graph and attack path mapping
+- Device discovery (SNMP, API, configuration)
+- Multi-vendor connector framework
 
-# Terminal 2: Start React frontend
-cd frontend
-npm install  # First time only
-npm run dev
-```
+### 📋 **Phase 3: Advanced Features (Planned)**
+- Cloud platform connectors (AWS, Azure, GCP)
+- Additional network vendor connectors (Aruba, Juniper, Palo Alto, Fortinet)
+- AI integration (conversational AI, intelligent recommendations)
+- Behavioral anomaly detection
+- Advanced AD integration (WEF/WEC)
 
-Then open http://localhost:3000 in your browser.
+### 🔮 **Phase 4: Production Readiness (Planned)**
+- Authentication & authorization
+- Security hardening
+- High availability
+- Comprehensive monitoring
+- CI/CD pipeline
 
-**See [QUICK_START.md](QUICK_START.md) for detailed instructions.**
+**See [PRIORITIZED_ROADMAP.md](PRIORITIZED_ROADMAP.md) for detailed timeline and priorities.**
 
-### Individual Components
+---
 
-#### Run Full System Test
-```bash
-python scripts/test_system.py
-```
+## 💡 Why Clarion?
 
-#### Start API Server
-```bash
-python scripts/run_api.py --port 8000
-# Visit http://localhost:8000/api/docs
-```
+### **For Network Engineers**
+- **Automate policy generation** from observed traffic patterns
+- **See policy impact** before deploying changes
+- **Orchestrate policy** across multiple vendors and environments
+- **Identify policy gaps** and over-privileged segments
 
-#### Start React Frontend (Production UI)
-```bash
-cd frontend
-npm install  # First time only
-npm run dev
-# Opens at http://localhost:3000
-```
+### **For Security Teams**
+- **Zero-trust segmentation** with continuous verification
+- **Attack path visualization** and blast radius analysis
+- **Behavioral anomaly detection** for threat detection
+- **Policy compliance** across heterogeneous environments
 
-#### Setup Frontend (First Time)
-```bash
-./scripts/setup_frontend.sh
-```
+### **For IT Operations**
+- **Reduce manual configuration** errors
+- **Scale policy management** to enterprise networks
+- **Unified view** of policy across campus, branch, cloud, and DC
+- **Automated deployment** reduces deployment time
 
-#### Test Edge Simulator
-```bash
-cd edge && PYTHONPATH=. python -m clarion_edge.main --mode simulator --duration 60
-```
+---
 
-### Lab Environment Setup
+## 🤝 Contributing
 
-For full lab environment with VMs:
-
-```bash
-# On each VM
-sudo ./lab/setup_vm.sh --traffic imix
-sudo ./lab/vm_agent_setup.sh --backend-url http://BACKEND_IP:8000
-sudo ./lab/vm_netflow_sender.sh --backend-url http://BACKEND_IP:8000
-
-# Generate fake logs
-python3 lab/generate_fake_ise.py -o lab/data/ise_sessions.json
-python3 lab/generate_fake_ad.py -o lab/data/ad_logs.json
-```
-
-**See [lab/README.md](lab/README.md) for detailed lab setup.**
+We welcome contributions! Please see our contributing guidelines and code of conduct.
 
 ---
 
@@ -405,5 +406,12 @@ MIT License - see [LICENSE](LICENSE) for details.
 ## 🙏 Acknowledgments
 
 - Cisco TrustSec documentation and pxGrid APIs
-- Synthetic data generation inspired by enterprise campus patterns
+- Network security community for inspiration and feedback
 - datasketch library for probabilistic data structures
+- Open source community for amazing tools and libraries
+
+---
+
+<div align="center">
+  <strong>Transform your network security policy management with intelligent orchestration.</strong>
+</div>
