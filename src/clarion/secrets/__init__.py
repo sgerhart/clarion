@@ -13,6 +13,7 @@ from clarion.secrets.helpers import (
     store_connector_credentials_to_vault,
     store_certificates_to_vault,
 )
+from clarion.secrets.rotation import SecretRotationManager, RotationStatus
 
 __all__ = [
     'VaultClient',
@@ -22,5 +23,7 @@ __all__ = [
     'load_certificates_from_vault',
     'store_connector_credentials_to_vault',
     'store_certificates_to_vault',
+    'SecretRotationManager',
+    'RotationStatus',
 ]
 

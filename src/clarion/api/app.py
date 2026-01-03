@@ -30,6 +30,7 @@ from clarion.api.routes import (
     connectors,
     certificates,
     vault,
+    rotation,
 )
 from clarion.storage import init_database
 import os
@@ -93,6 +94,7 @@ def create_app() -> FastAPI:
     app.include_router(connectors.router, prefix="/api", tags=["Connectors"])
     app.include_router(certificates.router, prefix="/api", tags=["Certificates"])
     app.include_router(vault.router, prefix="/api", tags=["Vault"])
+    app.include_router(rotation.router, prefix="/api", tags=["Secret Rotation"])
     
     @app.exception_handler(Exception)
     async def global_exception_handler(request, exc):
