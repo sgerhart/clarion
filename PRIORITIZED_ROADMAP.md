@@ -4,6 +4,14 @@
 
 This document outlines the prioritized development plan for Clarion, focusing on building a robust, production-ready system with comprehensive testing and validation.
 
+**🎯 Clarion's Vision:** Leverage network visibility and identity context to help users build, generate, and deploy policy across heterogeneous environments. Clarion's strength lies in gathering information from collectors, connectors, and other sources to correlate data and build policy that is both easy to understand and provides comprehensive understanding of what is happening across customer network infrastructures.
+
+**🌐 Multi-Vendor, Multi-Environment Focus:**
+- **Network Vendors**: Cisco TrustSec (current), Aruba ClearPass, Juniper, Palo Alto, Fortinet, and others
+- **Environments**: Campus, Branch, WAN, Cloud (AWS, Azure, GCP), Data Centers
+- **Policy Enforcement**: SGTs (current), ACLs, cloud security groups, firewall rules, server agents, and more
+- **Core Strength**: Data gathering, correlation, and policy generation across heterogeneous environments
+
 ---
 
 ## Development Priorities
@@ -480,6 +488,12 @@ This document outlines the prioritized development plan for Clarion, focusing on
 - [ ] **🔍 Advanced AD Integration Architecture Investigation** (LDAP/LDAPS + DirSync for near-real-time AD mirror, WEF→WEC for Security log streaming, event correlation using stable identifiers)
 - [ ] **Connector information tabs** (Summary/Overview tabs for ISE, AD, and other connectors explaining purpose, capabilities, and usage)
 - [ ] User-device association resolution engine
+- [ ] **Multi-vendor connector framework** (pluggable adapters for various vendors)
+- [ ] **Cloud platform connectors** (AWS, Azure, GCP - flow logs, security groups, IAM)
+- [ ] **Additional network vendor connectors** (Aruba ClearPass, Palo Alto, Fortinet)
+- [ ] **Multi-environment support** (Campus, Branch, WAN, Cloud, Data Centers)
+- [ ] **Policy abstraction layer** (vendor-agnostic policy representation)
+- [ ] **Policy translation engine** (convert unified policy to vendor-specific formats)
 
 **Weeks 28-29: Integration & Testing**
 - End-to-end testing

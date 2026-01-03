@@ -4,6 +4,14 @@
 
 This document provides a comprehensive, cohesive roadmap of all Clarion capabilities - both completed and planned. It consolidates all features, enhancements, and infrastructure requirements discussed across all documentation to ensure nothing is missed during implementation.
 
+**🎯 Clarion's Vision:** Leverage network visibility and identity context to help users build, generate, and deploy policy across heterogeneous environments. Clarion's strength lies in gathering information from collectors, connectors, and other sources to correlate data and build policy that is both easy to understand and provides comprehensive understanding of what is happening across customer network infrastructures.
+
+**🌐 Multi-Vendor, Multi-Environment Support:**
+- **Network Vendors**: Cisco TrustSec, Aruba ClearPass, Juniper, Palo Alto, Fortinet, and others
+- **Security Vendors**: Integration with various security platforms and SIEMs
+- **Environments**: Campus, Branch, WAN, Cloud (AWS, Azure, GCP), Data Centers
+- **Policy Enforcement Methods**: SGTs, ACLs, agents on servers, cloud security groups, firewall rules, and more
+
 **⚠️ PRODUCTION READINESS:** Before deploying to production, review `docs/PRODUCTION_READINESS.md`. Critical infrastructure requirements (authentication, security, monitoring, high availability) must be completed first.
 
 ---
@@ -170,7 +178,7 @@ This document provides a comprehensive, cohesive roadmap of all Clarion capabili
 
 ### 3. Multi-Source Data Ingestion
 
-#### 3.1 NetFlow Collection
+#### 3.1 Multi-Vendor Flow Collection
 - [x] NetFlow v5 parser (complete)
 - [x] NetFlow v9 template parsing (complete)
 - [x] IPFIX template parsing (complete)
@@ -178,13 +186,18 @@ This document provides a comprehensive, cohesive roadmap of all Clarion capabili
 - [x] Native UDP collector (with SO_REUSEPORT)
 - [x] Health/metrics endpoints
 - [x] Retry logic with exponential backoff
-- [ ] **sFlow support** (not yet implemented)
+- [ ] **sFlow support** (Juniper, Arista, and other vendors)
+- [ ] **Cloud flow log collection**
+  - [ ] **AWS VPC Flow Logs** (collect from S3, CloudWatch Logs)
+  - [ ] **Azure NSG Flow Logs** (collect from storage accounts)
+  - [ ] **GCP VPC Flow Logs** (collect from Cloud Logging)
+- [ ] **Multi-vendor flow correlation** (normalize flows from different sources)
 - [ ] **Data persistence/buffering** (high priority for production)
 - [ ] **Production hardening** (error recovery, monitoring)
 
-**Status:** ✅ Mostly complete  
-**Priority:** 🟡 Medium (remaining items)  
-**Timeline:** 1-2 weeks for remaining features
+**Status:** ✅ Mostly complete (Cisco NetFlow/IPFIX), cloud flow logs planned  
+**Priority:** 🔴 High (Critical for multi-vendor visibility)  
+**Timeline:** 3-4 weeks for cloud flow logs and sFlow support
 
 #### 3.2 ISE pxGrid Integration
 - [x] **User database schema** (users, user_device_associations, ad_group_memberships tables)
@@ -565,7 +578,33 @@ This document provides a comprehensive, cohesive roadmap of all Clarion capabili
 - [x] Policy customization (human-in-the-loop review)
 - [x] Export formats (Cisco CLI, ISE JSON, JSON)
 
-#### 8.2 Policy Lifecycle
+#### 8.3 Policy Generation (Multi-Vendor)
+- [ ] **ACL generation** (traditional router/switch ACLs)
+  - [ ] Standard ACLs (source-based)
+  - [ ] Extended ACLs (source, destination, port, protocol)
+  - [ ] Named ACLs (for modern platforms)
+  - [ ] IPv6 ACLs
+  - [ ] ACL optimization (minimize rules, combine overlapping rules)
+- [ ] **Cloud security group generation**
+  - [ ] AWS Security Groups (ingress/egress rules)
+  - [ ] Azure Network Security Groups (NSG rules)
+  - [ ] GCP Firewall Rules (VPC firewall rules)
+  - [ ] Cloud-native policy formats (Terraform, CloudFormation, ARM templates)
+- [ ] **Firewall rule generation**
+  - [ ] Palo Alto firewall rules (security policies)
+  - [ ] Fortinet firewall rules (security policies)
+  - [ ] Check Point firewall rules
+  - [ ] Generic firewall rule format (for other vendors)
+- [ ] **Kubernetes Network Policy generation**
+  - [ ] NetworkPolicy resource generation
+  - [ ] Pod selector-based policies
+  - [ ] Namespace-based policies
+- [ ] **Server agent policy generation**
+  - [ ] Host-based firewall rules (iptables, firewalld, Windows Firewall)
+  - [ ] Agent configuration files
+  - [ ] Endpoint security policies
+
+#### 8.4 Policy Lifecycle
 - [ ] **Policy versioning** (track policy changes over time)
 - [ ] **Policy approval workflow** (multi-stage approval)
 - [x] **ISE authorization policy recommendations** (generate policy rules from clusters)
