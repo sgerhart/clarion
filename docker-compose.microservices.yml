@@ -1,0 +1,289 @@
+# Docker Compose file for Clarion microservices architecture
+# Note: version field is obsolete in Compose v2
+
+services:
+  # Frontend Service
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        - VITE_API_URL=http://localhost:8000
+    container_name: clarion-frontend
+    ports:
+      - "3000:80"
+    networks:
+      - clarion-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:80/health"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
+    depends_on:
+      - gateway
+
+  # API Gateway / Orchestrator
+  gateway:
+    build:
+      context: ./services/gateway
+      dockerfile: Dockerfile
+    container_name: clarion-gateway
+    ports:
+      - "8000:8000"
+    environment:
+      - USER_SERVICE_URL=http://user-service:8001
+      - POLICY_SERVICE_URL=http://policy-service:8002
+      - CLUSTERING_SERVICE_URL=http://clustering-service:8003
+      - CONNECTOR_SERVICE_URL=http://connector-service:8004
+      - DATA_SERVICE_URL=http://data-service:8005
+      - PXGRID_SERVICE_URL=http://pxgrid-service:9000
+    networks:
+      - clarion-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import requests; requests.get('http://localhost:8000/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    depends_on:
+      - user-service
+      - policy-service
+      - clustering-service
+      - connector-service
+      - data-service
+      - pxgrid-service
+
+  # User & Identity Service
+  user-service:
+    build:
+      context: ./services/user-service
+      dockerfile: Dockerfile
+    container_name: clarion-user-service
+    ports:
+      - "8001:8001"
+    environment:
+      - CLARION_DB_PATH=/app/data/clarion.db
+      - PYTHONPATH=/app/src
+    volumes:
+      - clarion-db:/app/data
+    networks:
+      - clarion-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import requests; requests.get('http://localhost:8001/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+
+  # Policy Service
+  policy-service:
+    build:
+      context: ./services/policy-service
+      dockerfile: Dockerfile
+    container_name: clarion-policy-service
+    ports:
+      - "8002:8002"
+    environment:
+      - CLARION_DB_PATH=/app/data/clarion.db
+      - PYTHONPATH=/app/src
+    volumes:
+      - clarion-db:/app/data
+    networks:
+      - clarion-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import requests; requests.get('http://localhost:8002/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+
+  # Clustering Service
+  clustering-service:
+    build:
+      context: ./services/clustering-service
+      dockerfile: Dockerfile
+    container_name: clarion-clustering-service
+    ports:
+      - "8003:8003"
+    environment:
+      - CLARION_DB_PATH=/app/data/clarion.db
+      - PYTHONPATH=/app/src
+    volumes:
+      - clarion-db:/app/data
+    networks:
+      - clarion-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import requests; requests.get('http://localhost:8003/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+
+  # Connector Service
+  connector-service:
+    build:
+      context: ./services/connector-service
+      dockerfile: Dockerfile
+    container_name: clarion-connector-service
+    ports:
+      - "8004:8004"
+    environment:
+      - CLARION_DB_PATH=/app/data/clarion.db
+      - PYTHONPATH=/app/src
+      - VAULT_ADDR=${VAULT_ADDR:-http://vault:8200}
+      - VAULT_TOKEN=${VAULT_TOKEN:-}
+    volumes:
+      - clarion-db:/app/data
+    networks:
+      - clarion-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import requests; requests.get('http://localhost:8004/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+    depends_on:
+      - vault
+
+  # Data Ingestion Service
+  data-service:
+    build:
+      context: ./services/data-service
+      dockerfile: Dockerfile
+    container_name: clarion-data-service
+    ports:
+      - "8005:8005"
+    environment:
+      - CLARION_DB_PATH=/app/data/clarion.db
+      - PYTHONPATH=/app/src
+    volumes:
+      - clarion-db:/app/data
+    networks:
+      - clarion-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import requests; requests.get('http://localhost:8005/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+
+  # pxGrid Service
+  pxgrid-service:
+    build:
+      context: .
+      dockerfile: services/pxgrid/Dockerfile
+    container_name: clarion-pxgrid-service
+    ports:
+      - "9000:9000"
+    environment:
+      - CLARION_DB_PATH=/app/data/clarion.db
+      - PYTHONPATH=/app/src
+      - PXGRID_CERT_DIR=/app/certs
+      - VAULT_ADDR=${VAULT_ADDR:-http://vault:8200}
+      - VAULT_TOKEN=${VAULT_TOKEN:-}
+    volumes:
+      - clarion-db:/app/data
+      - ./certs/pxgrid:/app/certs:ro
+    networks:
+      - clarion-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import requests; requests.get('http://localhost:9000/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    depends_on:
+      - vault
+
+  # PostgreSQL Database (Future - optional, can use SQLite instead)
+  postgres:
+    image: postgres:15-alpine
+    container_name: clarion-postgres
+    environment:
+      - POSTGRES_DB=clarion
+      - POSTGRES_USER=clarion
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-clarion_password_change_me}
+      - POSTGRES_INITDB_ARGS=--encoding=UTF-8 --lc-collate=C --lc-ctype=C
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    networks:
+      - clarion-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U clarion"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    profiles:
+      - postgres
+
+  # Redis (Message Queue)
+  redis:
+    image: redis:7-alpine
+    container_name: clarion-redis
+    networks:
+      - clarion-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+    profiles:
+      - redis
+
+  # HashiCorp Vault
+  vault:
+    image: hashicorp/vault:latest
+    container_name: clarion-vault
+    ports:
+      - "8200:8200"
+    environment:
+      VAULT_DEV_ROOT_TOKEN_ID: ${VAULT_TOKEN:-clarion-dev-root-token}
+      VAULT_DEV_LISTEN_ADDRESS: "0.0.0.0:8200"
+      VAULT_ADDR: "http://0.0.0.0:8200"
+    cap_add:
+      - IPC_LOCK
+    volumes:
+      - vault-data:/vault/data
+      - vault-logs:/vault/logs
+    command: vault server -dev
+    networks:
+      - clarion-network
+    healthcheck:
+      test: ["CMD", "vault", "status"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+networks:
+  clarion-network:
+    driver: bridge
+    name: clarion-network
+
+volumes:
+  # Shared database volume (for SQLite)
+  clarion-db:
+    driver: local
+    name: clarion-db
+  
+  # PostgreSQL data volume
+  postgres-data:
+    driver: local
+    name: clarion-postgres-data
+  
+  # Vault data
+  vault-data:
+    driver: local
+  vault-logs:
+    driver: local
+
