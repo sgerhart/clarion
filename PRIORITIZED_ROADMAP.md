@@ -296,6 +296,80 @@ This document outlines the prioritized development plan for Clarion, focusing on
 
 ---
 
+### Priority 2.6: Network Topology & Device Discovery 🌐 **Critical for Complete Network Understanding**
+
+**Goal:** Build complete network topology including routers and firewalls, with device discovery and graph-based attack path mapping.
+
+**Status:** ⚠️ Switches implemented, routers/firewalls and discovery needed
+
+**Current State:**
+- Switch registration and management implemented
+- Location hierarchy implemented
+- Subnet-to-location mapping implemented
+
+**Enhancements Needed:**
+
+#### 2.6.1 Router & Firewall Management
+- [ ] **Router registration and management**
+  - [ ] Router device model (router_id, hostname, model, location, management_ip)
+  - [ ] Router-to-location assignment
+  - [ ] Router capabilities tracking (routing protocols, ACL support)
+  - [ ] Router interface management (interfaces, IPs, connected devices)
+- [ ] **Firewall registration and management**
+  - [ ] Firewall device model (firewall_id, hostname, model, vendor, location)
+  - [ ] Firewall-to-location assignment
+  - [ ] Firewall capabilities tracking (NAT, VPN, threat detection)
+  - [ ] Firewall zone/interface management (security zones, interfaces)
+- [ ] **Unified device management** (switches, routers, firewalls)
+  - [ ] Device type classification
+  - [ ] Common device attributes
+  - [ ] Device status monitoring
+
+#### 2.6.2 Device Discovery & Information Gathering
+- [ ] **SNMP-based device discovery**
+  - [ ] SNMP v2c/v3 support
+  - [ ] Device discovery via SNMP (walk MIBs)
+  - [ ] Device information gathering (hostname, model, serial, software)
+  - [ ] Interface discovery (interfaces, IPs, status)
+  - [ ] LLDP/CDP neighbor discovery (build connection graph)
+- [ ] **API-based device discovery**
+  - [ ] Cisco devices (RESTCONF, NETCONF, SSH/CLI)
+  - [ ] Juniper devices (NETCONF, REST API)
+  - [ ] Palo Alto firewalls (REST API, Panorama)
+  - [ ] Fortinet firewalls (REST API, FortiManager)
+  - [ ] Generic REST API support
+- [ ] **Configuration data parsing**
+  - [ ] Parse device configurations
+  - [ ] Extract interface, routing, firewall rule information
+  - [ ] Configuration change tracking
+
+#### 2.6.3 Network Topology Graph & Attack Path Mapping
+- [ ] **Network topology graph database** (in Neo4j)
+  - [ ] Device nodes (switches, routers, firewalls, endpoints)
+  - [ ] Connection edges (physical links, logical connections, routing paths)
+  - [ ] Interface relationships
+  - [ ] VLAN/zone relationships
+  - [ ] Policy enforcement points
+- [ ] **Attack path mapping**
+  - [ ] Path discovery (find all paths from source to destination)
+  - [ ] Policy-aware path analysis (consider policies at each hop)
+  - [ ] Attack path visualization (show paths through network)
+  - [ ] Blast radius analysis (what can be reached from compromised device/SGT)
+  - [ ] Critical path identification
+  - [ ] Policy gap detection
+- [ ] **Policy implementation mapping**
+  - [ ] Policy enforcement point identification
+  - [ ] End-to-end policy analysis (trace policy across network path)
+  - [ ] Multi-device policy coordination
+  - [ ] Policy conflict detection
+  - [ ] Policy coverage analysis
+
+**Priority:** 🔴 High (Critical for complete network understanding and security)  
+**Timeline:** 8-10 weeks (device management: 2 weeks, discovery: 4 weeks, topology graph: 2-4 weeks)  
+**Dependencies:** Graph database (Priority 0), Vault integration (for SNMP/API credentials), Device management APIs
+
+---
+
 ### Priority 3: UI Enhancement & User Experience 🎨
 
 **Goal:** Enhance the existing UI to be production-ready and user-friendly.
@@ -316,6 +390,8 @@ This document outlines the prioritized development plan for Clarion, focusing on
 - [ ] Better error handling and user feedback
 - [x] **Connector configuration UI** (unified UI for all connectors with enable/disable) - ✅ Implemented: `ISE.tsx`, `AD.tsx`, `IoT.tsx` pages
 - [ ] **Connector information tabs** (Summary/Overview tabs for ISE, AD, and other connectors explaining purpose, capabilities, and usage)
+- [ ] **Network topology visualization** (visual network graph with devices, connections, attack paths)
+- [ ] **Attack path visualization UI** (interactive attack path mapping)
 - [ ] Performance optimization
 - [ ] Mobile responsiveness (if needed)
 

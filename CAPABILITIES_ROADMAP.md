@@ -150,19 +150,33 @@ This document provides a comprehensive, cohesive roadmap of all Clarion capabili
 - [ ] **Graph schema design** (nodes, edges, properties)
   - [ ] **User → Device → App relationships** (visualize identity-to-application paths)
   - [ ] **SGT relationship graph** (show SGT-to-SGT communication patterns)
+  - [ ] **Network topology graph** (device connection graph for attack path mapping)
+    - [ ] **Device nodes** (switches, routers, firewalls, endpoints, subnets)
+    - [ ] **Connection edges** (physical links, logical connections, routing paths)
+    - [ ] **Interface relationships** (device interfaces and their connections)
+    - [ ] **VLAN/zone relationships** (VLANs, firewall zones, security domains)
+    - [ ] **Policy enforcement points** (where policies are enforced)
 - [ ] **Edge agent graph merging** (merge local graphs into global)
-- [ ] **Graph queries** (traversal, relationship queries)
+- [ ] **Graph queries** (traversal, relationship queries, path finding)
 - [ ] **Graph visualization** (in UI)
-- [ ] **Blast Radius Analysis** (show exactly what an attacker could reach if SGT compromised)
-  - [ ] **Attack path visualization** (show potential attack paths from compromised SGT)
-  - [ ] **Reachability analysis** (what resources are accessible from given SGT)
-  - [ ] **Risk assessment** (identify high-risk SGTs based on reachability)
+- [ ] **Network Topology Attack Path Mapping** (using network topology graph)
+  - [ ] **Path discovery** (find all network paths from source to destination)
+  - [ ] **Policy-aware path analysis** (consider policies at each network hop)
+  - [ ] **Attack path visualization** (show potential attack paths through network infrastructure)
+  - [ ] **Multi-hop attack scenarios** (trace attacks across switches, routers, firewalls)
+  - [ ] **Policy enforcement point analysis** (identify where policies are enforced on path)
+- [ ] **Blast Radius Analysis** (show exactly what an attacker could reach if SGT/device compromised)
+  - [ ] **Attack path visualization** (show potential attack paths from compromised SGT/device)
+  - [ ] **Reachability analysis** (what resources are accessible from given SGT/device)
+  - [ ] **Network-aware reachability** (consider network topology, not just policies)
+  - [ ] **Risk assessment** (identify high-risk SGTs/devices based on reachability)
   - [ ] **Graph-based policy analysis** (analyze policy effectiveness using graph)
+  - [ ] **Critical device identification** (identify devices that provide access to many resources)
 
 **Status:** 📋 Planned  
-**Priority:** 🟡 Medium (Enhanced with Blast Radius Analysis for security)  
-**Timeline:** 4-5 weeks (enhanced with security analysis features)  
-**Dependencies:** PostgreSQL migration
+**Priority:** 🔴 High (Enhanced with Network Topology Graph and Attack Path Mapping)  
+**Timeline:** 6-8 weeks (enhanced with network topology and attack path features)  
+**Dependencies:** PostgreSQL migration, Device discovery (4.5), Network topology (4.6)
 
 #### 2.3 Data Persistence & Buffering
 - [ ] **Redis integration** (for buffering/caching)
@@ -428,15 +442,71 @@ This document provides a comprehensive, cohesive roadmap of all Clarion capabili
 **Status:** ✅ Complete  
 **Priority:** 🟢 Low (enhancements)
 
-#### 4.4 Switch-to-Location Mapping
+#### 4.4 Network Device Management (Switches, Routers, Firewalls)
 - [x] Switch registration
 - [x] Switch-to-location assignment
 - [x] Switch capabilities tracking
 - [x] Edge agent enablement flags
-- [ ] **Switch discovery** (optional, automated discovery)
+- [ ] **Router registration and management**
+  - [ ] Router device model (router_id, hostname, model, location, management_ip)
+  - [ ] Router-to-location assignment
+  - [ ] Router capabilities tracking (routing protocols, ACL support, etc.)
+  - [ ] Router interface management (track interfaces, IPs, connected devices)
+- [ ] **Firewall registration and management**
+  - [ ] Firewall device model (firewall_id, hostname, model, vendor, location, management_ip)
+  - [ ] Firewall-to-location assignment
+  - [ ] Firewall capabilities tracking (NAT, VPN, threat detection, etc.)
+  - [ ] Firewall zone/interface management (track security zones, interfaces)
+- [ ] **Unified device management** (switches, routers, firewalls in single model)
+  - [ ] Device type classification (switch, router, firewall, WLC, etc.)
+  - [ ] Common device attributes (hostname, model, vendor, location, management_ip)
+  - [ ] Device capabilities tracking (vendor-specific features)
+  - [ ] Device status monitoring (operational status, health)
 
-**Status:** ✅ Complete  
-**Priority:** 🟢 Low (enhancements)
+**Status:** ✅ Switches complete, Routers/Firewalls planned  
+**Priority:** 🔴 High (Critical for complete network topology)  
+**Timeline:** 4-6 weeks (router/firewall support + device discovery)
+
+#### 4.5 Device Discovery & Information Gathering
+- [ ] **SNMP-based device discovery**
+  - [ ] SNMP v2c/v3 support
+  - [ ] Device discovery via SNMP (walk MIBs to identify devices)
+  - [ ] Device information gathering (hostname, model, serial, software version)
+  - [ ] Interface discovery (interface names, IPs, status, descriptions)
+  - [ ] Routing table discovery (for routers)
+  - [ ] ARP table discovery (for switches/routers)
+  - [ ] LLDP/CDP neighbor discovery (build device connection graph)
+- [ ] **API-based device discovery**
+  - [ ] Cisco devices (RESTCONF, NETCONF, SSH/CLI)
+  - [ ] Juniper devices (NETCONF, REST API)
+  - [ ] Palo Alto firewalls (REST API, Panorama)
+  - [ ] Fortinet firewalls (REST API, FortiManager)
+  - [ ] Aruba devices (REST API)
+  - [ ] Generic REST API support (for other vendors)
+- [ ] **Configuration data parsing**
+  - [ ] Parse device configurations (show running-config, etc.)
+  - [ ] Extract interface information (IPs, VLANs, descriptions)
+  - [ ] Extract routing information (static routes, OSPF, BGP)
+  - [ ] Extract firewall rules (security policies, NAT rules)
+  - [ ] Extract ACL information (access lists, policy maps)
+  - [ ] Configuration change tracking (detect config changes)
+- [ ] **Device connection graph building**
+  - [ ] LLDP/CDP neighbor relationships (switch-to-switch, switch-to-router)
+  - [ ] Interface-to-interface connections (physical links)
+  - [ ] Routing relationships (BGP peers, OSPF neighbors)
+  - [ ] Firewall zone relationships (inter-zone policies)
+  - [ ] Network path discovery (trace paths through network)
+- [ ] **Automated topology discovery**
+  - [ ] Start from seed devices (known management IPs)
+  - [ ] Discover connected devices via LLDP/CDP
+  - [ ] Build complete network topology graph
+  - [ ] Validate discovered topology (compare with manual entries)
+  - [ ] Topology change detection (alert on new/disconnected devices)
+
+**Status:** 📋 Planned  
+**Priority:** 🔴 High (Critical for complete network understanding)  
+**Timeline:** 6-8 weeks (SNMP: 2-3 weeks, API: 2-3 weeks, Config parsing: 2 weeks)  
+**Dependencies:** Device management (4.4), Graph database (2.2), Vault integration (for SNMP/API credentials)
 
 #### 4.5 Flow Location Correlation
 - [ ] **Automatic flow enrichment** (add location context to flows)
