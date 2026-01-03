@@ -109,6 +109,89 @@ This document outlines the prioritized development plan for Clarion, focusing on
 
 ---
 
+### Priority 0.6: PostgreSQL/TimescaleDB Migration 🗄️ **CRITICAL - Parallel with Vault**
+
+**Goal:** Migrate from SQLite to PostgreSQL with TimescaleDB for production-scale time-series data.
+
+**Status:** ❌ Not Started - Critical for Production Scale
+
+**Why This Priority:**
+- SQLite is not suitable for production-scale flow data
+- TimescaleDB provides time-series optimization for flow data
+- Required before heavy data ingestion (connectors, multi-vendor)
+- Can run parallel with Vault (after Week 1)
+
+**Tasks:**
+- [ ] PostgreSQL deployment (Docker container or managed service)
+- [ ] TimescaleDB extension installation
+- [ ] Database schema migration (all existing tables)
+- [ ] Hypertable creation (for flow data partitioning)
+- [ ] Data migration scripts (SQLite → PostgreSQL)
+- [ ] Performance optimization (indexes, query tuning)
+- [ ] Data retention policies (automated archival/compression)
+
+**Priority:** 🔴 CRITICAL  
+**Timeline:** 4 weeks (Weeks 2-5, parallel with Vault after Week 1)  
+**Dependencies:** None (can start after Week 1)  
+**Note:** Can run parallel with Vault integration (after Week 1). Required before heavy data ingestion.
+
+---
+
+### Priority 0.7: Basic Monitoring & Diagnostic Logging 📊 **CRITICAL - Parallel with Vault/DB**
+
+**Goal:** Implement basic monitoring and diagnostic capabilities for operational visibility.
+
+**Status:** ❌ Not Started - Critical for Operations
+
+**Why This Priority:**
+- Need visibility into system health early
+- Container health monitoring required for multi-service architecture
+- Diagnostic logging needed for troubleshooting
+- Can run parallel with Vault and PostgreSQL
+
+**Tasks:**
+- [ ] Structured logging (JSON format, log levels)
+- [ ] Diagnostic endpoints (health checks, system info)
+- [ ] Container health updates (real-time health status from all containers)
+- [ ] Edge agent health monitoring (health status from edge agents)
+- [ ] Basic Prometheus metrics (request counts, latency, errors)
+- [ ] Log aggregation setup (centralized logging)
+
+**Priority:** 🔴 CRITICAL  
+**Timeline:** 3 weeks (Weeks 3-5, parallel with Vault/DB)  
+**Dependencies:** None (can start in parallel)  
+**Note:** Can run parallel with Vault and PostgreSQL. Required for operational visibility.
+
+---
+
+### Priority 0.8: Neo4j Graph Database Integration 🕸️ **Required for Network Topology**
+
+**Goal:** Deploy Neo4j for relationship storage and graph-based analysis (user-device-app relationships, network topology graph, attack path mapping).
+
+**Status:** ❌ Not Started - Required for Network Topology
+
+**Why This Priority:**
+- Network Topology (Priority 2.6) requires graph database for device connection graph
+- Attack path mapping requires graph queries
+- Blast radius analysis requires graph traversal
+- Should be deployed before Network Topology work begins
+
+**Tasks:**
+- [ ] Neo4j deployment (Docker container or managed service)
+- [ ] Graph schema design (nodes, edges, properties)
+- [ ] User → Device → App relationship graph
+- [ ] SGT relationship graph
+- [ ] Network topology graph (device nodes, connection edges)
+- [ ] Graph queries (traversal, relationship queries, path finding)
+- [ ] Graph visualization (in UI)
+
+**Priority:** 🔴 High  
+**Timeline:** 3-4 weeks (Weeks 18-21, before Network Topology)  
+**Dependencies:** PostgreSQL migration (Priority 0.6)  
+**Note:** Should be deployed before Network Topology (Priority 2.6) work begins. Can run parallel with Policy Generation (Priority 2).
+
+---
+
 ### Priority 1: Backend & Categorization Engine ⭐ **CURRENT FOCUS**
 
 **Goal:** Build a sophisticated categorization engine with AI integration, incremental clustering, and comprehensive data processing.
@@ -366,7 +449,7 @@ This document outlines the prioritized development plan for Clarion, focusing on
 
 **Priority:** 🔴 High (Critical for complete network understanding and security)  
 **Timeline:** 8-10 weeks (device management: 2 weeks, discovery: 4 weeks, topology graph: 2-4 weeks)  
-**Dependencies:** Graph database (Priority 0), Vault integration (for SNMP/API credentials), Device management APIs
+**Dependencies:** Graph database (Priority 0.8), Vault integration (Priority 0.5, for SNMP/API credentials), Device management APIs, PostgreSQL (Priority 0.6)
 
 ---
 
@@ -458,7 +541,7 @@ This document outlines the prioritized development plan for Clarion, focusing on
 
 **Priority:** 🔴 High (Critical for multi-vendor vision)  
 **Timeline:** 12-16 weeks (framework: 4 weeks, connectors: 8-12 weeks)  
-**Dependencies:** Vault integration (Priority 0.5), PostgreSQL migration (Priority 0.6)
+**Dependencies:** Vault integration (Priority 0.5), PostgreSQL migration (Priority 0.6), Graph database (Priority 0.8)
 
 ---
 
@@ -558,19 +641,20 @@ This document outlines the prioritized development plan for Clarion, focusing on
 
 ### Q2 2025 (Weeks 18-29) - Policy & Multi-Vendor
 
-**Weeks 18-21: Policy Generation & Orchestration** 🎯
+**Weeks 18-21: Graph Database & Policy Generation** 🕸️🎯
+- Neo4j Graph Integration (Priority 0.8) - **Required before Network Topology**
 - Enhanced TrustSec policy (impact analysis, stability tracking)
 - Brownfield "Least-Privilege" Delta Analysis
 - Unified Policy Model (vendor-agnostic representation)
 - Policy translation engine (TrustSec first, then multi-vendor)
 
-**Weeks 22-23: Test Scenarios & Validation** 🧪
+**Weeks 26-27: Test Scenarios & Validation** 🧪
 - Ground truth dataset creation
 - Validation framework
 - Testing across company types
 - Accuracy metrics
 
-**Weeks 24-27: Multi-Vendor Expansion** 🌐
+**Weeks 28-31: Multi-Vendor Expansion** 🌐
 - ✅ User database schema creation (completed)
 - ✅ User management (CRUD operations, API endpoints, UI)
 - ✅ User clustering (AD group-based and traffic-based clustering)
@@ -587,7 +671,7 @@ This document outlines the prioritized development plan for Clarion, focusing on
 - [ ] Cloud flow log collection (AWS VPC Flow Logs, Azure NSG Flow Logs, GCP VPC Flow Logs)
 - [ ] sFlow support (Juniper, Arista)
 
-**Weeks 28-29: Advanced Features & Integration** 🚀
+**Weeks 32-33: Advanced Features & Integration** 🚀
 - Behavioral Anomaly Detection (Zero Trust continuous verification)
 - AI Integration (⚠️ Requires Vault for API keys)
 - Multi-vendor policy deployment orchestration
@@ -595,18 +679,17 @@ This document outlines the prioritized development plan for Clarion, focusing on
 - Performance optimization
 - Bug fixes
 
-### Q3 2025 (Weeks 30+) - Production Readiness
+### Q3 2025 (Weeks 34+) - Production Readiness
 
-**Weeks 30-33: Production Infrastructure** 🔴
+**Weeks 34-37: Production Infrastructure** 🔴
 - Authentication & Authorization (JWT-based, RBAC)
 - Security Hardening (rate limiting, SSL/TLS)
-- Neo4j Graph Integration (Blast Radius Analysis)
 - Full Monitoring & Observability (Grafana dashboards, alerting)
 - High Availability setup
 - CI/CD Pipeline
 - Database Backup/Recovery
 
-**Weeks 34+: UI Enhancement & Polish** 🎨
+**Weeks 38+: UI Enhancement & Polish** 🎨
 - Real-time updates (WebSocket)
 - Enhanced visualizations
 - AI controls/feedback

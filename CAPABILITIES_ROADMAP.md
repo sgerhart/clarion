@@ -176,7 +176,7 @@ This document provides a comprehensive, cohesive roadmap of all Clarion capabili
 **Status:** 📋 Planned  
 **Priority:** 🔴 High (Enhanced with Network Topology Graph and Attack Path Mapping)  
 **Timeline:** 6-8 weeks (enhanced with network topology and attack path features)  
-**Dependencies:** PostgreSQL migration, Device discovery (4.5), Network topology (4.6)
+**Dependencies:** PostgreSQL migration (Priority 0.6), Device discovery (4.5), Network topology (4.6)
 
 #### 2.3 Data Persistence & Buffering
 - [ ] **Redis integration** (for buffering/caching)
@@ -890,6 +890,12 @@ Based on `PRIORITIZED_ROADMAP.md`, the recommended implementation order is:
 - Edge agent health monitoring
 - Basic Prometheus metrics
 
+### Phase 0.8: Neo4j Graph Database Integration (Weeks 18-21) 🕸️ **Required before Network Topology**
+- Neo4j deployment
+- Graph schema design (user-device-app, SGT relationships, network topology)
+- Graph queries (traversal, path finding)
+- Graph visualization (in UI)
+
 ### Phase 1: Backend & Categorization (Weeks 6-10)
 1. **Incremental clustering & SGT lifecycle** (Weeks 6-9)
    - Enhanced confidence scoring system
@@ -920,48 +926,59 @@ Based on `PRIORITIZED_ROADMAP.md`, the recommended implementation order is:
 - Cloud identity correlation
 - Cross-environment identity tracking
 
-### Phase 2: Policy Generation & Orchestration (Weeks 18-21) 🎯
-1. **Enhanced TrustSec policy** (Weeks 18-19)
+### Phase 2: Policy Generation & Graph Database (Weeks 18-21) 🎯🕸️
+1. **Neo4j Graph Database Integration** (Weeks 18-21) - **Priority 0.8**
+   - Neo4j deployment
+   - Graph schema design
+   - User → Device → App relationship graph
+   - SGT relationship graph
+   - Network topology graph foundation
+2. **Enhanced TrustSec policy** (Weeks 18-21, parallel)
    - Automated Policy Impact Analysis
    - SGT Lifecycle & Stability Tracking
    - Brownfield "Least-Privilege" Delta Analysis
-2. **Unified Policy Model & Translation** (Weeks 20-21)
-   - Policy abstraction layer
-   - Policy translation engine (TrustSec first)
-   - Multi-environment policy generation
+   - Unified Policy Model & Translation
 
-### Phase 2.5: Testing & Validation (Weeks 22-23)
-3. **Ground truth datasets** (Weeks 7-10)
-4. **Validation framework** (Week 10)
+### Phase 2.5: Network Topology & Device Discovery (Weeks 22-25) 🌐
+- Network Device Management (routers, firewalls)
+- Device Discovery & Information Gathering (SNMP, API, config parsing)
+- Network Topology Graph (device connection graph in Neo4j)
+- Attack Path Mapping (using network topology graph)
 
-### Phase 3: Multi-Vendor Expansion (Weeks 24-27) 🌐
+### Phase 2.6: Testing & Validation (Weeks 26-27) 🧪
+- Ground truth datasets
+- Validation framework
+- Testing across company types
+- Accuracy metrics
+
+### Phase 3: Multi-Vendor Expansion (Weeks 28-31) 🌐
 - Multi-vendor connector framework
 - Cloud platform connectors (AWS, Azure, GCP)
 - Additional network vendor connectors
 - Cloud flow log collection
 - sFlow support
 
-### Phase 4: Advanced Features (Weeks 28-29) 🚀
+### Phase 4: Advanced Features (Weeks 32-33) 🚀
 - Behavioral Anomaly Detection
 - AI Integration (⚠️ Requires Vault for API keys)
 - Multi-vendor policy deployment orchestration
 
-### Phase 5: Production Infrastructure (Weeks 30-33) 🔴
+### Phase 5: Production Infrastructure (Weeks 34-37) 🔴
 - Authentication & Authorization
 - Security Hardening
-- Neo4j Graph Integration
-- Full Monitoring & Observability
+- Full Monitoring & Observability (Grafana dashboards, alerting)
 - High Availability
 - CI/CD Pipeline
+- Database Backup/Recovery
 
-### Phase 6: UI Enhancement & Polish (Weeks 34+) 🎨
-5. **UI improvements** (Weeks 11-12)
-
-6. **Collector hardening** (Week 13)
-7. **Edge agent optimization** (Week 14)
-
-8. **PostgreSQL migration** (Weeks 15-16)
-9. **Neo4j integration** (Weeks 17-18)
+### Phase 6: UI Enhancement & Polish (Weeks 38+) 🎨
+- Real-time updates (WebSocket)
+- Enhanced visualizations
+- AI controls/feedback
+- Connector information tabs
+- Network topology visualization
+- Attack path visualization UI
+- Performance optimization
 
 
 
